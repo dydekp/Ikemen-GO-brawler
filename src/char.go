@@ -6780,6 +6780,11 @@ func (c *Char) updateFBFlip() {
 
 // Check if P2 enemy is behind the player and the player is allowed to face them
 func (c *Char) shouldFaceP2() bool {
+	// In beat 'em up mode, players decide their own facing
+	if turn, ok := sys.brawler.shouldTurn(c); ok {
+		return turn
+	}
+
 	// Face P2 normally
 	e := c.p2()
 
@@ -10242,7 +10247,7 @@ func (c *Char) xScreenBound() {
 	x := c.pos[0]
 	before := x
 
-	if c.trackableByCamera() && c.csf(CSF_screenbound) {
+	if c.trackableByCamera() && c.csf(CSF_screenbound) && !sys.brawler.ignoreScreenBound(c) {
 		min, max := c.widthEdge[0], -c.widthEdge[1]
 		if c.facing > 0 {
 			min, max = -max, -min
@@ -12076,7 +12081,9 @@ func (c *Char) actionPrepare() {
 			// In Mugen, characters can perform basic actions even if they are KO
 			if !c.asf(ASF_nohardcodedkeys) {
 				if c.ctrl() {
-					if c.scf(SCF_guard) && c.inguarddist && !c.inGuardState() && c.ss.stateType != ST_L && c.cmd[0].Buffer.Bb > 0 {
+					if sys.brawler.tryLaneJump(c) {
+						// Beat 'em up lane switch (jump)
+					} else if c.scf(SCF_guard) && c.inguarddist && !c.inGuardState() && c.ss.stateType != ST_L && c.cmd[0].Buffer.Bb > 0 {
 						c.changeState(120, -1, -1, "") // Start guarding
 					} else if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.Ub > 0 &&
 						(!(sys.intro < 0 && sys.intro > -sys.fightScreen.round.over_waittime) || c.asf(ASF_postroundinput)) {
@@ -12350,6 +12357,7 @@ func (c *Char) actionRun() {
 					Btoi(c.ss.stateType == ST_A)*51, -1, -1, "")
 			}
 			c.posUpdate()
+			sys.brawler.laneUpdate(c)
 			// Land from aerial physics
 			// This was a loop before like Mugen, so setting state 52 to physics A caused a crash
 			if c.ss.physics == ST_A {
@@ -12580,7 +12588,7 @@ func (c *Char) actionFinish() {
 }
 
 func (c *Char) track() {
-	if !c.trackableByCamera() {
+	if !c.trackableByCamera() || !sys.brawler.tracksCamera(c) {
 		return
 	}
 
@@ -13586,7 +13594,10 @@ func (cl *CharList) commandUpdate() {
 		// The way this only allows one command to be cheated at a time may be the cause of issue #2022
 		cheat := int32(-1)
 		if root.controller < 0 {
-			if sys.roundState() == 2 && RandF32(0, sys.aiLevel[i]/2+32) > 32 { // TODO: Balance AI scaling
+			if sys.brawler.active() && sys.brawler.charState(root) != nil {
+				// Beat 'em up AI only performs commands when it decides to attack
+				cheat = sys.brawler.aiCheat(root)
+			} else if sys.roundState() == 2 && RandF32(0, sys.aiLevel[i]/2+32) > 32 { // TODO: Balance AI scaling
 				cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
 			}
 		}
@@ -14379,7 +14390,8 @@ func (cl *CharList) pushDetection(c *Char) {
 		// Determine in which axes to push the players
 		// This needs to check both if the players have velocity or if their positions have changed
 		var pushx, pushz bool
-		if sys.zEnabled() && gposz != cposz { // If tied on Z axis we fall back to X pushing
+		// Beat 'em up lanes keep characters at fixed depths, so they only push along X
+		if sys.zEnabled() && gposz != cposz && !sys.brawler.lanesActive() { // If tied on Z axis we fall back to X pushing
 			// Get distances in both axes
 			distx := Abs(gposx - cposx)
 			distz := Abs(gposz - cposz)

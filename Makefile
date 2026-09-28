@@ -7,6 +7,7 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/anim.go \
 	src/audio_sdl.go \
 	src/bgdef.go \
+	src/brawler.go \
 	src/bytecode.go \
 	src/camera.go \
 	src/char.go \

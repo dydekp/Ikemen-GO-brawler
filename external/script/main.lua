@@ -2056,6 +2056,24 @@ main.t_itemname = {
 		hook.run("main.t_itemname", t, item)
 		return start.f_selectMode
 	end,
+	--BRAWLER (beat 'em up)
+	['brawler'] = function(t, item)
+		main.coop = true
+		main.elimination = true
+		main.exitSelect = true
+		main.luaPath = 'external/script/brawler.lua'
+		main.numSimul = {2, math.max(2, math.min(4, gameOption('Config.Players')))}
+		main.persistLife = true
+		main.teamMenu[1].single = true
+		if gameOption('Config.Players') >= 2 then
+			main.teamMenu[1].simul = true
+		end
+		main.teamMenu[2].single = true
+		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.brawler or 'Brawler')
+		setGameMode('brawler')
+		hook.run("main.t_itemname", t, item)
+		return start.f_selectMode
+	end,
 	--DEMO
 	['demo'] = function(t, item)
 		hook.run("main.t_itemname", t, item)
@@ -2877,7 +2895,11 @@ end
 
 -- Dynamically generates all menus and submenus
 function main.f_start()
-	main.menu = {title = main.f_itemnameUpper(motif[main.group].title.text, motif[main.group].menu.title.uppercase), submenu = {}, items = {}}
+	-- Beat 'em up mode entry, unless the screenpack already defines (or hides) it
+	if main.group == 'title_info' then
+		main.f_appendItemname(motif.title_info.menu, '', 'brawler', 'BRAWLER', 'options')
+	end
+	main.menu ={title = main.f_itemnameUpper(motif[main.group].title.text, motif[main.group].menu.title.uppercase), submenu = {}, items = {}}
 	main.menu.loop = main.f_createMenu(main.menu, true, main.group == 'title_info', main.group == 'title_info', false)
 	local w = main.f_menuWindow(motif[main.group].menu)
 	local t_pos = {} --for storing current main.menu table position

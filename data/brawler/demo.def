@@ -1,0 +1,40 @@
+; Demo beat 'em up level. See README.txt in this folder for the format.
+; Uses the Z-axis stage and character shipped with the default Ikemen GO screenpack.
+
+[Level]
+name      = Demo Street
+stage     = stages/stageZ.def
+; Three lanes spread over the stage's topbound/botbound (-30..30)
+lanes     = 3
+backtrack = 0
+; After the last wave, walk to the right end of the stage to finish
+endx      = 300
+
+[Enemies]
+; alias, character, palette. Up to 4 enemies; each one is an on-screen slot.
+enemy = thug, kfm, 7
+enemy = thug, kfm, 8
+enemy = thug, kfm, 9
+enemy = boss, kfm, 10
+
+[Wave 1]
+; Starts right away
+trigger = -9999
+lock    = 1
+spawn   = thug, right, player, 30
+spawn   = thug, left, random, 90
+
+[Wave 2]
+trigger = 60
+lock    = 1
+spawn   = thug, right, 0, 30
+spawn   = thug, right, 2, 20
+spawn   = thug, left, 1, 20
+spawn   = thug, right, random, 120
+
+[Wave 3]
+trigger = 180
+lock    = 1
+spawn   = boss, right, player, 60
+spawn   = thug, left, random, 120
+spawn   = thug, right, random, 60

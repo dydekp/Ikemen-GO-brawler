@@ -2676,7 +2676,11 @@ func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
 		if char != nil && !char.asf(ASF_noaibuttonjam) {
 			// Since AI inputs use random numbers, we handle them locally to avoid desync
 			idx := ^controller
-			if idx >= 0 && idx < len(sys.aiInput) {
+			if sys.brawler.active() && sys.brawler.charState(char) != nil {
+				// Beat 'em up enemies use their own AI instead of random button jamming
+				buttons = sys.brawler.aiButtons(char)
+				char.analogAxes = [6]float32{0, 0, 0, 0, 0, 0}
+			} else if idx >= 0 && idx < len(sys.aiInput) {
 				aiLevel := sys.aiLevel[char.playerNo]
 				sys.aiInput[idx].Update(aiLevel)
 				buttons = sys.aiInput[idx].Buttons()
@@ -2796,6 +2800,14 @@ func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
 			U, D, L, R = output[0], output[1], output[2], output[3]
 			a, b, c, x, y, z = output[4], output[5], output[6], output[7], output[8], output[9]
 			s, d, w, m = output[10], output[11], output[12], output[13]
+		}
+
+		// Beat 'em up mode: consume the lane and facing buttons
+		if sys.brawler.active() {
+			in := sys.brawler.processInput(char, [14]bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m})
+			U, D, L, R = in[0], in[1], in[2], in[3]
+			a, b, c, x, y, z = in[4], in[5], in[6], in[7], in[8], in[9]
+			s, d, w, m = in[10], in[11], in[12], in[13]
 		}
 
 		// Get B and F from L and R for SOCD resolution

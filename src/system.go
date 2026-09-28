@@ -121,6 +121,7 @@ type SystemStateVars struct {
 	comboCount              [2]int32
 	decisiveRound           [2]bool
 	gameMode                string
+	brawler                 Brawler
 	credits                 int32
 
 	consecutiveWins  [2]int32
@@ -2525,6 +2526,9 @@ func (s *System) resetRound() {
 		p[0].selfState(5900, firstAnim, -1, 0, "")
 	}
 
+	// Beat 'em up mode: hide enemies until their wave and put players on lanes
+	s.brawler.roundInit()
+
 	s.updateMusicMaps()
 
 	// Make a new backup reflecting the post-swap roundXdef stage, or F4 will restore the prior round's stage
@@ -2851,6 +2855,9 @@ func (s *System) action() {
 		// Run the main character logic
 		s.charList.action()
 
+		// Beat 'em up waves and enemy spawning
+		s.brawler.step()
+
 		// The following must be placed after char action or they will lag behind 1 frame
 		s.allPalFX.step()
 		s.bgPalFX.step() // In Mugen, it steps even while the stage is paused
@@ -2877,6 +2884,7 @@ func (s *System) action() {
 
 	// Run camera
 	x, y, scl = s.cam.action(x, y, scl, s.supertime > 0 || s.pausetime > 0)
+	x = s.brawler.cameraX(x)
 
 	// Character intro skipping
 	if s.tickNextFrame() {
@@ -3507,7 +3515,19 @@ func (s *System) roundEndDecision() bool {
 
 	// KO check
 	ko := [2]bool{true, true}
+	var brawlerKO [2]bool
+	if s.brawler.active() {
+		// Beat 'em up: players lose when all are KO, and win when the level is cleared
+		brawlerKO = s.brawler.roundKO()
+	}
 	for loser := range ko {
+		if s.brawler.active() {
+			ko[loser] = brawlerKO[loser]
+			if ko[loser] && checkPerfect(loser^1) {
+				s.winType[loser^1].SetPerfect()
+			}
+			continue
+		}
 		// Check if all players or leader on one side are KO
 		for i := loser; i < MaxSimul*2; i += 2 {
 			if len(s.chars[i]) > 0 && s.chars[i][0].teamside != -1 {

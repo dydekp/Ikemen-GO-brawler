@@ -274,7 +274,9 @@ function start.f_remapAI(ai)
 			end
 		end
 		if start.p[side].teamMode == 0 or start.p[side].teamMode == 2 then --Single or Turns
-			if (not main.cpuSide[side] and not main.coop) or start.challenger > 0 or gameMode('training') then
+			if t_ex[side] then
+				-- already assigned to a coop player above (e.g. brawler mode played solo)
+			elseif (not main.cpuSide[side] and not main.coop) or start.challenger > 0 or gameMode('training') then
 				setCom(side, 0)
 			else
 				setCom(side, ai or start.f_difficulty(side, offset))

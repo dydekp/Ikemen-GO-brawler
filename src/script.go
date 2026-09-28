@@ -6150,6 +6150,43 @@ func systemScriptInit(l *lua.LState) {
 		sys.debugWC.dizzyPointsSet(int32(numArg(l, 1)))
 		return 0
 	})
+	luaRegister(l, "brawlerLoadLevel", func(*lua.LState) int {
+		/*Load a beat 'em up level definition. It is used by the next brawler mode match.
+		@function brawlerLoadLevel
+		@tparam string path Level definition file.
+		@treturn table|nil level Table with `name`, `stage`, `music` and `enemies` (array of
+		  `{alias, def, pal}`), or `nil` followed by an error message if the file can't be loaded.*/
+		lv, err := loadBrawlerLevel(strArg(l, 1))
+		if err != nil {
+			sys.brawler.level = nil
+			l.Push(lua.LNil)
+			l.Push(lua.LString(err.Error()))
+			return 2
+		}
+		sys.brawler.level = lv
+		tbl := l.NewTable()
+		tbl.RawSetString("name", lua.LString(lv.name))
+		tbl.RawSetString("stage", lua.LString(lv.stage))
+		tbl.RawSetString("music", lua.LString(lv.music))
+		enemies := l.NewTable()
+		for _, e := range lv.enemies {
+			et := l.NewTable()
+			et.RawSetString("alias", lua.LString(e.alias))
+			et.RawSetString("def", lua.LString(e.def))
+			et.RawSetString("pal", lua.LNumber(e.pal))
+			enemies.Append(et)
+		}
+		tbl.RawSetString("enemies", enemies)
+		l.Push(tbl)
+		return 1
+	})
+	luaRegister(l, "brawlerClearLevel", func(*lua.LState) int {
+		/*Unload the current beat 'em up level.
+		@function brawlerClearLevel*/
+		sys.brawler.level = nil
+		sys.brawler.enabled = false
+		return 0
+	})
 	luaRegister(l, "setGameMode", func(*lua.LState) int {
 		/*Set current game mode identifier.
 		@function setGameMode

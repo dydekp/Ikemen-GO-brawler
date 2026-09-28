@@ -37,6 +37,7 @@ data/*
 !data/system.zss
 !data/tag.zss
 !data/training.zss
+!data/brawler/
 font/*
 !font/Open_Sans/
 !font/debug.def

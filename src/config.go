@@ -220,6 +220,18 @@ type Config struct {
 		UiRepeatRate               int32   `ini:"UiRepeatRate" sync:"host"`
 		PauseExitDelay             int32   `ini:"PauseExitDelay" sync:"host"`
 	} `ini:"Input"`
+	Brawler struct {
+		Levels             []string `ini:"Levels" sync:"host"`
+		LaneButton         string   `ini:"LaneButton" sync:"host"`
+		FacingButton       string   `ini:"FacingButton" sync:"host"`
+		FacingMode         string   `ini:"FacingMode" sync:"host"`
+		TurnDelay          int32    `ini:"TurnDelay" sync:"host"`
+		TurnBuffer         int32    `ini:"TurnBuffer" sync:"host"`
+		LaneSelectWindow   int32    `ini:"LaneSelectWindow" sync:"host"`
+		LaneSnapSpeed      float32  `ini:"LaneSnapSpeed" sync:"host"`
+		AttackersPerPlayer int32    `ini:"AttackersPerPlayer" sync:"host"`
+		DespawnTime        int32    `ini:"DespawnTime" sync:"host"`
+	} `ini:"Brawler"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`
 }
