@@ -1,5 +1,5 @@
 ; Demo beat 'em up level. See README.txt in this folder for the format.
-; Uses the Z-axis stage and character shipped with the default Ikemen GO screenpack.
+; Uses the Z-axis stage and characters shipped with the default Ikemen GO screenpack.
 
 [Level]
 name      = Demo Street
@@ -11,30 +11,34 @@ backtrack = 0
 endx      = 300
 
 [Enemies]
-; alias, character, palette. Up to 4 enemies; each one is an on-screen slot.
-enemy = thug, kfm, 7
-enemy = thug, kfm, 8
-enemy = thug, kfm, 9
-enemy = boss, kfm, 10
+; alias, character, palette, life (optional)
+; Any number of enemies. The same character can be listed several times,
+; e.g. with other palettes; it is loaded only once.
+enemy = thug,    kfm,     7
+enemy = thug2,   kfm,     8
+enemy = bruiser, kfm,     9
+enemy = ninja,   kfm_zss, 3
+enemy = big,     kfm720,  2
+enemy = boss,    kfm720,  5, 1500
 
 [Wave 1]
 ; Starts right away
-trigger = -9999
-lock    = 1
-spawn   = thug, right, player, 30
-spawn   = thug, left, random, 90
+trigger  = -9999
+maxalive = 4
+; alias(es), side, lane, delay, count
+spawn    = thug|thug2, right, player, 30, 3
+spawn    = bruiser, left, random, 60, 2
 
 [Wave 2]
-trigger = 60
-lock    = 1
-spawn   = thug, right, 0, 30
-spawn   = thug, right, 2, 20
-spawn   = thug, left, 1, 20
-spawn   = thug, right, random, 120
+; Endless stream of enemies until 8 of them are defeated
+trigger  = 60
+maxalive = 5
+kills    = 8
+spawn    = ninja|thug|thug2, random, random, 45, inf
 
 [Wave 3]
-trigger = 180
-lock    = 1
-spawn   = boss, right, player, 60
-spawn   = thug, left, random, 120
-spawn   = thug, right, random, 60
+trigger  = 180
+maxalive = 5
+spawn    = big, right, player, 60
+spawn    = boss, right, 1, 60
+spawn    = thug|thug2|bruiser, random, random, 90, 4

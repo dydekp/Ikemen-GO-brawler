@@ -27,7 +27,7 @@ import (
 
 const (
 	MaxSimul        = 4
-	MaxAttachedChar = 4
+	MaxAttachedChar = 16 // Also used by brawler mode to preload enemy types
 	MaxPlayerNo     = MaxSimul*2 + MaxAttachedChar
 )
 
@@ -6145,7 +6145,7 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 
 	if attached {
 		atcpn := pn - MaxSimul*2
-		cdef = sys.stageList[0].attachedchardef[atcpn]
+		cdef = sys.attachedCharDef(atcpn)
 	} else {
 		if tm == TM_Turns {
 			cdefOWnumber = memberNo*2 + pn&1
@@ -6417,6 +6417,17 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *FightScreenFace, nm *FightScreenN
 	}
 }
 
+// Character def for an attached char slot. Brawler mode uses these slots for its enemy types
+func (s *System) attachedCharDef(atcpn int) string {
+	if def := s.brawler.attachedDef(atcpn); def != "" {
+		return def
+	}
+	if s.stageList[0] == nil || atcpn < 0 || atcpn >= len(s.stageList[0].attachedchardef) {
+		return ""
+	}
+	return s.stageList[0].attachedchardef[atcpn]
+}
+
 func (l *Loader) loadStage() bool {
 	if sys.roundNo == 1 {
 		if l.cancelRequested() || l.state == LS_Cancel || sys.gameEnd {
@@ -6579,7 +6590,7 @@ func (l *Loader) load() {
 						continue
 					}
 					atcpn := i - MaxSimul*2
-					if atcpn < 0 || atcpn >= len(sys.stageList[0].attachedchardef) || sys.stageList[0].attachedchardef[atcpn] == "" {
+					if sys.attachedCharDef(atcpn) == "" {
 						sys.chars[i] = nil
 						sys.cgi[i].states = nil
 						//sys.cgi[i].hitPauseToggleFlagCount = 0

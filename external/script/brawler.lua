@@ -16,22 +16,23 @@ for i = matchNo(), #levels do
 		setMatchNo(-1)
 		return
 	end
-	local t_p2char, t_p2pal = {}, {}
-	for _, e in ipairs(lvl.enemies) do
-		table.insert(t_p2char, e.def)
-		table.insert(t_p2pal, e.pal)
-	end
-	if #t_p2char == 0 then
+	if #lvl.types == 0 then
 		panicError("\nBrawler level defines no enemies: " .. tostring(levels[i]) .. "\n")
 		brawlerClearLevel()
 		setMatchNo(-1)
 		return
 	end
+	-- Every enemy character is loaded once: the first as P2, the others into attached char slots.
+	-- Resolve them like select.def entries so that plain names such as "kfm" work.
+	local t_defs = {}
+	for _, def in ipairs(lvl.types) do
+		table.insert(t_defs, start.f_getCharData(start.f_getCharRef(def)).def)
+	end
+	brawlerSetTypeDefs(t_defs)
 	local t = {
-		p2char = t_p2char,
-		p2pal = t_p2pal,
-		p2numchars = #t_p2char,
-		p2teammode = #t_p2char > 1 and 'simul' or 'single',
+		p2char = {lvl.types[1]},
+		p2numchars = 1,
+		p2teammode = 'single',
 		p1rounds = 1,
 		p2rounds = 1,
 		p1orderselect = false,

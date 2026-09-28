@@ -60,30 +60,43 @@ should be further apart than the characters' attack depth, otherwise attacks
 hit across lanes. The z positions use the stage's coordinate space.
 
 [Enemies]
-enemy = alias, character, palette
+enemy = alias, character, palette, life
 
-Up to 4 enemies (the enemy team slots). Each entry is one slot, so the number
-of enemies on screen at the same time is limited by the entries with that
-alias: three "thug" entries allow three thugs at once. The same character may
-be listed several times, e.g. with different palettes. Defeated enemies are
-removed after [Brawler] DespawnTime frames and their slot is reused.
+Any number of enemy entries. palette defaults to 1, life to the character's
+own life. The same character may be listed several times (e.g. with other
+palettes or life); each different character is loaded only once, at the
+start of the level. Up to 17 different characters per level.
+
+Any number of enemies of any entry can be on screen at the same time: every
+enemy is its own instance with its own life, palette and AI. Defeated enemies
+fall, stay on the ground for [Brawler] DespawnTime frames and disappear.
 
 [Wave]           ; Any number of waves, played in order. "[Wave 2]" etc. is
                  ; also fine, the text after "Wave" is ignored.
-trigger = 300    ; Stage X the leading player must reach to start the wave
-lock    = 1      ; 1 = the camera stops until the wave is cleared (default)
-spawn   = alias, side, lane, delay
+trigger  = 300   ; Stage X the leading player must reach to start the wave
+lock     = 1     ; 1 = the camera stops until the wave is cleared (default)
+maxalive = 6     ; Max enemies alive at once (default 6). Spawning waits
+                 ; while the limit is reached
+kills    = 20    ; Optional: stop spawning after this many defeats
+time     = 3600  ; Optional: stop spawning after this many frames
+spawn    = alias, side, lane, delay, count
 
 spawn parameters:
-  alias  enemy alias, or "any" for any free slot
+  alias  enemy alias. Several aliases separated by "|" pick one at random
+         for every spawn (thug|ninja|bruiser). "any" = any enemy entry
   side   left, right or random: the screen edge the enemy walks in from
   lane   lane number (0 = the one furthest back), "random", or "player" for
          the lane of the player closest to the screen center
-  delay  frames to wait after the previous spawn of the wave
+  delay  frames to wait before each spawn of this line
+  count  how many enemies this line spawns (default 1), or "inf" for an
+         endless stream. A wave with an endless line needs kills or time
 
-A spawn waits until a slot with that alias is free, so waves may contain more
-enemies than there are slots. A wave is cleared when all of its spawns have
-happened and no enemy is left standing.
+Spawn lines run one after another. A wave is cleared when its spawning has
+finished (all counts reached, or its kills / time limit) and no enemy is left
+standing. Examples:
+
+  spawn = thug, right, player, 30, 5          ; 5 thugs from the right
+  spawn = thug|ninja, random, random, 45, inf ; endless mix from both sides
 
 
 ENEMY AI

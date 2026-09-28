@@ -15,16 +15,20 @@ import (
 // lanes and switching lanes is performed as a jump, so the characters' fighting game controls
 // stay untouched. Two extra buttons are used: one for switching lanes and one for turning around.
 //
-// Enemies occupy the P2 team slots (P2, P4, P6, P8). They are loaded at match start from the level
-// definition, hidden until a wave spawns them, and hidden again after they are defeated so that the
-// slot can be reused by later spawns. Enemy AI is generated at the input level, so any character
-// can be used as an enemy without modifications.
+// Enemies are split into types and instances. Every distinct enemy character of a level (a type)
+// is loaded once at match start into its own player slot: P2 for the first type and the attached
+// char slots for the others. That root character stays hidden and only serves as a template.
+// Each enemy on screen (an instance) is a player type helper of its template, so any number of
+// enemies of any loaded type can fight at the same time, each with its own palette, life and AI.
+// Enemy AI is generated at the input level, so any character works as an enemy without changes.
 
 const (
 	brawlerLaneBuffer   = 6   // Frames a lane button press is buffered while the character can't jump yet
 	brawlerLaneStartup  = 20  // Frames a lane jump may wait on the ground before it's considered cancelled
 	brawlerEnterTimeout = 240 // Frames an entering enemy may ignore screen bounds
 	brawlerSpawnMargin  = 30  // Distance outside the screen where enemies spawn (world units)
+	brawlerMaxTypes     = 1 + MaxAttachedChar
+	brawlerMaxAlive     = 6 // Default limit of enemies alive at the same time in a wave
 )
 
 type BrawlerFacingMode int32
@@ -34,24 +38,30 @@ const (
 	BFM_Toggle                          // Char never turns on its own. Pressing the button turns around
 )
 
-// A single enemy spawn inside a wave
+// A spawn line inside a wave
 type BrawlerSpawn struct {
-	alias string // Enemy alias from the [Enemies] section. Empty means any free enemy slot
-	side  int32  // -1 = left, 1 = right, 0 = random
-	lane  int32  // Lane index. -1 = random, -2 = lane of the nearest player
-	delay int32  // Frames to wait after the previous spawn of the wave
+	enemies []int // Candidate enemy indexes. One is picked at random for each spawn. Empty = any enemy
+	side    int32 // -1 = left, 1 = right, 0 = random
+	lane    int32 // Lane index. -1 = random, -2 = lane of the player closest to the screen center
+	delay   int32 // Frames to wait before each spawn of this line
+	count   int32 // Enemies spawned by this line. -1 = infinite
 }
 
 type BrawlerWave struct {
-	trigger float32 // Stage X coordinate the leading player must reach to start the wave
-	lock    bool    // Lock the camera until the wave is cleared
-	spawns  []BrawlerSpawn
+	trigger  float32 // Stage X coordinate the leading player must reach to start the wave
+	lock     bool    // Lock the camera until the wave is cleared
+	maxAlive int32   // Enemies alive at the same time. Spawning waits while the limit is reached
+	kills    int32   // Stop spawning after this many defeats (0 = no limit)
+	time     int32   // Stop spawning after this many frames (0 = no limit)
+	spawns   []BrawlerSpawn
 }
 
 type BrawlerEnemy struct {
 	alias string
 	def   string
 	pal   int32
+	life  int32 // 0 = the character's own life
+	typ   int   // Index into BrawlerLevel.types
 }
 
 type BrawlerLevel struct {
@@ -68,6 +78,7 @@ type BrawlerLevel struct {
 	endX      float32
 	hasEndX   bool
 	enemies   []BrawlerEnemy
+	types     []string // Distinct enemy character defs, as written in the level
 	waves     []BrawlerWave
 }
 
@@ -105,6 +116,13 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 		}
 		return p
 	}
+	// Spawn aliases are resolved once all enemies are known
+	type pendingAliases struct {
+		wave, spawn int
+		aliases     []string
+		line        int
+	}
+	var pending []pendingAliases
 
 	for n, line := range strings.Split(NormalizeNewlines(text), "\n") {
 		if i := strings.Index(line, ";"); i >= 0 {
@@ -121,7 +139,7 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 			name := strings.ToLower(strings.TrimSpace(line[1 : len(line)-1]))
 			section = strings.Fields(name + " ")[0]
 			if section == "wave" {
-				lv.waves = append(lv.waves, BrawlerWave{lock: true})
+				lv.waves = append(lv.waves, BrawlerWave{lock: true, maxAlive: brawlerMaxAlive})
 				wave = &lv.waves[len(lv.waves)-1]
 			}
 			continue
@@ -151,7 +169,7 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 					return nil, fail("invalid lanes: %v", val)
 				}
 			case "lanepos":
-				lv.lanePos = lv.lanePos[:0]
+				lv.lanePos = nil
 				for _, a := range args {
 					f, err := parseF(a)
 					if err != nil {
@@ -179,21 +197,41 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 				lv.hasEndX = true
 			}
 		case "enemies":
-			// enemy = alias, def[, palette]
+			// enemy = alias, def[, palette[, life]]
 			if key != "enemy" {
 				continue
 			}
 			if len(args) < 2 || args[0] == "" || args[1] == "" {
-				return nil, fail("expected enemy = alias, def[, palette]")
+				return nil, fail("expected enemy = alias, def[, palette[, life]]")
 			}
 			e := BrawlerEnemy{alias: strings.ToLower(args[0]), def: resolve(args[1]), pal: 1}
+			if lv.enemyIndex(e.alias) >= 0 {
+				return nil, fail("duplicate enemy alias '%v'", e.alias)
+			}
 			if len(args) > 2 && args[2] != "" {
-				if e.pal, err = parseI(args[2]); err != nil {
+				if e.pal, err = parseI(args[2]); err != nil || e.pal < 1 {
 					return nil, fail("invalid palette: %v", args[2])
 				}
 			}
-			if len(lv.enemies) >= MaxSimul {
-				return nil, fail("too many enemies (max %v)", MaxSimul)
+			if len(args) > 3 && args[3] != "" {
+				if e.life, err = parseI(args[3]); err != nil || e.life < 0 {
+					return nil, fail("invalid life: %v", args[3])
+				}
+			}
+			// Enemies using the same character share one loaded type
+			e.typ = -1
+			for i, t := range lv.types {
+				if strings.EqualFold(t, e.def) {
+					e.typ = i
+					break
+				}
+			}
+			if e.typ < 0 {
+				if len(lv.types) >= brawlerMaxTypes {
+					return nil, fail("too many different enemy characters (max %v)", brawlerMaxTypes)
+				}
+				lv.types = append(lv.types, e.def)
+				e.typ = len(lv.types) - 1
 			}
 			lv.enemies = append(lv.enemies, e)
 		case "wave":
@@ -204,13 +242,28 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 				}
 			case "lock":
 				wave.lock = parseB(val)
+			case "maxalive":
+				if wave.maxAlive, err = parseI(val); err != nil || wave.maxAlive < 1 {
+					return nil, fail("invalid maxalive: %v", val)
+				}
+			case "kills":
+				if wave.kills, err = parseI(val); err != nil || wave.kills < 0 {
+					return nil, fail("invalid kills: %v", val)
+				}
+			case "time":
+				if wave.time, err = parseI(val); err != nil || wave.time < 0 {
+					return nil, fail("invalid time: %v", val)
+				}
 			case "spawn":
-				// spawn = alias, side, lane, delay
-				s := BrawlerSpawn{lane: -1}
+				// spawn = alias[|alias...], side, lane, delay, count
+				s := BrawlerSpawn{side: 1, lane: -1, count: 1}
+				var aliases []string
 				if len(args) > 0 {
-					s.alias = strings.ToLower(args[0])
-					if s.alias == "any" {
-						s.alias = ""
+					for _, a := range strings.Split(args[0], "|") {
+						a = strings.ToLower(strings.TrimSpace(a))
+						if a != "" && a != "any" && a != "random" {
+							aliases = append(aliases, a)
+						}
 					}
 				}
 				if len(args) > 1 {
@@ -219,13 +272,11 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 						s.side = -1
 					case "right", "r", "":
 						s.side = 1
-					case "random", "any":
+					case "random", "any", "both":
 						s.side = 0
 					default:
 						return nil, fail("invalid spawn side: %v", args[1])
 					}
-				} else {
-					s.side = 1
 				}
 				if len(args) > 2 {
 					switch strings.ToLower(args[2]) {
@@ -240,11 +291,22 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 					}
 				}
 				if len(args) > 3 && args[3] != "" {
-					if s.delay, err = parseI(args[3]); err != nil {
+					if s.delay, err = parseI(args[3]); err != nil || s.delay < 0 {
 						return nil, fail("invalid spawn delay: %v", args[3])
 					}
 				}
+				if len(args) > 4 && args[4] != "" {
+					switch strings.ToLower(args[4]) {
+					case "inf", "infinite", "endless", "-1":
+						s.count = -1
+					default:
+						if s.count, err = parseI(args[4]); err != nil || s.count < 1 {
+							return nil, fail("invalid spawn count: %v", args[4])
+						}
+					}
+				}
 				wave.spawns = append(wave.spawns, s)
+				pending = append(pending, pendingAliases{len(lv.waves) - 1, len(wave.spawns) - 1, aliases, n + 1})
 			}
 		}
 	}
@@ -255,11 +317,23 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 	if len(lv.enemies) == 0 && len(lv.waves) > 0 {
 		return nil, fmt.Errorf("%v: [Enemies] section defines no enemies", path)
 	}
-	for i, w := range lv.waves {
-		for _, s := range w.spawns {
-			if s.alias != "" && lv.enemyIndex(s.alias) < 0 {
-				return nil, fmt.Errorf("%v: wave %v spawns unknown enemy '%v'", path, i+1, s.alias)
+	for _, p := range pending {
+		s := &lv.waves[p.wave].spawns[p.spawn]
+		for _, a := range p.aliases {
+			i := lv.enemyIndex(a)
+			if i < 0 {
+				return nil, fmt.Errorf("%v:%v: unknown enemy '%v'", path, p.line, a)
 			}
+			s.enemies = append(s.enemies, i)
+		}
+	}
+	for i, w := range lv.waves {
+		endless := false
+		for _, s := range w.spawns {
+			endless = endless || s.count < 0
+		}
+		if endless && w.kills == 0 && w.time == 0 {
+			return nil, fmt.Errorf("%v: wave %v spawns endlessly but has no kills or time limit", path, i+1)
 		}
 	}
 	if lv.name == "" {
@@ -295,8 +369,10 @@ type brawlerAI struct {
 	special      bool // Request a random command this frame
 }
 
-// Per root character state
+// Per character state, stored in Char.bw. Players are roots, enemies are helpers
 type brawlerChar struct {
+	initialized bool
+	enemy       bool // Spawned enemy instance
 	lane        int32
 	targetLane  int32
 	laneJump    bool
@@ -311,25 +387,32 @@ type brawlerChar struct {
 	desiredFace float32
 	turnBuffer  int32
 	dirHold     int32
-	spawned     bool
 	entering    bool
 	enterTime   int32
 	koTime      int32
+	koForced    bool
 	ai          brawlerAI
-	initialized bool
+}
+
+// Queued spawn line of the active wave
+type brawlerQueued struct {
+	spawn BrawlerSpawn
+	left  int32 // Remaining spawns. -1 = infinite
 }
 
 // Part of SystemStateVars, so it is saved and restored with save states.
 // Save states are shallow copies: slices must be replaced, never modified in place
 type Brawler struct {
 	level      *BrawlerLevel
+	typeDefs   []string // Resolved character defs of the level's enemy types (set by Lua)
 	enabled    bool
 	lanesZ     []float32 // Lane Z positions in world units
-	chars      [MaxSimul * 2]brawlerChar
 	wave       int
 	waveActive bool
-	queue      []BrawlerSpawn
+	queue      []brawlerQueued
 	queueDelay int32
+	waveTime   int32
+	waveKills  int32
 	locked     bool
 	lockX      float32
 	camMin     float32
@@ -379,6 +462,26 @@ func brawlerButtonIndex(name string) int {
 	return -1
 }
 
+// Player slot holding an enemy type: P2 for the first one, attached char slots for the rest
+func brawlerTypeSlot(typ int) int {
+	if typ == 0 {
+		return 1
+	}
+	return MaxSimul*2 + typ - 1
+}
+
+// Character def to load into an attached char slot, if brawler mode needs it
+func (b *Brawler) attachedDef(atcpn int) string {
+	if sys.gameMode != "brawler" || b.level == nil {
+		return ""
+	}
+	typ := atcpn + 1
+	if typ < 1 || typ >= len(b.typeDefs) {
+		return ""
+	}
+	return b.typeDefs[typ]
+}
+
 func (b *Brawler) root(pn int) *Char {
 	if pn < 0 || pn >= len(sys.chars) || len(sys.chars[pn]) == 0 {
 		return nil
@@ -386,16 +489,30 @@ func (b *Brawler) root(pn int) *Char {
 	return sys.chars[pn][0]
 }
 
-// Brawler state of a root character, or nil if it is not handled by the mode
+// Brawler state of a character, or nil if it is not handled by the mode
 func (b *Brawler) charState(c *Char) *brawlerChar {
-	if c == nil || c.helperIndex != 0 || c.playerNo < 0 || c.playerNo >= MaxSimul*2 {
+	if c == nil || !c.bw.initialized {
 		return nil
 	}
-	return &b.chars[c.playerNo]
+	return &c.bw
 }
 
-func (b *Brawler) isEnemySlot(pn int) bool {
-	return pn&1 == 1
+// Spawned enemy helper, which is allowed to use hardcoded keys and auto turning like a root
+func (b *Brawler) isInstance(c *Char) bool {
+	return c.bw.enemy && c.helperIndex > 0 && b.active()
+}
+
+// Enemy type template: the hidden root of an enemy type slot
+func (b *Brawler) isTemplate(c *Char) bool {
+	if !b.active() || c.helperIndex != 0 {
+		return false
+	}
+	for typ := range b.level.types {
+		if brawlerTypeSlot(typ) == c.playerNo {
+			return true
+		}
+	}
+	return false
 }
 
 // Called by resetRound after all characters were reset
@@ -423,44 +540,90 @@ func (b *Brawler) roundInit() {
 	sys.zmax = stg.botbound * stg.localscl
 
 	// Lanes
-	b.lanesZ = nil
+	var lanes []float32
 	if len(lv.lanePos) > 0 {
 		for _, z := range lv.lanePos {
-			b.lanesZ = append(b.lanesZ, z*stg.localscl)
+			lanes = append(lanes, z*stg.localscl)
 		}
 	} else if lv.lanes <= 1 || sys.zmin == sys.zmax {
-		b.lanesZ = append(b.lanesZ, (sys.zmin+sys.zmax)/2)
+		lanes = append(lanes, (sys.zmin+sys.zmax)/2)
 	} else {
 		for i := int32(0); i < lv.lanes; i++ {
-			b.lanesZ = append(b.lanesZ, sys.zmin+(sys.zmax-sys.zmin)*float32(i)/float32(lv.lanes-1))
+			lanes = append(lanes, sys.zmin+(sys.zmax-sys.zmin)*float32(i)/float32(lv.lanes-1))
 		}
 	}
+	b.lanesZ = lanes
 
 	// Progress
 	b.wave = 0
 	b.waveActive = false
 	b.queue = nil
 	b.queueDelay = 0
+	b.waveTime = 0
+	b.waveKills = 0
 	b.locked = false
 	b.camMinSet = false
 	b.complete = false
 
-	for pn := range b.chars {
-		b.chars[pn] = brawlerChar{aiLane: -1, ai: brawlerAI{target: -1}}
+	// Players
+	for pn := 0; pn < MaxSimul*2; pn += 2 {
 		c := b.root(pn)
 		if c == nil {
 			continue
 		}
-		st := &b.chars[pn]
-		st.initialized = true
-		if b.isEnemySlot(pn) {
-			b.despawn(pn)
+		c.bw = brawlerChar{initialized: true, aiLane: -1, ai: brawlerAI{target: -1}}
+		c.bw.lane = b.nearestLane(c.pos[2] * c.localscl)
+		c.bw.targetLane = c.bw.lane
+		c.bw.desiredFace = c.facing
+		c.setPosZ(b.lanesZ[c.bw.lane]/c.localscl, true)
+	}
+
+	// Enemy side: type templates stay hidden, unused team slots are disabled
+	for pn := 1; pn < len(sys.chars); pn++ {
+		c := b.root(pn)
+		if c == nil || pn < MaxSimul*2 && pn&1 == 0 {
 			continue
 		}
-		st.lane = b.nearestLane(c.pos[2] * c.localscl)
-		st.targetLane = st.lane
-		st.desiredFace = c.facing
-		c.setPosZ(b.lanesZ[st.lane]/c.localscl, true)
+		c.bw = brawlerChar{}
+		sys.clearPlayerAssets(pn, true)
+		if b.isTemplate(c) {
+			b.setupTemplate(c)
+		} else if pn < MaxSimul*2 {
+			for _, ch := range sys.chars[pn] {
+				ch.setSCF(SCF_disabled)
+				ch.setSCF(SCF_standby)
+			}
+		}
+	}
+	sys.charList.enemyNearChanged = true
+}
+
+// Hide a type template. It must stay enabled, since helpers depend on their root being active
+func (b *Brawler) setupTemplate(c *Char) {
+	pn := c.playerNo
+	c.teamside = 1
+	c.controller = ^pn
+	sys.aiLevel[pn] = sys.aiLevel[1]
+	c.setSCF(SCF_standby)
+	c.setCtrl(false)
+	c.selfState(0, -1, -1, 0, "")
+	c.setPosX(sys.stage.leftbound*sys.stage.localscl/c.localscl, true)
+	c.setPosY(0, true)
+	c.vel = [3]float32{}
+}
+
+// Keep templates out of the fight. Runs after the characters acted, so the flags last until drawing
+func (b *Brawler) keepTemplatesHidden() {
+	for typ := range b.level.types {
+		c := b.root(brawlerTypeSlot(typ))
+		if c == nil {
+			continue
+		}
+		c.setSCF(SCF_standby)
+		c.setASF(ASF_invisible)
+		c.setASF(ASF_noinput)
+		c.setASF(ASF_noautoturn)
+		c.setCtrl(false)
 	}
 }
 
@@ -489,26 +652,37 @@ func (b *Brawler) laneCandidate(cur, presses int32) int32 {
 	return order[(presses-1)%int32(len(order))]
 }
 
-// Hide an enemy slot so it doesn't take part in the fight
-func (b *Brawler) despawn(pn int) {
-	for _, ch := range sys.chars[pn] {
-		ch.setSCF(SCF_disabled)
-		ch.setSCF(SCF_standby)
-		ch.setCtrl(false)
+// Spawned enemy instances, alive or not
+func (b *Brawler) instances() []*Char {
+	var list []*Char
+	for _, c := range sys.charList.runOrder {
+		if c != nil && c.bw.enemy && c.helperIndex > 0 && !c.csf(CSF_destroy) {
+			list = append(list, c)
+		}
 	}
-	sys.clearPlayerAssets(pn, true)
-	sys.charList.enemyNearChanged = true
-	st := &b.chars[pn]
-	st.spawned = false
-	st.entering = false
-	st.koTime = 0
+	return list
 }
 
-// Bring a hidden enemy slot back into the fight as a fresh character
-func (b *Brawler) spawn(pn int, s BrawlerSpawn) {
-	c := b.root(pn)
-	if c == nil {
-		return
+func (b *Brawler) aliveEnemies() int32 {
+	var n int32
+	for _, c := range b.instances() {
+		if c.alive() {
+			n++
+		}
+	}
+	return n
+}
+
+// Create an enemy instance of the given enemy entry
+func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
+	e := b.level.enemies[ei]
+	t := b.root(brawlerTypeSlot(e.typ))
+	if t == nil || t.scf(SCF_disabled) {
+		return false
+	}
+	h := t.newHelper()
+	if h == nil {
+		return false
 	}
 
 	lane := s.lane
@@ -519,7 +693,7 @@ func (b *Brawler) spawn(pn int, s BrawlerSpawn) {
 		for _, p := range b.players(true) {
 			if d := Abs(p.pos[0]*p.localscl - (sys.xmin+sys.xmax)/2); d < best {
 				best = d
-				lane = b.chars[p.playerNo].targetLane
+				lane = p.bw.targetLane
 			}
 		}
 	case lane < 0 || lane >= int32(len(b.lanesZ)):
@@ -534,46 +708,46 @@ func (b *Brawler) spawn(pn int, s BrawlerSpawn) {
 		x = sys.xmin - brawlerSpawnMargin
 	}
 
-	sys.clearPlayerAssets(pn, true)
-	c.clearState()
-	c.prepareNextRound()
-	// What common state 5900 does at round start. Enemies were hidden before it could run
-	c.varRangeSet(0, math.MaxInt32, 0)
-	c.fvarRangeSet(0, math.MaxInt32, 0)
-	c.remapPal(c.getPalfx(), [2]int32{1, 1}, [2]int32{1, c.gi().palno})
-	for _, f := range []SystemCharFlag{SCF_disabled, SCF_standby, SCF_ko, SCF_over_alive, SCF_over_ko, SCF_dizzy, SCF_guardbreak} {
-		c.unsetSCF(f)
-	}
-	c.life = c.lifeMax
-	c.redLife = c.lifeMax
-	c.dizzyPoints = c.dizzyPointsMax
-	c.guardPoints = c.guardPointsMax
-	c.setPosX(x/c.localscl, true)
-	c.setPosY(0, true)
-	c.setPosZ(b.lanesZ[lane]/c.localscl, true)
-	c.vel = [3]float32{}
-	c.setFacing(float32(-side))
-	c.selfState(0, 0, -1, 1, "")
-	for i := range c.cmd {
-		c.cmd[i].BufReset()
-	}
-	sys.charList.enemyNearChanged = true
+	// Behave like a player controlled by the AI, with its own inputs and palette
+	h.name = t.name
+	h.helperType = 2
+	h.keyctrl = [4]bool{true, true, true, true}
+	h.ownpal = true
+	h.kovelocity = true
+	h.localscl = t.localscl
+	h.localcoord = t.localcoord
+	h.unsetSCF(SCF_standby)
+	t.helperInit(h, 0, PT_P1, [3]float32{}, 1, [2]int32{1, e.pal})
 
-	st := &b.chars[pn]
-	*st = brawlerChar{
+	if e.life > 0 {
+		h.lifeMax = e.life
+	}
+	h.life = h.lifeMax
+	h.redLife = h.lifeMax
+	h.setPosX(x/h.localscl, true)
+	h.setPosY(0, true)
+	h.setPosZ(b.lanesZ[lane]/h.localscl, true)
+	h.vel = [3]float32{}
+	if (h.facing < 0) != (side > 0) {
+		h.setFacing(-h.facing)
+	}
+	h.setCtrl(true)
+	h.bw = brawlerChar{
+		initialized: true,
+		enemy:       true,
 		lane:        lane,
 		targetLane:  lane,
 		aiLane:      -1,
-		spawned:     true,
 		entering:    true,
-		initialized: true,
-		desiredFace: c.facing,
+		desiredFace: h.facing,
 		ai: brawlerAI{
 			target:   -1,
 			hover:    RandF32(80, 150),
 			cooldown: Rand(20, 60),
 		},
 	}
+	sys.charList.enemyNearChanged = true
+	return true
 }
 
 // Alive (or all) player characters on the player team
@@ -601,42 +775,17 @@ func (b *Brawler) leadX() float32 {
 	return lead
 }
 
-func (b *Brawler) freeSlot(alias string) int {
-	for i, e := range b.level.enemies {
-		pn := i*2 + 1
-		if b.root(pn) == nil || b.chars[pn].spawned {
-			continue
-		}
-		if alias == "" || e.alias == alias {
-			return pn
-		}
-	}
-	return -1
-}
-
-func (b *Brawler) enemiesAlive() bool {
-	for pn := 1; pn < MaxSimul*2; pn += 2 {
-		if c := b.root(pn); c != nil && b.chars[pn].spawned && c.alive() {
-			return true
-		}
-	}
-	return false
-}
-
 // Level progression. Runs once per game tick after the characters acted
 func (b *Brawler) step() {
 	if !b.active() {
 		return
 	}
+	b.keepTemplatesHidden()
 
-	// Remove defeated enemies once they're lying down, freeing their slot
+	// Defeated enemies fall down and are removed once they lie on the ground
 	despawnTime := sys.cfg.Brawler.DespawnTime
-	for pn := 1; pn < MaxSimul*2; pn += 2 {
-		c := b.root(pn)
-		st := &b.chars[pn]
-		if c == nil || !st.spawned {
-			continue
-		}
+	for _, c := range b.instances() {
+		st := &c.bw
 		if st.entering {
 			st.enterTime++
 			x := c.pos[0] * c.localscl
@@ -647,9 +796,19 @@ func (b *Brawler) step() {
 		if c.alive() {
 			continue
 		}
+		if st.koTime == 0 && b.waveActive {
+			b.waveKills++
+		}
 		st.koTime++
-		if st.koTime >= despawnTime && (c.ss.stateType == ST_L || c.scf(SCF_over_ko)) || st.koTime >= despawnTime*3 {
-			b.despawn(pn)
+		// Helpers aren't forced into the KO state by the engine like roots are
+		if !st.koForced && c.ss.moveType != MT_H && c.ss.stateType != ST_L && !c.hitPause() {
+			st.koForced = true
+			c.ghv.fallflag = true
+			c.selfState(5030, -1, -1, 0, "")
+			c.ss.time = 1
+		}
+		if st.koTime >= despawnTime && c.ss.stateType == ST_L || st.koTime >= despawnTime*3 {
+			c.setCSF(CSF_destroy)
 		}
 	}
 
@@ -665,9 +824,14 @@ func (b *Brawler) step() {
 		w := b.level.waves[b.wave]
 		if lead >= w.trigger {
 			b.waveActive = true
-			b.queue = append([]BrawlerSpawn(nil), w.spawns...)
+			b.waveTime = 0
+			b.waveKills = 0
+			b.queue = nil
+			for _, s := range w.spawns {
+				b.queue = append(b.queue, brawlerQueued{spawn: s, left: s.count})
+			}
 			if len(b.queue) > 0 {
-				b.queueDelay = b.queue[0].delay
+				b.queueDelay = b.queue[0].spawn.delay
 			}
 			if w.lock {
 				b.locked = true
@@ -676,19 +840,35 @@ func (b *Brawler) step() {
 		}
 	}
 
-	// Spawn queued enemies as slots become available
 	if b.waveActive {
+		w := b.level.waves[b.wave]
+		b.waveTime++
+		// Kill or time limits end the spawning, even for endless spawn lines
+		if w.kills > 0 && b.waveKills >= w.kills || w.time > 0 && b.waveTime >= w.time {
+			b.queue = nil
+		}
 		if len(b.queue) > 0 {
 			if b.queueDelay > 0 {
 				b.queueDelay--
-			} else if pn := b.freeSlot(b.queue[0].alias); pn >= 0 {
-				b.spawn(pn, b.queue[0])
-				b.queue = b.queue[1:]
-				if len(b.queue) > 0 {
-					b.queueDelay = b.queue[0].delay
+			} else if b.aliveEnemies() < w.maxAlive {
+				head := b.queue[0]
+				ei := b.pickEnemy(head.spawn)
+				if ei >= 0 && b.spawn(ei, head.spawn) {
+					// Copy on write, the queue may be shared with a save state
+					q := append([]brawlerQueued(nil), b.queue...)
+					if q[0].left > 0 {
+						q[0].left--
+					}
+					if q[0].left == 0 {
+						q = q[1:]
+					}
+					b.queue = q
+					if len(b.queue) > 0 {
+						b.queueDelay = b.queue[0].spawn.delay
+					}
 				}
 			}
-		} else if !b.enemiesAlive() {
+		} else if b.aliveEnemies() == 0 {
 			b.waveActive = false
 			if b.locked {
 				b.locked = false
@@ -703,6 +883,17 @@ func (b *Brawler) step() {
 	if !b.waveActive && b.wave >= len(b.level.waves) && (!b.level.hasEndX || lead >= b.level.endX) {
 		b.complete = true
 	}
+}
+
+// Enemy entry for a spawn line: a random candidate, or any enemy of the level
+func (b *Brawler) pickEnemy(s BrawlerSpawn) int {
+	if len(s.enemies) > 0 {
+		return s.enemies[Rand(0, int32(len(s.enemies))-1)]
+	}
+	if len(b.level.enemies) == 0 {
+		return -1
+	}
+	return int(Rand(0, int32(len(b.level.enemies))-1))
 }
 
 // Decide the round result. Returns ko flags for team 1 and team 2
@@ -747,18 +938,17 @@ func (b *Brawler) ignoreScreenBound(c *Char) bool {
 	if !b.active() {
 		return false
 	}
-	r := b.root(c.playerNo)
-	st := b.charState(r)
-	if st == nil {
-		return false
+	if c.bw.enemy {
+		return c.bw.entering
 	}
-	return st.entering || (c.teamside == 0 && !r.alive())
+	r := b.root(c.playerNo)
+	return c.teamside == 0 && r != nil && r.bw.initialized && !r.alive()
 }
 
 // Handle lane and facing buttons. Returns the inputs with those buttons removed
 func (b *Brawler) processInput(c *Char, in [14]bool) [14]bool {
 	st := b.charState(c)
-	if st == nil || !st.initialized {
+	if st == nil {
 		return in
 	}
 	laneIdx := brawlerButtonIndex(sys.cfg.Brawler.LaneButton)
@@ -835,7 +1025,7 @@ func (b *Brawler) shouldTurn(c *Char) (bool, bool) {
 		return false, false
 	}
 	st := b.charState(c)
-	if st == nil || !st.initialized {
+	if st == nil {
 		return false, false
 	}
 	return st.desiredFace != 0 && st.desiredFace != c.facing, true
@@ -878,7 +1068,7 @@ func (b *Brawler) laneUpdate(c *Char) {
 		return
 	}
 	st := b.charState(c)
-	if st == nil || !st.initialized || c.scf(SCF_disabled) {
+	if st == nil || c.scf(SCF_disabled) {
 		return
 	}
 	// Thrown characters follow the thrower. They glide back to their lane once released
@@ -948,49 +1138,45 @@ func (b *Brawler) remainingAirTicks(c *Char) float32 {
 func (b *Brawler) assignTokens() {
 	maxAttackers := sys.cfg.Brawler.AttackersPerPlayer
 	type cand struct {
-		pn   int
+		c    *Char
 		dist float32
 	}
 	byTarget := map[int][]cand{}
-	for pn := 0; pn < MaxSimul*2; pn++ {
-		c := b.root(pn)
-		st := &b.chars[pn]
-		st.ai.hasToken = false
-		if c == nil || c.controller >= 0 || !c.alive() || c.scf(SCF_disabled) || st.ai.target < 0 {
+	for _, c := range b.instances() {
+		c.bw.ai.hasToken = false
+		if !c.alive() || c.bw.ai.target < 0 {
 			continue
 		}
-		t := b.root(st.ai.target)
+		t := b.root(c.bw.ai.target)
 		if t == nil {
 			continue
 		}
-		d := Abs(t.pos[0]*t.localscl-c.pos[0]*c.localscl) + float32(Abs(b.chars[t.playerNo].targetLane-st.targetLane))*60
-		byTarget[st.ai.target] = append(byTarget[st.ai.target], cand{pn, d})
+		d := Abs(t.pos[0]*t.localscl-c.pos[0]*c.localscl) + float32(Abs(t.bw.targetLane-c.bw.targetLane))*60
+		byTarget[c.bw.ai.target] = append(byTarget[c.bw.ai.target], cand{c, d})
 	}
 	for _, list := range byTarget {
 		// Small lists, simple insertion sort keeps this deterministic
 		for i := 1; i < len(list); i++ {
-			for j := i; j > 0 && (list[j].dist < list[j-1].dist || list[j].dist == list[j-1].dist && list[j].pn < list[j-1].pn); j-- {
+			for j := i; j > 0 && (list[j].dist < list[j-1].dist || list[j].dist == list[j-1].dist && list[j].c.id < list[j-1].c.id); j-- {
 				list[j], list[j-1] = list[j-1], list[j]
 			}
 		}
 		for i := 0; i < len(list) && int32(i) < maxAttackers; i++ {
-			b.chars[list[i].pn].ai.hasToken = true
+			list[i].c.bw.ai.hasToken = true
 		}
 	}
 }
 
-// Nearest valid opponent
+// Nearest valid player
 func (b *Brawler) pickTarget(c *Char) int {
 	best, bestDist := -1, float32(math.MaxFloat32)
-	st := b.charState(c)
-	for pn := c.teamside ^ 1; pn < MaxSimul*2; pn += 2 {
-		t := b.root(pn)
-		if t == nil || !t.alive() || t.scf(SCF_disabled) || t.scf(SCF_standby) {
+	for _, t := range b.players(true) {
+		if t.scf(SCF_standby) {
 			continue
 		}
-		d := Abs(t.pos[0]*t.localscl-c.pos[0]*c.localscl) + float32(Abs(b.chars[pn].targetLane-st.targetLane))*60
+		d := Abs(t.pos[0]*t.localscl-c.pos[0]*c.localscl) + float32(Abs(t.bw.targetLane-c.bw.targetLane))*60
 		if d < bestDist {
-			best, bestDist = pn, d
+			best, bestDist = t.playerNo, d
 		}
 	}
 	return best
@@ -999,7 +1185,7 @@ func (b *Brawler) pickTarget(c *Char) int {
 // Generate enemy inputs. Replaces random AI button jamming
 func (b *Brawler) aiButtons(c *Char) (in [14]bool) {
 	st := b.charState(c)
-	if st == nil || !st.initialized {
+	if st == nil || !st.enemy {
 		return
 	}
 	ai := &st.ai
@@ -1026,7 +1212,7 @@ func (b *Brawler) aiButtons(c *Char) (in [14]bool) {
 	if t == nil {
 		return
 	}
-	tst := &b.chars[t.playerNo]
+	tst := &t.bw
 
 	dx := t.pos[0]*t.localscl - c.pos[0]*c.localscl
 	adx := Abs(dx)

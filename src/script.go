@@ -6164,6 +6164,7 @@ func systemScriptInit(l *lua.LState) {
 			return 2
 		}
 		sys.brawler.level = lv
+		sys.brawler.typeDefs = nil
 		tbl := l.NewTable()
 		tbl.RawSetString("name", lua.LString(lv.name))
 		tbl.RawSetString("stage", lua.LString(lv.stage))
@@ -6174,16 +6175,35 @@ func systemScriptInit(l *lua.LState) {
 			et.RawSetString("alias", lua.LString(e.alias))
 			et.RawSetString("def", lua.LString(e.def))
 			et.RawSetString("pal", lua.LNumber(e.pal))
+			et.RawSetString("type", lua.LNumber(e.typ+1))
 			enemies.Append(et)
 		}
 		tbl.RawSetString("enemies", enemies)
+		types := l.NewTable()
+		for _, def := range lv.types {
+			types.Append(lua.LString(def))
+		}
+		tbl.RawSetString("types", types)
 		l.Push(tbl)
 		return 1
+	})
+	luaRegister(l, "brawlerSetTypeDefs", func(*lua.LState) int {
+		/*Set the resolved character def files of the loaded level's enemy types.
+		The first type is loaded as P2, the others into attached char slots.
+		@function brawlerSetTypeDefs
+		@tparam table defs Array of def file paths, in the order of the level's `types`.*/
+		var defs []string
+		tableArg(l, 1).ForEach(func(_, v lua.LValue) {
+			defs = append(defs, lua.LVAsString(v))
+		})
+		sys.brawler.typeDefs = defs
+		return 0
 	})
 	luaRegister(l, "brawlerClearLevel", func(*lua.LState) int {
 		/*Unload the current beat 'em up level.
 		@function brawlerClearLevel*/
 		sys.brawler.level = nil
+		sys.brawler.typeDefs = nil
 		sys.brawler.enabled = false
 		return 0
 	})
