@@ -8,19 +8,20 @@ if type(levels) ~= 'table' then
 	levels = {levels}
 end
 
+-- Abort the mode with an error message
+local function fail(msg)
+	panicError("\n" .. msg .. "\n")
+	brawlerClearLevel()
+	setMatchNo(-1)
+end
+
 for i = matchNo(), #levels do
 	local lvl, err = brawlerLoadLevel(levels[i])
 	if lvl == nil then
-		panicError("\nUnable to load brawler level: " .. tostring(levels[i]) .. "\n" .. tostring(err) .. "\n")
-		brawlerClearLevel()
-		setMatchNo(-1)
-		return
+		return fail("Unable to load brawler level: " .. tostring(levels[i]) .. "\n" .. tostring(err))
 	end
 	if #lvl.types == 0 then
-		panicError("\nBrawler level defines no enemies: " .. tostring(levels[i]) .. "\n")
-		brawlerClearLevel()
-		setMatchNo(-1)
-		return
+		return fail("Brawler level defines no enemies: " .. tostring(levels[i]))
 	end
 	-- Every enemy character is loaded once: the first as P2, the others into attached char slots.
 	-- Resolve them like select.def entries so that plain names such as "kfm" work.

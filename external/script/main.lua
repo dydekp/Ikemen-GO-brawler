@@ -2899,7 +2899,7 @@ function main.f_start()
 	if main.group == 'title_info' then
 		main.f_appendItemname(motif.title_info.menu, '', 'brawler', 'BRAWLER', 'options')
 	end
-	main.menu ={title = main.f_itemnameUpper(motif[main.group].title.text, motif[main.group].menu.title.uppercase), submenu = {}, items = {}}
+	main.menu = {title = main.f_itemnameUpper(motif[main.group].title.text, motif[main.group].menu.title.uppercase), submenu = {}, items = {}}
 	main.menu.loop = main.f_createMenu(main.menu, true, main.group == 'title_info', main.group == 'title_info', false)
 	local w = main.f_menuWindow(motif[main.group].menu)
 	local t_pos = {} --for storing current main.menu table position
