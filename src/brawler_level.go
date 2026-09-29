@@ -35,6 +35,7 @@ type BrawlerEnemy struct {
 	name     string           // Display name in the HUD. Empty = the character's name
 	boss     bool             // Shown in the boss lifebar
 	behavior *BrawlerBehavior // AI profile
+	intro    *BrawlerIntro    // Character introduction shown when it first appears, or nil
 	typ      int              // Index into BrawlerLevel.types
 }
 
@@ -54,6 +55,7 @@ type BrawlerLevel struct {
 	enemies   []BrawlerEnemy
 	types     []string                    // Distinct enemy character defs, as written in the level
 	behaviors map[string]*BrawlerBehavior // AI profiles: built in, global file and level sections
+	intros    map[string]*BrawlerIntro    // By enemy alias
 	waves     []BrawlerWave
 }
 
@@ -150,6 +152,7 @@ type brawlerLevelParser struct {
 	pending   []brawlerPendingSpawn
 	bosses    []string
 	behAssign [][2]string // Enemy alias, profile name
+	intro     *BrawlerIntro
 }
 
 // Parse a brawler level definition
@@ -195,6 +198,15 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 				return fmt.Errorf("behavior section needs a name: [Behavior name]")
 			}
 			p.beh = p.lv.behavior(name, true)
+		case "intro":
+			if name == "" {
+				return fmt.Errorf("intro section needs an enemy alias: [Intro alias]")
+			}
+			p.intro = &BrawlerIntro{}
+			if p.lv.intros == nil {
+				p.lv.intros = map[string]*BrawlerIntro{}
+			}
+			p.lv.intros[name] = p.intro
 		}
 		return nil
 	}
@@ -207,6 +219,8 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 		return p.waveKey(l)
 	case "behavior":
 		return p.lv.setBehavior(p.beh, l.key, l.val)
+	case "intro":
+		return p.intro.set(l.key, l.val)
 	}
 	return nil
 }
@@ -431,6 +445,13 @@ func (p *brawlerLevelParser) finish() error {
 		}
 		lv.enemies[i].behavior = b
 	}
+	for alias, in := range lv.intros {
+		i := lv.enemyIndex(alias)
+		if i < 0 {
+			return fmt.Errorf("intro refers to unknown enemy '%v'", alias)
+		}
+		lv.enemies[i].intro = in
+	}
 	for _, a := range p.bosses {
 		i := lv.enemyIndex(a)
 		if i < 0 {
@@ -459,6 +480,32 @@ func (p *brawlerLevelParser) finish() error {
 	}
 	if lv.name == "" {
 		lv.name = strings.TrimSuffix(filepath.Base(lv.path), filepath.Ext(lv.path))
+	}
+	return nil
+}
+
+// Character introduction of an enemy: [Intro alias]
+type BrawlerIntro struct {
+	name  string   // Empty = the enemy's display name
+	lines []string // Info lines: style, strengths, weaknesses and free text, in file order
+}
+
+func (in *BrawlerIntro) set(key, val string) error {
+	label := map[string]string{
+		"style": "STYLE", "strength": "STRENGTH", "strengths": "STRENGTHS",
+		"weakness": "WEAKNESS", "weaknesses": "WEAKNESSES",
+	}
+	switch key {
+	case "name":
+		in.name = val
+	case "text", "line":
+		in.lines = append(in.lines, val)
+	default:
+		l, ok := label[key]
+		if !ok {
+			return fmt.Errorf("unknown intro parameter '%v' (name, style, strength, weakness, text)", key)
+		}
+		in.lines = append(in.lines, l+": "+val)
 	}
 	return nil
 }

@@ -372,3 +372,62 @@ func TestBrawlerMaxAlive(t *testing.T) {
 		t.Errorf("2 players: got %v, want 6", n)
 	}
 }
+
+func TestBrawlerIntroParsing(t *testing.T) {
+	lv, err := loadBrawlerLevel(writeBrawlerLevel(t, `
+[Level]
+stage = s
+[Enemies]
+enemy = thug, kfm
+enemy = grunt, kfm
+[Intro thug]
+name     = "Two-Kick" Tony
+style    = Street kicks
+weakness = Forgets to guard, sometimes
+text     = Free text
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := lv.enemies[0].intro
+	if in == nil || in.name != `"Two-Kick" Tony` || len(in.lines) != 3 ||
+		in.lines[0] != "STYLE: Street kicks" || in.lines[1] != "WEAKNESS: Forgets to guard, sometimes" || in.lines[2] != "Free text" {
+		t.Fatalf("intro: %+v", in)
+	}
+	if lv.enemies[1].intro != nil {
+		t.Error("enemy without section got an intro")
+	}
+	for name, text := range map[string]string{
+		"unknown enemy": "[Level]\nstage = s\n[Enemies]\nenemy = a, kfm\n[Intro b]\nstyle = x\n",
+		"unknown key":   "[Level]\nstage = s\n[Enemies]\nenemy = a, kfm\n[Intro a]\ncolor = red\n",
+	} {
+		if _, err := loadBrawlerLevel(writeBrawlerLevel(t, text)); err == nil {
+			t.Errorf("%v accepted", name)
+		}
+	}
+}
+
+func TestBrawlerIntroOnce(t *testing.T) {
+	oldMode, oldIntros := sys.gameMode, sys.cfg.Brawler.Intros
+	defer func() { sys.gameMode, sys.cfg.Brawler.Intros = oldMode, oldIntros }()
+	sys.gameMode = "brawler"
+	sys.cfg.Brawler.Intros = true
+	lv := &BrawlerLevel{enemies: []BrawlerEnemy{{intro: &BrawlerIntro{}}, {}}}
+	b := &Brawler{enabled: true, level: lv}
+	c := &Char{id: 7}
+	c.bw.entry = 0
+	b.startIntro(c)
+	if !b.introActive() || b.introID != 7 {
+		t.Fatal("intro not started")
+	}
+	b.introOn = false
+	b.startIntro(c)
+	if b.introOn {
+		t.Error("intro shown twice for the same enemy entry")
+	}
+	c.bw.entry = 1
+	b.startIntro(c)
+	if b.introOn {
+		t.Error("intro shown for an enemy without intro")
+	}
+}

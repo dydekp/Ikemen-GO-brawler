@@ -32,6 +32,24 @@ behavior = ninja,   flanker
 behavior = big,     hitrun
 behavior = boss,    brute
 
+; Title cards shown the first time these enemies appear
+[Intro thug]
+name     = "Two-Kick" Tony
+style    = Street kicks
+strength = Never stops kicking
+weakness = Forgets to guard
+
+[Intro ninja]
+style    = Shadow lanes
+strength = Sneaks behind you through the lanes
+weakness = Light as a feather
+
+[Intro boss]
+style    = Kung fu master
+strength = Specials, guards a lot
+weakness = Slow to start
+text     = Nobody has walked past him. Yet.
+
 [Wave 1]
 ; Starts right away
 trigger  = -9999

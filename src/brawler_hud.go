@@ -137,32 +137,39 @@ type brawlerHudText struct {
 	fnt   *Fnt
 	bank  int32
 	palfx *PalFX
+	layer int16
 }
 
 var brawlerHudPalFX *PalFX // Neutral PalFX for HUD text, created on first use
 
 // Font of the fight screen's P1 name, so the HUD matches the screenpack
-func (b *Brawler) hudFont() brawlerHudText {
+func (b *Brawler) hudFont(layer int16) brawlerHudText {
 	if brawlerHudPalFX == nil {
 		brawlerHudPalFX = newPalFX()
 	}
 	fs := &sys.fightScreen
 	for _, lay := range fs.names {
 		if len(lay) > 0 && lay[0] != nil && lay[0].name.fnt != nil {
-			return brawlerHudText{lay[0].name.fnt, lay[0].name.font[1], brawlerHudPalFX}
+			return brawlerHudText{lay[0].name.fnt, lay[0].name.font[1], brawlerHudPalFX, layer}
 		}
 	}
-	return brawlerHudText{}
+	return brawlerHudText{layer: layer}
 }
 
 // align: 1 = left, 0 = center, -1 = right
 func (t brawlerHudText) draw(x, y float32, text string, align int32) {
-	if t.fnt == nil || text == "" {
+	t.drawScaled(x, y, text, align, 1)
+}
+
+// Text scaled by k, positioned in HUD coordinates
+func (t brawlerHudText) drawScaled(x, y float32, text string, align int32, k float32) {
+	if t.fnt == nil || text == "" || k <= 0 {
 		return
 	}
 	u := brawlerHudUnit()
-	lay := newLayout(brawlerHudLayer)
-	lay.DrawText(x*u+sys.fightScreen.offsetX, y*u, sys.fightScreen.scale, brawlerHudLayer,
+	fs := &sys.fightScreen
+	// DrawText multiplies the position by the scale, so divide it here to keep the position
+	newLayout(t.layer).DrawText((x*u+fs.offsetX)/k, y*u/k, fs.scale*k, t.layer,
 		text, t.fnt, t.bank, align, t.palfx, [4]float32{1, 1, 1, 1})
 }
 
@@ -199,10 +206,18 @@ func (b *Brawler) isBoss(c *Char) bool {
 
 // Draw the HUD. Called by the fight screen instead of the regular lifebars
 func (b *Brawler) drawHUD(layerno int16) {
-	if layerno != brawlerHudLayer || !b.active() {
+	if !b.active() {
 		return
 	}
-	txt := b.hudFont()
+	// Character introductions cover everything else
+	if layerno == 2 {
+		b.drawIntro(b.hudFont(2))
+		return
+	}
+	if layerno != brawlerHudLayer {
+		return
+	}
+	txt := b.hudFont(brawlerHudLayer)
 	players := b.players(false)
 	for i, p := range players {
 		b.drawPlayerPanel(p, brawlerHudLayout(i, len(players)), i, txt)

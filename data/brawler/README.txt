@@ -112,6 +112,24 @@ standing. Examples:
   spawn = thug|ninja, random, random, 45, inf ; endless mix from both sides
 
 
+CHARACTER INTRODUCTIONS
+-----------------------
+The first time an enemy with an [Intro alias] section appears on screen, the
+game freezes and a title card introduces it: its portrait, name and info
+lines. It closes after [Brawler] IntroTime frames or when a player presses
+an attack or start button. [Brawler] Intros = 0 turns them off.
+
+[Intro thug]                     ; alias of an enemy entry
+name     = "Two-Kick" Tony       ; Optional, default: the enemy's name
+style    = Street kicks          ; Shown as "STYLE: ..."
+strength = Never stops kicking   ; "STRENGTH: ..." (or strengths)
+weakness = Forgets to guard      ; "WEAKNESS: ..." (or weaknesses)
+text     = Free text line        ; Shown as is. Any number of lines
+
+Lines appear in the order they are written. The portrait is the
+character's big select screen portrait (sprite 9000,1) in its default colors.
+
+
 HUD
 ---
 The regular 1v1 lifebars are replaced by the brawler HUD:

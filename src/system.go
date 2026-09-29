@@ -2546,6 +2546,10 @@ func (s *System) debugPaused() bool {
 }
 
 func (s *System) motifPauseGame() bool {
+	// Beat 'em up character introduction
+	if s.brawler.introActive() {
+		return true
+	}
 	// Menu is open
 	if s.motif.me.active {
 		return true
@@ -2981,6 +2985,9 @@ func (s *System) uiAction() {
 		s.escPending = false
 	}
 	s.uiFrameCounter++
+
+	// Beat 'em up character introductions run while the game is frozen
+	s.brawler.introStep()
 
 	// Step motif
 	// Needs to happen at the very end or pause toggles will get out of sync

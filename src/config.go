@@ -236,6 +236,8 @@ type Config struct {
 		BowlSlowdown        float32  `ini:"BowlSlowdown" sync:"host"`
 		EnemyLife           float32  `ini:"EnemyLife" sync:"host"`
 		MaxEnemiesPerPlayer int32    `ini:"MaxEnemiesPerPlayer" sync:"host"`
+		Intros              bool     `ini:"Intros" sync:"host"`
+		IntroTime           int32    `ini:"IntroTime" sync:"host"`
 	} `ini:"Brawler"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`

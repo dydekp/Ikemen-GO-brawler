@@ -19,6 +19,7 @@ package main
 //   brawler_control.go  lane and facing buttons, lane movement
 //   brawler_ai.go       enemy behavior profiles and AI
 //   brawler_hud.go      lifebars
+//   brawler_intro.go    character introduction title cards
 
 import "math"
 
@@ -97,7 +98,12 @@ type Brawler struct {
 	camMin     float32
 	camMinSet  bool
 	complete   bool
-	goTime     int32 // Frames left to show the "GO" sign after a wave
+	goTime     int32  // Frames left to show the "GO" sign after a wave
+	introOn    bool   // A character introduction is shown and the game is frozen
+	introID    int32  // Player ID of the introduced enemy
+	introEntry int    // Its enemy entry
+	introTime  int32  // Frames the introduction has been shown
+	introShown []bool // Per enemy entry: introduction already shown in this level
 }
 
 func (b *Brawler) active() bool {
@@ -250,6 +256,8 @@ func (b *Brawler) roundInit() {
 	b.camMinSet = false
 	b.complete = false
 	b.goTime = 0
+	b.introOn = false
+	b.introShown = nil
 
 	// Players start on the lane closest to their stage start position
 	for _, c := range b.players(false) {
@@ -463,6 +471,7 @@ func (b *Brawler) updateEnemies() {
 			x := brawlerX(c)
 			if (x >= sys.xmin && x <= sys.xmax) || st.enterTime > brawlerEnterTimeout {
 				st.entering = false
+				b.startIntro(c)
 			}
 		}
 		if c.alive() {
