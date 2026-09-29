@@ -13657,7 +13657,8 @@ func (cl *CharList) commandUpdate() {
 				// Update commands
 				for i := range c.cmd {
 					extratime := Btoi(hpbuf || pausebuf) + Btoi(winbuf)
-					helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
+					// Beat 'em up enemy instances are helpers that stand in for player characters, so they read inputs like roots
+					helperbug := !c.actsAsRoot() && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
 					c.cmd[i].Step(c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
 				}
 				// Enable AI cheated command

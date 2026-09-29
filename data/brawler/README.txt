@@ -149,11 +149,11 @@ moves         = x*3 | a*3 | y | b   ; Attacks (syntax below)
 combo         = 0, 2       ; Follow-up moves after an attack (min, max)
 combo.moves   = x | a      ; Moves for follow-ups (default: moves)
 combo.delay   = 8, 14      ; Frames between combo moves
-cooldown      = 25, 70     ; Frames between attacks
+cooldown      = 20, 55     ; Frames between attacks
 reach         = 30         ; Attack distance in front of the body
 special       = 0.15       ; Chance an attack is a random command instead
 guard         = 0.1        ; Chance to guard when the target attacks
-hover         = 70, 130    ; Distance kept while waiting to attack
+hover         = 60, 120    ; Distance kept while waiting to attack
 tokens        = 1          ; 1 = wait for an attack slot ([Brawler]
                            ; AttackersPerPlayer), 0 = attack whenever ready
 run           = 0          ; 1 = run when far away (double tap forward)
@@ -178,7 +178,7 @@ Move syntax:
   moves = cmd:QCF_x | cmd:FF_b   named commands (Kung Fu Man)
 
 Profiles are tuned for the default difficulty. The AI level of the game options
-scales them: harder levels shorten the cooldown between attacks (x1.5 at
+scales them: harder levels shorten the cooldown between attacks (x1.3 at
 level 1, x0.6 at level 8) and raise the guard chance (x0.4 to x1.8).
 Characters with their own AI code (AILevel triggers) still run it.
 

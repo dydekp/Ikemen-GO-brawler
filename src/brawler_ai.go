@@ -79,12 +79,12 @@ func newBrawlerBehavior(name string) *BrawlerBehavior {
 		tactic:     BT_Direct,
 		runDist:    140,
 		reach:      30,
-		cooldown:   [2]int32{25, 70},
+		cooldown:   [2]int32{20, 55},
 		combo:      [2]int32{0, 2},
 		comboDelay: [2]int32{8, 14},
 		special:    0.15,
 		guard:      0.1,
-		hover:      [2]float32{70, 130},
+		hover:      [2]float32{60, 120},
 		laneFollow: true,
 		laneDelay:  [2]int32{10, 45},
 		tokens:     true,
@@ -385,6 +385,8 @@ type brawlerAI struct {
 	side         float32 // Flank side relative to the target: -1 left, 1 right
 	flankLane    int32
 	cheat        int32 // Command index to perform this frame, -1 if none
+	runWait      int32 // Frames before another run may be started
+	stalkTime    int32 // Frames until the hover distance changes
 }
 
 func (ai *brawlerAI) init(beh *BrawlerBehavior) {
@@ -396,7 +398,7 @@ func (ai *brawlerAI) init(beh *BrawlerBehavior) {
 		target: -1,
 		// RandF32 excludes max+1, so this stays within the configured range
 		hover:     RandF32(beh.hover[0], Max(beh.hover[0], beh.hover[1]-1)),
-		cooldown:  Rand(10, 40),
+		cooldown:  Rand(0, 20),
 		flankLane: -1,
 		cheat:     -1,
 	}
@@ -420,7 +422,7 @@ func brawlerSkill(c *Char) float32 {
 
 // Profiles are tuned for the default difficulty. Harder levels attack more often and guard more
 func brawlerCooldownScale(skill float32) float32 {
-	return 1.5 - skill*0.9 // 1.5x at level 1, about 1.1x at level 4, 0.6x at level 8
+	return 1.3 - skill*0.7 // 1.3x at level 1, 1x at level 4, 0.6x at level 8
 }
 
 func brawlerGuardScale(skill float32) float32 {
@@ -574,6 +576,13 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 		ai.laneCooldown--
 	}
 	ai.phaseTime++
+	// Waiting enemies keep changing their distance instead of standing still
+	if ai.stalkTime > 0 {
+		ai.stalkTime--
+	} else {
+		ai.hover = RandF32(ai.beh.hover[0], Max(ai.beh.hover[0], ai.beh.hover[1]-1))
+		ai.stalkTime = Rand(40, 100)
+	}
 
 	if b.aiContinue(f) || b.aiGuard(f) {
 		return f.in
@@ -748,6 +757,11 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 	if !f.sameLane || !f.grounded || f.adx > f.reach || !c.ctrl() || ai.cooldown > 0 || !f.facingTarget {
 		return false
 	}
+	// Don't pile onto a target that is already being hit or lies on the ground. Without this, several
+	// enemies juggle a player to death. An enemy's own combo still continues (aiContinue)
+	if f.t.ss.moveType == MT_H || f.t.ss.stateType == ST_L {
+		return false
+	}
 	if brawlerChance(beh.special) {
 		if cmds := c.cmd[c.ss.sb.playerNo].Commands; len(cmds) > 0 {
 			ai.cheat = Rand(0, int32(len(cmds))-1)
@@ -779,8 +793,13 @@ func (b *Brawler) aiMove(f *brawlerAIFrame, x float32) {
 		return
 	}
 	dir := Sign(dx)
-	// Running: double tap forward, then keep holding it
-	if f.beh.run && dir == c.facing && Abs(dx) > f.beh.runDist && f.grounded && c.ctrl() && c.ss.no != 100 {
+	// Running: double tap forward, then keep holding it. Holding must not be interrupted by another
+	// double tap while the run state starts, or the release step stops the run again
+	if f.ai.runWait > 0 {
+		f.ai.runWait--
+	}
+	if f.beh.run && dir == c.facing && Abs(dx) > f.beh.runDist && f.grounded && c.ctrl() && c.ss.no != 100 && f.ai.runWait == 0 {
+		f.ai.runWait = 30
 		f.ai.start([]brawlerStep{{dirs: bdF, frames: 2}, {frames: 2}, {dirs: bdF, frames: 2}}, false)
 		f.ai.runProgram(c, &f.in)
 		return
