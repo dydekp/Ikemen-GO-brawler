@@ -101,6 +101,9 @@ spawn parameters:
   count  how many enemies this line spawns (default 1), or "inf" for an
          endless stream. A wave with an endless line needs kills or time
 
+Only [Brawler] MaxEnemiesPerPlayer enemies (default 4) per player in the
+fight are alive at the same time, whatever the waves say.
+
 Spawn lines run one after another. A wave is cleared when its spawning has
 finished (all counts reached, or its kills / time limit) and no enemy is left
 standing. Examples:
