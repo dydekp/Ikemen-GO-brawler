@@ -288,3 +288,16 @@ func (b *Brawler) dodging(c *Char) bool {
 	st := b.charState(c)
 	return st != nil && st.laneJump
 }
+
+// Turn a player around when a ground attack starts and the player asks to face the other way.
+// Characters normally turn only while idle, walking or crouching, so chained attacks (light attacks
+// cancelled into each other) would otherwise keep hitting the same side. Called when a new state
+// starts, after its StateDef was applied, which is where the engine applies facep2 as well
+func (b *Brawler) turnOnAttack(c *Char) {
+	if !b.active() || c.helperIndex != 0 || c.ss.moveType != MT_A || c.ss.stateType == ST_A {
+		return
+	}
+	if turn, ok := b.shouldTurn(c); ok && turn && !c.asf(ASF_noautoturn) {
+		c.setFacing(-c.facing)
+	}
+}

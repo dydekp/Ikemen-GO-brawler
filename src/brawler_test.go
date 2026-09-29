@@ -321,3 +321,35 @@ func TestBrawlerLaneDodge(t *testing.T) {
 		t.Error("no invulnerability outside lane jumps")
 	}
 }
+
+func TestBrawlerTurnOnAttack(t *testing.T) {
+	oldMode := sys.gameMode
+	defer func() { sys.gameMode = oldMode }()
+	sys.gameMode = "brawler"
+	b := &Brawler{enabled: true, level: &BrawlerLevel{}}
+	player := func(move MoveType, state StateType) *Char {
+		c := &Char{facing: 1}
+		c.bw = brawlerChar{initialized: true, desiredFace: -1}
+		c.ss.moveType, c.ss.stateType = move, state
+		return c
+	}
+	// Ground attack while asking to face left: turns
+	c := player(MT_A, ST_S)
+	b.turnOnAttack(c)
+	if c.facing != -1 {
+		t.Error("ground attack should turn the player")
+	}
+	// Not an attack, an air attack, or an AI character: no turn
+	for name, c := range map[string]*Char{"idle": player(MT_I, ST_S), "air attack": player(MT_A, ST_A)} {
+		b.turnOnAttack(c)
+		if c.facing != 1 {
+			t.Errorf("%v should not turn", name)
+		}
+	}
+	ai := player(MT_A, ST_S)
+	ai.controller = -1
+	b.turnOnAttack(ai)
+	if ai.facing != 1 {
+		t.Error("AI characters keep their own facing")
+	}
+}

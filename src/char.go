@@ -6956,6 +6956,8 @@ func (c *Char) persistentChangeStateHitpauseCorrection(sbc *StateBytecode) {
 func (c *Char) stateChange2() bool {
 	if c.stchtmp && !c.hitPause() {
 		c.ss.sb.init(c)
+		// Beat 'em up players may turn when an attack starts, even when chained from another attack
+		sys.brawler.turnOnAttack(c)
 		// Execute explod removeOnChangeState
 		for i := range sys.explods[c.playerNo] {
 			e := sys.explods[c.playerNo][i]
