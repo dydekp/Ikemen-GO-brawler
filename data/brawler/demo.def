@@ -17,9 +17,10 @@ endx      = 300
 enemy = thug,    kfm,     7
 enemy = thug2,   kfm,     8
 enemy = bruiser, kfm,     9
-enemy = ninja,   kfm_zss, 3
+enemy = ninja,   kfm_zss, 3, 0, Shadow Ninja
 enemy = big,     kfm720,  2
-enemy = boss,    kfm720,  5, 1500
+enemy = boss,    kfm720,  5, 1500, Master Kung Fu
+boss  = boss
 
 [Wave 1]
 ; Starts right away

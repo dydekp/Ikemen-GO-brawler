@@ -60,8 +60,10 @@ type BrawlerEnemy struct {
 	alias string
 	def   string
 	pal   int32
-	life  int32 // 0 = the character's own life
-	typ   int   // Index into BrawlerLevel.types
+	life  int32  // 0 = the character's own life
+	name  string // Display name in the HUD. Empty = the character's name
+	boss  bool   // Shown in the boss lifebar
+	typ   int    // Index into BrawlerLevel.types
 }
 
 type BrawlerLevel struct {
@@ -123,6 +125,7 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 		line        int
 	}
 	var pending []pendingAliases
+	var bossAliases []string
 
 	for n, line := range strings.Split(NormalizeNewlines(text), "\n") {
 		if i := strings.Index(line, ";"); i >= 0 {
@@ -197,12 +200,21 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 				lv.hasEndX = true
 			}
 		case "enemies":
-			// enemy = alias, def[, palette[, life]]
+			// boss = alias[, alias...]
+			if key == "boss" {
+				for _, a := range args {
+					if a != "" {
+						bossAliases = append(bossAliases, strings.ToLower(a))
+					}
+				}
+				continue
+			}
+			// enemy = alias, def[, palette[, life[, name]]]
 			if key != "enemy" {
 				continue
 			}
 			if len(args) < 2 || args[0] == "" || args[1] == "" {
-				return nil, fail("expected enemy = alias, def[, palette[, life]]")
+				return nil, fail("expected enemy = alias, def[, palette[, life[, name]]]")
 			}
 			e := BrawlerEnemy{alias: strings.ToLower(args[0]), def: resolve(args[1]), pal: 1}
 			if lv.enemyIndex(e.alias) >= 0 {
@@ -217,6 +229,10 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 				if e.life, err = parseI(args[3]); err != nil || e.life < 0 {
 					return nil, fail("invalid life: %v", args[3])
 				}
+			}
+			if len(args) > 4 {
+				// The name may contain commas
+				e.name = strings.TrimSpace(strings.Join(args[4:], ","))
 			}
 			// Enemies using the same character share one loaded type
 			e.typ = -1
@@ -317,6 +333,13 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 	if len(lv.enemies) == 0 && len(lv.waves) > 0 {
 		return nil, fmt.Errorf("%v: [Enemies] section defines no enemies", path)
 	}
+	for _, a := range bossAliases {
+		i := lv.enemyIndex(a)
+		if i < 0 {
+			return nil, fmt.Errorf("%v: boss refers to unknown enemy '%v'", path, a)
+		}
+		lv.enemies[i].boss = true
+	}
 	for _, p := range pending {
 		s := &lv.waves[p.wave].spawns[p.spawn]
 		for _, a := range p.aliases {
@@ -391,6 +414,9 @@ type brawlerChar struct {
 	enterTime   int32
 	koTime      int32
 	koForced    bool
+	entry       int   // Enemy entry index in the level (enemies only)
+	hudTarget   int32 // Player ID of the enemy last hit, shown in the player's HUD panel (players only)
+	hudTime     int32 // Frames left to show hudTarget
 	ai          brawlerAI
 }
 
@@ -735,6 +761,7 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 	h.bw = brawlerChar{
 		initialized: true,
 		enemy:       true,
+		entry:       ei,
 		lane:        lane,
 		targetLane:  lane,
 		aiLane:      -1,
@@ -813,6 +840,7 @@ func (b *Brawler) step() {
 	}
 
 	b.assignTokens()
+	b.trackHudTargets()
 
 	if sys.roundState() != 2 || b.complete {
 		return

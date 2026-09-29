@@ -60,10 +60,12 @@ should be further apart than the characters' attack depth, otherwise attacks
 hit across lanes. The z positions use the stage's coordinate space.
 
 [Enemies]
-enemy = alias, character, palette, life
+enemy = alias, character, palette, life, name
+boss  = alias[, alias...]
 
 Any number of enemy entries. palette defaults to 1, life to the character's
-own life. The same character may be listed several times (e.g. with other
+own life (0 also means that), name to the character's name. Enemies listed
+in "boss" get the big boss lifebar at the bottom of the screen. The same character may be listed several times (e.g. with other
 palettes or life); each different character is loaded only once, at the
 start of the level. Up to 17 different characters per level.
 
@@ -97,6 +99,19 @@ standing. Examples:
 
   spawn = thug, right, player, 30, 5          ; 5 thugs from the right
   spawn = thug|ninja, random, random, 45, inf ; endless mix from both sides
+
+
+HUD
+---
+The regular 1v1 lifebars are replaced by the brawler HUD:
+- One big panel per player along the top: portrait, name, life (with
+  recoverable damage in orange) and power with level marks. The top edge is
+  split into equal columns, so 3 and 4 player games fit automatically.
+- Under each player's bars: the enemy that player is hitting, with its name
+  and lifebar. It stays for 3 seconds after the last hit.
+- Bosses (see "boss" above) get a wide bar at the bottom center.
+The HUD uses the fight screen's name font and scales to its localcoord.
+Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 
 
 ENEMY AI

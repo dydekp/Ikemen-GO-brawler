@@ -5740,7 +5740,10 @@ func (fs *FightScreen) visible() bool {
 
 func (fs *FightScreen) draw(layerno int16) {
 	if fs.visible() {
-		if !sys.gsf(GSF_nobardisplay) && fs.bars {
+		if !sys.gsf(GSF_nobardisplay) && fs.bars && sys.brawler.active() {
+			// Beat 'em up mode has its own multiplayer HUD
+			sys.brawler.drawHUD(layerno)
+		} else if !sys.gsf(GSF_nobardisplay) && fs.bars {
 			// Helper to determine whether to iterate elements forward or backward (drawing order)
 			iterationOrder := func(leaderontop bool) (int, int, int) {
 				if leaderontop {
