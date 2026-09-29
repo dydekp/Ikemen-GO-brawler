@@ -23,9 +23,11 @@ default screenpacks, which open the pause menu with it)
   itself is the character's normal jump, so it may go forward, backward or
   straight up depending on the held direction.
   Pressing the button again while jumping (within LaneSelectWindow frames)
-  changes the destination. The first press picks the nearest lane above,
-  further presses go through the remaining lanes (upwards first, then
-  downwards). From the middle of three lanes: 1 press = up, 2 presses = down.
+  changes the destination. Every press cycles one lane up, wrapping from
+  the top lane to the bottom one:
+    from the middle: 1 press = up,     2 presses = down
+    from the top:    1 press = bottom, 2 presses = middle
+    from the bottom: 1 press = middle, 2 presses = top
 
 FacingButton (default "w")
   FacingMode = lock: the character turns towards the direction it walks.

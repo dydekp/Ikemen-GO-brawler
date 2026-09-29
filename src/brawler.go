@@ -663,19 +663,14 @@ func (b *Brawler) nearestLane(z float32) int32 {
 	return best
 }
 
-// Candidate lane for the n-th press of the lane button: nearest lanes upwards first, then downwards
+// Lane for the n-th press of the lane button. Each press cycles one lane up, wrapping from the top
+// lane to the bottom one. From the middle of 3 lanes: 1 press = up, 2 presses = down
 func (b *Brawler) laneCandidate(cur, presses int32) int32 {
-	var order []int32
-	for l := cur - 1; l >= 0; l-- {
-		order = append(order, l)
-	}
-	for l := cur + 1; l < int32(len(b.lanesZ)); l++ {
-		order = append(order, l)
-	}
-	if len(order) == 0 {
+	n := int32(len(b.lanesZ))
+	if n == 0 {
 		return cur
 	}
-	return order[(presses-1)%int32(len(order))]
+	return ((cur-presses)%n + n) % n
 }
 
 // Spawned enemy instances, alive or not
