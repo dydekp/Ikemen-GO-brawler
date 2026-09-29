@@ -6737,7 +6737,7 @@ func (c *Char) playSound(params *PlaySndParams) {
 }
 
 func (c *Char) autoTurn() {
-	if (c.helperIndex == 0 || sys.brawler.isInstance(c)) && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() {
+	if c.actsAsRoot() && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() {
 		switch c.ss.stateType {
 		case ST_S:
 			if c.animNo != 5 {
@@ -12078,7 +12078,7 @@ func (c *Char) actionPrepare() {
 
 	if !c.pauseBool {
 		// Perform basic actions
-		if c.keyctrl[0] && c.cmd != nil && (c.helperIndex == 0 || c.controller >= 0 || sys.brawler.isInstance(c)) {
+		if c.keyctrl[0] && c.cmd != nil && (c.actsAsRoot() || c.controller >= 0) {
 			// In Mugen, characters can perform basic actions even if they are KO
 			if !c.asf(ASF_nohardcodedkeys) {
 				if c.ctrl() {
@@ -12322,7 +12322,7 @@ func (c *Char) actionRun() {
 
 	if !c.pauseBool {
 		if c.keyctrl[0] && c.cmd != nil {
-			if c.ctrl() && (c.controller >= 0 || c.helperIndex == 0 || sys.brawler.isInstance(c)) {
+			if c.ctrl() && (c.controller >= 0 || c.actsAsRoot()) {
 				if !c.asf(ASF_nohardcodedkeys) {
 					if c.inguarddist && c.scf(SCF_guard) && !c.inGuardState() && c.cmd[0].Buffer.Bb > 0 {
 						c.changeState(120, -1, -1, "")
@@ -13609,7 +13609,7 @@ func (cl *CharList) commandUpdate() {
 			}
 			// Auto turning check for the root
 			// Having this here makes B and F inputs reverse the same instant the character turns
-			if act && (c.helperIndex == 0 || sys.brawler.isInstance(c)) && (c.scf(SCF_ctrl) || sys.roundState() > 2) &&
+			if act && c.actsAsRoot() && (c.scf(SCF_ctrl) || sys.roundState() > 2) &&
 				(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 ||
 					c.ss.no == 52 && (c.animTime() == 0 || (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0))) {
 				c.autoTurn()

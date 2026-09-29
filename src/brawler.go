@@ -595,3 +595,8 @@ func (b *Brawler) ignoreScreenBound(c *Char) bool {
 	r := b.root(c.playerNo)
 	return c.teamside == 0 && r != nil && r.bw.initialized && !r.alive()
 }
+
+// Roots, and brawler enemy instances, which use hardcoded keys and auto turning like roots
+func (c *Char) actsAsRoot() bool {
+	return c.helperIndex == 0 || sys.brawler.isInstance(c)
+}
