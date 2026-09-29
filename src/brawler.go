@@ -69,6 +69,7 @@ type brawlerChar struct {
 	enterTime int32
 	koTime    int32
 	koForced  bool
+	introWait int32    // Frames the move that triggers the enemy's introduction has been going on
 	bowled    [8]int32 // Enemies hit by this body during the current fall
 	bowledN   int
 	ai        brawlerAI
@@ -472,10 +473,12 @@ func (b *Brawler) updateEnemies() {
 			x := brawlerX(c)
 			if (x >= sys.xmin && x <= sys.xmax) || st.enterTime > brawlerEnterTimeout {
 				st.entering = false
-				b.startIntro(c)
 			}
 		}
 		if c.alive() {
+			if !st.entering {
+				b.checkIntro(c)
+			}
 			continue
 		}
 		if st.koTime == 0 && b.waveActive {

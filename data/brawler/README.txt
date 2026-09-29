@@ -114,8 +114,8 @@ standing. Examples:
 
 CHARACTER INTRODUCTIONS
 -----------------------
-The first time an enemy with an [Intro alias] section appears on screen, the
-game freezes and puts it in the spotlight: everything else fades into one
+The first time an enemy with an [Intro alias] section appears on screen (or
+does the move set by "trigger"), the game freezes and puts it in the spotlight: everything else fades into one
 color while the enemy stays visible on the field, and its name and info
 lines appear on the empty side of the screen. It closes after [Brawler] IntroTime frames or when a player presses
 an attack or start button. [Brawler] Intros = 0 turns them off.
@@ -126,6 +126,18 @@ style    = Street kicks          ; Shown as "STYLE: ..."
 strength = Never stops kicking   ; "STRENGTH: ..." (or strengths)
 weakness = Forgets to guard      ; "WEAKNESS: ..." (or weaknesses)
 text     = Free text line        ; Shown as is. Any number of lines
+color    = 40, 70, 20            ; Color everything else fades into
+                                 ; (r, g, b or #rrggbb)
+trigger  = attack                ; When the introduction starts:
+                                 ;   enter  on stepping onto the screen
+                                 ;   attack on its first attack
+                                 ;   jump   on its first jump
+                                 ;   lane   when it switches into its
+                                 ;          target's lane
+                                 ;   run    when it starts running
+delay    = 5                     ; Frames into the move before the freeze,
+                                 ; so it freezes mid move. Default: 5
+                                 ; attack, 12 jump, 10 lane, 8 run
 
 Lines appear in the order they are written.
 

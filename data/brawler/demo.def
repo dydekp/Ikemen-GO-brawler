@@ -18,7 +18,7 @@ endx      = 300
 enemy = thug,    kfm,     7
 enemy = thug2,   kfm,     8
 enemy = bruiser, kfm,     9
-enemy = ninja,   kfm_zss, 3, 0, Shadow Ninja
+enemy = ninja,   kfm_zss, 3, 50, Shadow Ninja
 enemy = big,     kfm720,  2
 enemy = boss,    kfm720,  5, 1500, Master Kung Fu
 boss  = boss
@@ -32,23 +32,54 @@ behavior = ninja,   flanker
 behavior = big,     hitrun
 behavior = boss,    brute
 
-; Title cards shown the first time these enemies appear
+; Introductions, shown the first time each enemy does its signature move:
+; everything else fades into the color, the enemy freezes mid move
 [Intro thug]
 name     = "Two-Kick" Tony
 style    = Street kicks
 strength = Never stops kicking
 weakness = Forgets to guard
+trigger  = attack
+color    = 40, 70, 20
+
+[Intro thug2]
+name     = Leapfrog Lenny
+style    = Over the top
+strength = Jumps over you, hits your back
+weakness = Lands wide open
+trigger  = jump
+color    = 70, 45, 20
+
+[Intro bruiser]
+name     = The Accountant
+style    = Combos
+strength = Never stops at one hit
+weakness = Needs a breather after
+trigger  = attack
+delay    = 8
+color    = 25, 25, 70
 
 [Intro ninja]
 style    = Shadow lanes
-strength = Sneaks behind you through the lanes
-weakness = Light as a feather
+strength = Sneaks in through the lanes
+weakness = One good punch and he's out
+trigger  = lane
+color    = 60, 60, 10
+
+[Intro big]
+name     = Hit-and-Run Harry
+style    = Hit and run
+strength = Fast, hard to pin down
+weakness = Never finishes a fight
+trigger  = run
+color    = 10, 55, 60
 
 [Intro boss]
 style    = Kung fu master
 strength = Specials, guards a lot
 weakness = Slow to start
 text     = Nobody has walked past him. Yet.
+color    = 75, 10, 20
 
 [Wave 1]
 ; Starts right away

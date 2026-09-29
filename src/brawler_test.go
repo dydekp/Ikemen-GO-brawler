@@ -431,3 +431,41 @@ func TestBrawlerIntroOnce(t *testing.T) {
 		t.Error("intro shown for an enemy without intro")
 	}
 }
+
+func TestBrawlerIntroTriggers(t *testing.T) {
+	lv, err := loadBrawlerLevel(writeBrawlerLevel(t, `
+[Level]
+stage = s
+[Enemies]
+enemy = a, kfm
+enemy = b, kfm
+enemy = c, kfm
+[Intro a]
+trigger = attack
+color   = 40, 70, 20
+[Intro b]
+trigger = lane
+delay   = 3
+color   = #ff8000
+[Intro c]
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b, c := lv.enemies[0].intro, lv.enemies[1].intro, lv.enemies[2].intro
+	if a.trigger != BIT_Attack || a.color != 0x284614 || a.freezeDelay() != brawlerIntroDelays[BIT_Attack] {
+		t.Errorf("a: %+v", a)
+	}
+	if b.trigger != BIT_Lane || b.color != 0xff8000 || b.freezeDelay() != 3 {
+		t.Errorf("b: %+v", b)
+	}
+	if c.trigger != BIT_Enter || c.color != brawlerIntroMaskColor || c.freezeDelay() != 0 {
+		t.Errorf("defaults: %+v", c)
+	}
+	for _, bad := range []string{"trigger = dance", "color = 1, 2", "color = 300, 0, 0", "delay = -2"} {
+		text := "[Level]\nstage = s\n[Enemies]\nenemy = a, kfm\n[Intro a]\n" + bad + "\n"
+		if _, err := loadBrawlerLevel(writeBrawlerLevel(t, text)); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}

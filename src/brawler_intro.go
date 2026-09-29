@@ -15,7 +15,7 @@ const (
 	brawlerIntroSkipDelay = 45       // Frames before a button press may close the introduction
 	brawlerIntroFade      = 30       // Frames the mask takes to fade in
 	brawlerIntroText      = 20       // Frame the text starts to appear
-	brawlerIntroMaskColor = 0x1c0a12 // Single color everything but the introduced enemy fades into
+	brawlerIntroMaskColor = 0x1c0a12 // Default color everything but the introduced enemy fades into
 	brawlerIntroAccent    = 0xd8382a
 )
 
@@ -74,7 +74,7 @@ func brawlerIntroEase(t, from, n int32) float32 {
 func (b *Brawler) drawIntroMask() {
 	h := brawlerHudHeight()
 	alpha := int32(248 * brawlerIntroEase(b.introTime, 0, brawlerIntroFade))
-	brawlerHudFill(-80, -40, 480, h+80, brawlerIntroMaskColor, alpha)
+	brawlerHudFill(-80, -40, 480, h+80, b.level.enemies[b.introEntry].intro.color, alpha)
 }
 
 // Name and info lines, on the side of the screen away from the enemy. Drawn with fight screen layer 2
@@ -95,7 +95,12 @@ func (b *Brawler) drawIntro(txt brawlerHudText) {
 	t := brawlerIntroEase(b.introTime, brawlerIntroText, 15)
 
 	// Text block on the empty half of the screen
-	left := brawlerX(e) > sys.cam.Pos[0]
+	// Where the enemy is on the screen, 0 = left edge, 1 = right edge
+	frac := float32(0.5)
+	if sys.xmax > sys.xmin {
+		frac = (brawlerX(e) - sys.xmin) / (sys.xmax - sys.xmin)
+	}
+	left := frac > 0.5
 	x, align := float32(24), int32(1)
 	if !left {
 		x, align = 296, -1
@@ -107,6 +112,10 @@ func (b *Brawler) drawIntro(txt brawlerHudText) {
 		x += slide
 	}
 	y := h*0.5 - 20
+	// An enemy near the middle leaves no free side: put the text above the fighters instead
+	if frac > 0.3 && frac < 0.7 {
+		y = h * 0.14
+	}
 
 	// Accent stripe under the name, growing from the text side
 	stripeW := 150 * t
@@ -123,5 +132,43 @@ func (b *Brawler) drawIntro(txt brawlerHudText) {
 	// Blinking prompt once skipping is allowed
 	if b.introTime > brawlerIntroSkipDelay && (b.introTime/20)%2 == 0 {
 		txt.draw(160, h-12, "PRESS BUTTON", 0)
+	}
+}
+
+// Start the introduction when the enemy performs the move its [Intro] section asks for, a few frames
+// into it, so the freeze happens mid move. Runs every frame for alive enemies on the screen
+func (b *Brawler) checkIntro(c *Char) {
+	st := &c.bw
+	e := st.entry
+	if b.introOn || !sys.cfg.Brawler.Intros || e < 0 || e >= len(b.level.enemies) {
+		return
+	}
+	in := b.level.enemies[e].intro
+	if in == nil || e < len(b.introShown) && b.introShown[e] {
+		return
+	}
+	var active bool
+	if x := brawlerX(c); x >= sys.xmin && x <= sys.xmax {
+		switch in.trigger {
+		case BIT_Enter:
+			active = true
+		case BIT_Attack:
+			active = c.ss.moveType == MT_A
+		case BIT_Jump:
+			active = c.ss.stateType == ST_A && c.ss.moveType != MT_H
+		case BIT_Lane:
+			t := b.root(st.ai.target)
+			active = st.laneJump && st.airborne && t != nil && st.targetLane == t.bw.targetLane
+		case BIT_Run:
+			active = c.ss.no == 100
+		}
+	}
+	if !active {
+		st.introWait = 0
+		return
+	}
+	st.introWait++
+	if st.introWait > in.freezeDelay() {
+		b.startIntro(c)
 	}
 }

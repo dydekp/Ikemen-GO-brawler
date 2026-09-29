@@ -202,7 +202,7 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 			if name == "" {
 				return fmt.Errorf("intro section needs an enemy alias: [Intro alias]")
 			}
-			p.intro = &BrawlerIntro{}
+			p.intro = newBrawlerIntro()
 			if p.lv.intros == nil {
 				p.lv.intros = map[string]*BrawlerIntro{}
 			}
@@ -485,9 +485,37 @@ func (p *brawlerLevelParser) finish() error {
 }
 
 // Character introduction of an enemy: [Intro alias]
+type BrawlerIntroTrigger int32
+
+const (
+	BIT_Enter  BrawlerIntroTrigger = iota // Steps onto the screen
+	BIT_Attack                            // Starts an attack
+	BIT_Jump                              // Jumps (not while being hit)
+	BIT_Lane                              // Switches lanes into its target's lane
+	BIT_Run                               // Runs
+)
+
+// Frames into the move before the freeze, per trigger, unless the intro sets a delay
+var brawlerIntroDelays = [...]int32{BIT_Enter: 0, BIT_Attack: 5, BIT_Jump: 12, BIT_Lane: 10, BIT_Run: 8}
+
 type BrawlerIntro struct {
-	name  string   // Empty = the enemy's display name
-	lines []string // Info lines: style, strengths, weaknesses and free text, in file order
+	name    string   // Empty = the enemy's display name
+	lines   []string // Info lines: style, strengths, weaknesses and free text, in file order
+	color   uint32   // Color everything else fades into
+	trigger BrawlerIntroTrigger
+	delay   int32 // Frames into the triggering move. -1 = default of the trigger
+}
+
+func newBrawlerIntro() *BrawlerIntro {
+	return &BrawlerIntro{color: brawlerIntroMaskColor, delay: -1}
+}
+
+// Frames into the triggering move before the freeze
+func (in *BrawlerIntro) freezeDelay() int32 {
+	if in.delay >= 0 {
+		return in.delay
+	}
+	return brawlerIntroDelays[in.trigger]
 }
 
 func (in *BrawlerIntro) set(key, val string) error {
@@ -500,12 +528,57 @@ func (in *BrawlerIntro) set(key, val string) error {
 		in.name = val
 	case "text", "line":
 		in.lines = append(in.lines, val)
+	case "color", "colour":
+		c, err := parseBrawlerColor(val)
+		if err != nil {
+			return err
+		}
+		in.color = c
+	case "trigger":
+		t, ok := map[string]BrawlerIntroTrigger{
+			"enter": BIT_Enter, "appear": BIT_Enter, "attack": BIT_Attack, "jump": BIT_Jump,
+			"lane": BIT_Lane, "run": BIT_Run,
+		}[strings.ToLower(val)]
+		if !ok {
+			return fmt.Errorf("unknown intro trigger '%v' (enter, attack, jump, lane, run)", val)
+		}
+		in.trigger = t
+	case "delay":
+		d, err := brawlerParseI(val)
+		if err != nil || d < 0 {
+			return fmt.Errorf("invalid intro delay: %v", val)
+		}
+		in.delay = d
 	default:
 		l, ok := label[key]
 		if !ok {
-			return fmt.Errorf("unknown intro parameter '%v' (name, style, strength, weakness, text)", key)
+			return fmt.Errorf("unknown intro parameter '%v' (name, style, strength, weakness, text, color, trigger, delay)", key)
 		}
 		in.lines = append(in.lines, l+": "+val)
 	}
 	return nil
+}
+
+// Color as "r, g, b" (0-255) or "#rrggbb"
+func parseBrawlerColor(val string) (uint32, error) {
+	val = strings.TrimSpace(val)
+	if strings.HasPrefix(val, "#") && len(val) == 7 {
+		c, err := strconv.ParseUint(val[1:], 16, 32)
+		if err == nil {
+			return uint32(c), nil
+		}
+	}
+	parts := strings.Split(val, ",")
+	if len(parts) == 3 {
+		var c uint32
+		for _, p := range parts {
+			v, err := strconv.Atoi(strings.TrimSpace(p))
+			if err != nil || v < 0 || v > 255 {
+				return 0, fmt.Errorf("invalid color: %v", val)
+			}
+			c = c<<8 | uint32(v)
+		}
+		return c, nil
+	}
+	return 0, fmt.Errorf("invalid color '%v' (r, g, b or #rrggbb)", val)
 }
