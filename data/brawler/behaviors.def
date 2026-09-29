@@ -25,7 +25,7 @@ moves         = b | y | a
 combo         = 0, 1
 cooldown      = 40, 80
 retreat       = 30, 60
-tokens        = 0
+priority        = 1
 
 ; Chains attacks into combos
 [Behavior comboer]
@@ -43,7 +43,7 @@ tactic   = flank
 moves    = b | y | x, x
 combo    = 0, 2
 cooldown = 40, 80
-tokens   = 0
+priority   = 1
 
 ; Strikes and backs off
 [Behavior hitrun]
@@ -66,4 +66,4 @@ combo.moves = y | b | cmd:QCF_x
 cooldown    = 40, 80
 special     = 0.1
 guard       = 0.3
-tokens      = 0
+priority      = 1

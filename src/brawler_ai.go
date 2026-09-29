@@ -66,7 +66,7 @@ type BrawlerBehavior struct {
 	hover      [2]float32
 	laneFollow bool     // Follow the target to its lane
 	laneDelay  [2]int32 // Reaction time before following to another lane
-	tokens     bool     // Wait for an attack token ([Brawler] AttackersPerPlayer) before attacking
+	priority   bool     // Gets an attack turn ([Brawler] AttackersPerPlayer) before the other enemies
 	retreat    [2]int32 // Frames spent backing off after attacking (hit and run, jump over)
 	jumpDist   float32  // Distance at which a jump over starts
 	jump       []brawlerStep
@@ -87,7 +87,6 @@ func newBrawlerBehavior(name string) *BrawlerBehavior {
 		hover:      [2]float32{60, 120},
 		laneFollow: true,
 		laneDelay:  [2]int32{10, 45},
-		tokens:     true,
 		retreat:    [2]int32{40, 80},
 		jumpDist:   75,
 	}
@@ -241,8 +240,8 @@ func (b *BrawlerBehavior) set(key, val string) error {
 		b.laneFollow = brawlerParseB(val)
 	case "lane.delay":
 		err = spanI(&b.laneDelay)
-	case "tokens":
-		b.tokens = brawlerParseB(val)
+	case "priority":
+		b.priority = brawlerParseB(val)
 	case "retreat":
 		err = spanI(&b.retreat)
 	case "jump.distance":
@@ -481,28 +480,39 @@ func (ai *brawlerAI) runProgram(c *Char, in *[14]bool) bool {
 	return false
 }
 
-// Give attack permission to the enemies closest to each player. Enemies ignoring tokens don't count
+// Give attack permission to [Brawler] AttackersPerPlayer enemies per player: priority profiles first,
+// then the closest ones. Every enemy needs permission to attack
 func (b *Brawler) assignTokens() {
 	maxAttackers := sys.cfg.Brawler.AttackersPerPlayer
 	type cand struct {
-		c    *Char
-		dist float32
+		c        *Char
+		priority bool
+		dist     float32
+	}
+	before := func(a, b cand) bool {
+		if a.priority != b.priority {
+			return a.priority
+		}
+		if a.dist != b.dist {
+			return a.dist < b.dist
+		}
+		return a.c.id < b.c.id
 	}
 	byTarget := map[int][]cand{}
 	for _, c := range b.instances() {
 		ai := &c.bw.ai
-		ai.hasToken = ai.beh == nil || !ai.beh.tokens
-		if ai.hasToken || !c.alive() || ai.target < 0 {
+		ai.hasToken = false
+		if !c.alive() || ai.target < 0 {
 			continue
 		}
 		if t := b.root(ai.target); t != nil {
-			byTarget[ai.target] = append(byTarget[ai.target], cand{c, brawlerDist(c, t)})
+			byTarget[ai.target] = append(byTarget[ai.target], cand{c, ai.beh != nil && ai.beh.priority, brawlerDist(c, t)})
 		}
 	}
 	for _, list := range byTarget {
 		// Small lists, simple insertion sort keeps this deterministic
 		for i := 1; i < len(list); i++ {
-			for j := i; j > 0 && (list[j].dist < list[j-1].dist || list[j].dist == list[j-1].dist && list[j].c.id < list[j-1].c.id); j-- {
+			for j := i; j > 0 && before(list[j], list[j-1]); j-- {
 				list[j], list[j-1] = list[j-1], list[j]
 			}
 		}
@@ -689,7 +699,7 @@ func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
 				ai.cooldown = 0
 			}
 		case bpEngage:
-			g.canAttack = true
+			g.canAttack = ai.hasToken
 			if ai.phaseTime > ai.phaseLen {
 				ai.setPhase(bpRetreat, brawlerRand(beh.retreat))
 			}
@@ -762,6 +772,10 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 	if f.t.ss.moveType == MT_H || f.t.ss.stateType == ST_L {
 		return false
 	}
+	// Hard limit: never more than AttackersPerPlayer enemies attacking the same player at once
+	if b.attackersOn(f.t, c) >= sys.cfg.Brawler.AttackersPerPlayer {
+		return false
+	}
 	if brawlerChance(beh.special) {
 		if cmds := c.cmd[c.ss.sb.playerNo].Commands; len(cmds) > 0 {
 			ai.cheat = Rand(0, int32(len(cmds))-1)
@@ -818,4 +832,18 @@ func (b *Brawler) aiCheat(c *Char) int32 {
 	cmd := c.bw.ai.cheat
 	c.bw.ai.cheat = -1
 	return cmd
+}
+
+// Enemies other than self that are attacking the player right now, or are in a combo against it
+func (b *Brawler) attackersOn(t, self *Char) int32 {
+	var n int32
+	for _, e := range b.instances() {
+		if e == self || !e.alive() || e.bw.ai.target != t.playerNo {
+			continue
+		}
+		if e.ss.moveType == MT_A || e.bw.ai.comboLeft > 0 || len(e.bw.ai.prog) > 0 && e.bw.ai.attacking {
+			n++
+		}
+	}
+	return n
 }

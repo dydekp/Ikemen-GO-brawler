@@ -13807,7 +13807,7 @@ func (cl *CharList) hitDetectionPlayer(c *Char) {
 		}
 
 		// Stop current iteration if this char is disabled
-		if getter.scf(SCF_standby) || getter.scf(SCF_disabled) {
+		if getter.scf(SCF_standby) || getter.scf(SCF_disabled) || sys.brawler.dodging(getter) {
 			continue
 		}
 
@@ -14066,7 +14066,7 @@ func (cl *CharList) hitDetectionPlayer(c *Char) {
 func (cl *CharList) hitDetectionProjectile(getter *Char) {
 
 	// Stop outer loop if enemy is disabled
-	if getter.scf(SCF_standby) || getter.scf(SCF_disabled) {
+	if getter.scf(SCF_standby) || getter.scf(SCF_disabled) || sys.brawler.dodging(getter) {
 		return
 	}
 

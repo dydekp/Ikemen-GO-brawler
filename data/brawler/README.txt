@@ -22,6 +22,8 @@ default screenpacks, which open the pause menu with it)
   Pressing the button makes the character jump to another lane. The jump
   itself is the character's normal jump, so it may go forward, backward or
   straight up depending on the held direction.
+  A lane switch can't be interrupted: the character can't be hit from the
+  start of the jump until it lands, unless it attacks during the jump.
   Pressing the button again while jumping (within LaneSelectWindow frames)
   changes the destination. Every press cycles one lane up, wrapping from
   the top lane to the bottom one:
@@ -154,8 +156,10 @@ reach         = 30         ; Attack distance in front of the body
 special       = 0.15       ; Chance an attack is a random command instead
 guard         = 0.1        ; Chance to guard when the target attacks
 hover         = 60, 120    ; Distance kept while waiting to attack
-tokens        = 1          ; 1 = wait for an attack slot ([Brawler]
-                           ; AttackersPerPlayer), 0 = attack whenever ready
+priority      = 0          ; 1 = gets an attack turn before other enemies.
+                           ; Only [Brawler] AttackersPerPlayer enemies may
+                           ; attack the same player at once, whatever the
+                           ; profile. The others wait at hover distance
 run           = 0          ; 1 = run when far away (double tap forward)
 rundistance   = 140        ; Distance from which the enemy runs
 lane.follow   = 1          ; Follow the target to its lane

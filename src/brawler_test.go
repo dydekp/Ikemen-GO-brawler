@@ -247,3 +247,77 @@ func TestBrawlerGoSign(t *testing.T) {
 		t.Errorf("sign missing before the level end")
 	}
 }
+
+// Fake enemy instance targeting player 0 for tests that don't run the game
+func fakeBrawlerEnemy(id int32, beh *BrawlerBehavior, attacking bool) *Char {
+	c := &Char{id: id, helperIndex: 1, localscl: 1}
+	c.bw = brawlerChar{initialized: true, enemy: true}
+	c.bw.ai.init(beh)
+	c.bw.ai.target = 0
+	if attacking {
+		c.ss.moveType = MT_A
+	}
+	return c
+}
+
+func TestBrawlerAttackerLimit(t *testing.T) {
+	oldList, oldChars, oldMax := sys.charList.runOrder, sys.chars[0], sys.cfg.Brawler.AttackersPerPlayer
+	defer func() {
+		sys.charList.runOrder, sys.chars[0], sys.cfg.Brawler.AttackersPerPlayer = oldList, oldChars, oldMax
+	}()
+	sys.cfg.Brawler.AttackersPerPlayer = 2
+	player := &Char{playerNo: 0, localscl: 1}
+	sys.chars[0] = []*Char{player}
+
+	normal := newBrawlerBehavior("normal")
+	prio := newBrawlerBehavior("prio")
+	prio.priority = true
+	near := fakeBrawlerEnemy(1, normal, false)
+	near.pos[0] = 10
+	mid := fakeBrawlerEnemy(2, normal, false)
+	mid.pos[0] = 20
+	far := fakeBrawlerEnemy(3, prio, false)
+	far.pos[0] = 200
+	farthest := fakeBrawlerEnemy(4, normal, false)
+	farthest.pos[0] = 300
+	sys.charList.runOrder = []*Char{near, mid, far, farthest}
+
+	b := &Brawler{}
+	b.assignTokens()
+	// Two turns: the priority enemy first, then the closest one. Priority doesn't add extra turns
+	if !far.bw.ai.hasToken || !near.bw.ai.hasToken || mid.bw.ai.hasToken || farthest.bw.ai.hasToken {
+		t.Errorf("turns: near %v, mid %v, far (priority) %v, farthest %v",
+			near.bw.ai.hasToken, mid.bw.ai.hasToken, far.bw.ai.hasToken, farthest.bw.ai.hasToken)
+	}
+
+	// Hard limit counts enemies that are attacking right now
+	near.ss.moveType = MT_A
+	far.ss.moveType = MT_A
+	if n := b.attackersOn(player, mid); n != 2 {
+		t.Errorf("attackersOn: got %v, want 2", n)
+	}
+	if n := b.attackersOn(player, near); n != 1 {
+		t.Errorf("attackersOn excluding self: got %v, want 1", n)
+	}
+}
+
+func TestBrawlerLaneDodge(t *testing.T) {
+	oldMode := sys.gameMode
+	defer func() { sys.gameMode = oldMode }()
+	sys.gameMode = "brawler"
+	b := &Brawler{enabled: true, level: &BrawlerLevel{}, lanesZ: []float32{-30, 0, 30}}
+	c := &Char{}
+	c.bw = brawlerChar{initialized: true, laneJump: true}
+	if !b.dodging(c) {
+		t.Error("lane jump should be invulnerable")
+	}
+	c.ss.moveType = MT_A
+	if b.dodging(c) {
+		t.Error("attacking during a lane jump should end the invulnerability")
+	}
+	c.ss.moveType = MT_I
+	c.bw.laneJump = false
+	if b.dodging(c) {
+		t.Error("no invulnerability outside lane jumps")
+	}
+}
