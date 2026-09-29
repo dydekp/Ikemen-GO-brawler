@@ -11,7 +11,8 @@ backtrack = 0
 endx      = 300
 
 [Enemies]
-; alias, character, palette, life (optional)
+; alias, character, palette, life, name (life: default is the character's life
+; scaled by [Brawler] EnemyLife in the config)
 ; Any number of enemies. The same character can be listed several times,
 ; e.g. with other palettes; it is loaded only once.
 enemy = thug,    kfm,     7

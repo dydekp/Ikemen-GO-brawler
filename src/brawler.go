@@ -391,6 +391,9 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 
 	if e.life > 0 {
 		h.lifeMax = e.life
+	} else {
+		// Characters are balanced for 1v1. Scale their own life down for crowds of enemies
+		h.lifeMax = Max(1, int32(float32(h.lifeMax)*sys.cfg.Brawler.EnemyLife/100))
 	}
 	h.life = h.lifeMax
 	h.redLife = h.lifeMax

@@ -234,6 +234,7 @@ type Config struct {
 		DespawnTime        int32    `ini:"DespawnTime" sync:"host"`
 		BowlDamage         float32  `ini:"BowlDamage" sync:"host"`
 		BowlSlowdown       float32  `ini:"BowlSlowdown" sync:"host"`
+		EnemyLife          float32  `ini:"EnemyLife" sync:"host"`
 	} `ini:"Brawler"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`

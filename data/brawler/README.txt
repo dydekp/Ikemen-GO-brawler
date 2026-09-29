@@ -68,7 +68,9 @@ enemy = alias, character, palette, life, name
 boss  = alias[, alias...]
 
 Any number of enemy entries. palette defaults to 1, life to the character's
-own life (0 also means that), name to the character's name. Enemies listed
+own life (0 also means that) scaled by [Brawler] EnemyLife (40% by
+default, since characters are made for 1v1), name to the character's name.
+An explicit life value is used as is. Enemies listed
 in "boss" get the big boss lifebar at the bottom of the screen. The same character may be listed several times (e.g. with other
 palettes or life); each different character is loaded only once, at the
 start of the level. Up to 17 different characters per level.
@@ -196,5 +198,6 @@ Characters with their own AI code (AILevel triggers) still run it.
 CONFIG ([Brawler] section)
 --------------------------
 Levels, LaneButton, FacingButton, FacingMode, TurnDelay, TurnBuffer,
-LaneSelectWindow, LaneSnapSpeed, AttackersPerPlayer, DespawnTime.
+LaneSelectWindow, LaneSnapSpeed, AttackersPerPlayer, DespawnTime,
+BowlDamage, BowlSlowdown, EnemyLife.
 See the comments in the default config for details.
