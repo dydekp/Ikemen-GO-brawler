@@ -224,3 +224,26 @@ func TestBrawlerDifficultyScale(t *testing.T) {
 		t.Errorf("default difficulty should keep the profile's guard chance, got x%v", g)
 	}
 }
+
+func TestBrawlerGoSign(t *testing.T) {
+	lv := &BrawlerLevel{waves: make([]BrawlerWave, 2)}
+	// A locked wave with more waves after it shows the sign
+	b := &Brawler{level: lv, waveActive: true, locked: true, lockX: 50}
+	b.endWave()
+	if b.goTime != brawlerGoTime || b.wave != 1 || b.locked || b.camMin != 50 {
+		t.Errorf("after first wave: %+v", b)
+	}
+	// The last wave of a level without an end point doesn't
+	b = &Brawler{level: lv, wave: 1, waveActive: true, locked: true}
+	b.endWave()
+	if b.goTime != 0 {
+		t.Errorf("sign shown after the last wave")
+	}
+	// Unless the players still have to walk to the end
+	lv.hasEndX = true
+	b = &Brawler{level: lv, wave: 1, waveActive: true, locked: true}
+	b.endWave()
+	if b.goTime != brawlerGoTime {
+		t.Errorf("sign missing before the level end")
+	}
+}

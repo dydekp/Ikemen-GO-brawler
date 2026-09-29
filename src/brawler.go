@@ -26,8 +26,9 @@ const (
 	brawlerEnterTimeout = 240 // Frames an entering enemy may ignore screen bounds
 	brawlerSpawnMargin  = 30  // Distance outside the screen where enemies spawn (world units)
 	brawlerMaxTypes     = 1 + MaxAttachedChar
-	brawlerMaxAlive     = 6  // Default limit of enemies alive at the same time in a wave
-	brawlerLaneWeight   = 60 // Distance a lane difference counts as, when comparing distances
+	brawlerMaxAlive     = 6   // Default limit of enemies alive at the same time in a wave
+	brawlerLaneWeight   = 60  // Distance a lane difference counts as, when comparing distances
+	brawlerGoTime       = 240 // Frames the "GO" sign is shown after a locked wave is cleared
 )
 
 // Per character state, stored in Char.bw. Players are roots, enemies are helpers
@@ -90,6 +91,7 @@ type Brawler struct {
 	camMin     float32
 	camMinSet  bool
 	complete   bool
+	goTime     int32 // Frames left to show the "GO" sign after a wave
 }
 
 func (b *Brawler) active() bool {
@@ -241,6 +243,7 @@ func (b *Brawler) roundInit() {
 	b.locked = false
 	b.camMinSet = false
 	b.complete = false
+	b.goTime = 0
 
 	// Players start on the lane closest to their stage start position
 	for _, c := range b.players(false) {
@@ -415,6 +418,9 @@ func (b *Brawler) step() {
 		return
 	}
 	b.keepTemplatesHidden()
+	if b.goTime > 0 {
+		b.goTime--
+	}
 	b.updateEnemies()
 	b.assignTokens()
 	b.trackHudTargets()
@@ -532,6 +538,10 @@ func (b *Brawler) endWave() {
 		b.locked = false
 		// Don't let the camera scroll back behind the locked area
 		b.camMin = Max(b.camMin, b.lockX)
+		// Tell the players to move on, unless the level ends here
+		if b.wave+1 < len(b.level.waves) || b.level.hasEndX {
+			b.goTime = brawlerGoTime
+		}
 	}
 	b.wave++
 }

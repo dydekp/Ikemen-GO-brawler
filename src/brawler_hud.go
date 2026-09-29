@@ -208,12 +208,37 @@ func (b *Brawler) drawHUD(layerno int16) {
 		b.drawPlayerPanel(p, brawlerHudLayout(i, len(players)), i, txt)
 	}
 	b.drawBossBars(txt)
+	b.drawGoSign(txt)
+}
+
+// Blinking "GO" arrow at the right edge after a locked wave is cleared
+func (b *Brawler) drawGoSign(txt brawlerHudText) {
+	if b.goTime <= 0 || (b.goTime/20)%2 == 1 {
+		return
+	}
+	const col = uint32(0xffd23a)
+	x, y := float32(320-44), brawlerHudHeight()/2
+	txt.draw(x+2, y-6, "GO!", 1)
+	// Arrow: shaft and a head made of narrowing columns
+	brawlerHudFill(x, y, 24, 5, 0x000000, 160)
+	brawlerHudFill(x+1, y+1, 22, 3, col, 255)
+	for i := float32(0); i < 10; i++ {
+		h := 16 - i*1.6
+		brawlerHudFill(x+23+i, y+2.5-h/2, 1.2, h, col, 255)
+	}
 }
 
 func (b *Brawler) drawPlayerPanel(p *Char, l brawlerHudPanel, slot int, txt brawlerHudText) {
 	accent := brawlerHudColors[slot%len(brawlerHudColors)]
-	bottom := l.powerY + l.powerH + 3
+	// Enemy this player is fighting, while it still exists
+	var enemy *Char
 	if p.bw.hudTime > 0 {
+		if e := sys.playerID(p.bw.hudTarget); e != nil && e.bw.enemy {
+			enemy = e
+		}
+	}
+	bottom := l.powerY + l.powerH + 3
+	if enemy != nil {
 		bottom = l.targetY + l.targetH + 3
 	}
 
@@ -241,13 +266,10 @@ func (b *Brawler) drawPlayerPanel(p *Char, l brawlerHudPanel, slot int, txt braw
 		brawlerHudFill(l.barX+l.barW*float32(lv)/float32(p.powerMax), l.powerY, 0.6, l.powerH, 0xf0f0f0, 200)
 	}
 
-	// Enemy this player is fighting
-	if p.bw.hudTime > 0 {
-		if e := sys.playerID(p.bw.hudTarget); e != nil && e.bw.enemy {
-			txt.draw(l.barX, l.targetName, b.enemyName(e), 1)
-			life, red := brawlerLifeRatio(e)
-			brawlerHudBar(l.barX, l.targetY, l.barW, l.targetH, life, red, 0xe04848)
-		}
+	if enemy != nil {
+		txt.draw(l.barX, l.targetName, b.enemyName(enemy), 1)
+		life, red := brawlerLifeRatio(enemy)
+		brawlerHudBar(l.barX, l.targetY, l.barW, l.targetH, life, red, 0xe04848)
 	}
 }
 

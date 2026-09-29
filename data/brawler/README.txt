@@ -112,6 +112,8 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
 - Under each player's bars: the enemy that player is hitting, with its name
   and lifebar. It stays for 3 seconds after the last hit.
 - Bosses (see "boss" above) get a wide bar at the bottom center.
+- After a wave that stopped the camera is cleared, a blinking "GO" arrow
+  tells the players to move on.
 The HUD uses the fight screen's name font and scales to its localcoord.
 Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 
