@@ -9,6 +9,8 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/bgdef.go \
 	src/brawler.go \
 	src/brawler_ai.go \
+	src/brawler_control.go \
+	src/brawler_level.go \
 	src/brawler_hud.go \
 	src/bytecode.go \
 	src/camera.go \

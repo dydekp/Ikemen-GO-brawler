@@ -108,35 +108,24 @@ func loadBrawlerBehaviors() map[string]*BrawlerBehavior {
 		LogMessage("brawler: can't load behaviors %v: %v", path, err)
 		return m
 	}
+	// Errors in the shared file are logged and skipped, so one bad line doesn't break every level
 	lv := &BrawlerLevel{behaviors: m}
 	var beh *BrawlerBehavior
-	for n, line := range strings.Split(NormalizeNewlines(text), "\n") {
-		if i := strings.Index(line, ";"); i >= 0 {
-			line = line[:i]
-		}
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			name := strings.ToLower(strings.TrimSpace(line[1 : len(line)-1]))
+	readBrawlerIni(text, func(l brawlerIniLine) error {
+		kind, name := l.kind()
+		switch {
+		case l.header:
 			beh = nil
-			if strings.HasPrefix(name, "behavior") {
-				if bname := strings.TrimSpace(strings.TrimPrefix(name, "behavior")); bname != "" {
-					beh = lv.behavior(bname, true)
-				}
+			if kind == "behavior" && name != "" {
+				beh = lv.behavior(name, true)
 			}
-			continue
+		case beh != nil:
+			if err := lv.setBehavior(beh, l.key, l.val); err != nil {
+				LogMessage("brawler: %v: [Behavior %v] %v", path, beh.name, err)
+			}
 		}
-		eq := strings.Index(line, "=")
-		if beh == nil || eq < 0 {
-			continue
-		}
-		key := strings.ToLower(strings.TrimSpace(line[:eq]))
-		if err := lv.setBehavior(beh, key, strings.TrimSpace(line[eq+1:])); err != nil {
-			LogMessage("brawler: %v:%v: %v", path, n+1, err)
-		}
-	}
+		return nil
+	})
 	return m
 }
 
@@ -151,6 +140,7 @@ func (lv *BrawlerLevel) behavior(name string, create bool) *BrawlerBehavior {
 	return lv.behaviors[name]
 }
 
+// Set a profile parameter. "base" copies another profile, which must be defined before
 func (lv *BrawlerLevel) setBehavior(b *BrawlerBehavior, key, val string) error {
 	if key == "base" {
 		src := lv.behavior(val, false)
@@ -170,32 +160,38 @@ func (b *BrawlerBehavior) set(key, val string) error {
 	for i := range args {
 		args[i] = strings.TrimSpace(args[i])
 	}
-	f := func(i int) (float32, error) {
-		if i >= len(args) {
+	num := func(i int) (float32, error) {
+		if i >= len(args) || args[i] == "" {
 			return 0, fmt.Errorf("%v: missing value", key)
 		}
-		v, err := strconv.ParseFloat(args[i], 32)
+		v, err := brawlerParseF(args[i])
 		if err != nil {
 			return 0, fmt.Errorf("%v: invalid number '%v'", key, args[i])
 		}
-		return float32(v), nil
+		return v, nil
 	}
-	rangeI := func(dst *[2]int32) error {
-		lo, err := f(0)
-		if err != nil {
-			return err
+	// "min, max" or a single value. Values are ordered
+	span := func() (lo, hi float32, err error) {
+		if lo, err = num(0); err != nil {
+			return
 		}
-		hi := lo
+		hi = lo
 		if len(args) > 1 {
-			if hi, err = f(1); err != nil {
-				return err
+			if hi, err = num(1); err != nil {
+				return
 			}
 		}
 		if hi < lo {
 			lo, hi = hi, lo
 		}
-		*dst = [2]int32{int32(lo), int32(hi)}
-		return nil
+		return
+	}
+	spanI := func(dst *[2]int32) error {
+		lo, hi, err := span()
+		if err == nil {
+			*dst = [2]int32{int32(lo), int32(hi)}
+		}
+		return err
 	}
 	var err error
 	switch key {
@@ -213,48 +209,44 @@ func (b *BrawlerBehavior) set(key, val string) error {
 			return fmt.Errorf("unknown tactic '%v' (direct, flank, jumpover, hitrun)", val)
 		}
 	case "run":
-		b.run = val == "1" || strings.EqualFold(val, "true")
+		// run = 1 or run = 1, distance
+		b.run = brawlerParseB(args[0])
 		if len(args) > 1 {
-			b.run = args[0] == "1"
-			b.runDist, err = f(1)
+			b.runDist, err = num(1)
 		}
 	case "rundistance":
-		b.runDist, err = f(0)
+		b.runDist, err = num(0)
 	case "reach":
-		b.reach, err = f(0)
+		b.reach, err = num(0)
 	case "cooldown":
-		err = rangeI(&b.cooldown)
+		err = spanI(&b.cooldown)
 	case "moves":
 		b.moves, err = parseBrawlerMoves(val)
 	case "combo":
-		err = rangeI(&b.combo)
+		err = spanI(&b.combo)
 	case "combo.moves":
 		b.comboMoves, err = parseBrawlerMoves(val)
 	case "combo.delay":
-		err = rangeI(&b.comboDelay)
+		err = spanI(&b.comboDelay)
 	case "special":
-		b.special, err = f(0)
+		b.special, err = num(0)
 	case "guard":
-		b.guard, err = f(0)
+		b.guard, err = num(0)
 	case "hover":
 		var lo, hi float32
-		if lo, err = f(0); err == nil {
-			hi = lo
-			if len(args) > 1 {
-				hi, err = f(1)
-			}
+		if lo, hi, err = span(); err == nil {
 			b.hover = [2]float32{lo, hi}
 		}
 	case "lane.follow":
-		b.laneFollow = val == "1" || strings.EqualFold(val, "true")
+		b.laneFollow = brawlerParseB(val)
 	case "lane.delay":
-		err = rangeI(&b.laneDelay)
+		err = spanI(&b.laneDelay)
 	case "tokens":
-		b.tokens = val == "1" || strings.EqualFold(val, "true")
+		b.tokens = brawlerParseB(val)
 	case "retreat":
-		err = rangeI(&b.retreat)
+		err = spanI(&b.retreat)
 	case "jump.distance":
-		b.jumpDist, err = f(0)
+		b.jumpDist, err = num(0)
 	case "jump.input":
 		b.jump, err = parseBrawlerSteps(val)
 	default:
@@ -479,7 +471,7 @@ func (b *Brawler) assignTokens() {
 		if t == nil {
 			continue
 		}
-		d := Abs(t.pos[0]*t.localscl-c.pos[0]*c.localscl) + float32(Abs(t.bw.targetLane-c.bw.targetLane))*60
+		d := brawlerDist(c, t)
 		byTarget[ai.target] = append(byTarget[ai.target], cand{c, d})
 	}
 	for _, list := range byTarget {
@@ -528,7 +520,7 @@ func (b *Brawler) aiButtons(c *Char) (in [14]bool) {
 	}
 	tst := &t.bw
 
-	myX, tX := c.pos[0]*c.localscl, t.pos[0]*t.localscl
+	myX, tX := brawlerX(c), brawlerX(t)
 	dx := tX - myX
 	adx := Abs(dx)
 	toward := Sign(dx)
@@ -713,22 +705,6 @@ func (b *Brawler) dirIndex(dir float32) int {
 		return 2
 	}
 	return 3
-}
-
-// A lane next to the given one, picked at random when there are two
-func (b *Brawler) sideLane(lane int32) int32 {
-	n := int32(len(b.lanesZ))
-	switch {
-	case n <= 1:
-		return lane
-	case lane == 0:
-		return 1
-	case lane == n-1:
-		return n - 2
-	case Rand(0, 1) == 0:
-		return lane - 1
-	}
-	return lane + 1
 }
 
 // Command index the AI wants to perform this frame, or -1
