@@ -70,7 +70,7 @@ enemy = alias, character, palette, life, name
 boss  = alias[, alias...]
 
 Any number of enemy entries. palette defaults to 1, life to the character's
-own life (0 also means that) scaled by [Brawler] EnemyLife (40% by
+own life (0 also means that) scaled by [Brawler] EnemyLife (25% by
 default, since characters are made for 1v1), name to the character's name.
 An explicit life value is used as is. Enemies listed
 in "boss" get the big boss lifebar at the bottom of the screen. The same character may be listed several times (e.g. with other
