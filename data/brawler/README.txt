@@ -115,10 +115,11 @@ standing. Examples:
 CHARACTER INTRODUCTIONS
 -----------------------
 The first time an enemy with an [Intro alias] section appears on screen (or
-does the move set by "trigger"), the game freezes and puts it in the spotlight: everything else fades into one
-color while the enemy stays visible on the field, and its name and info
-lines appear on the empty side of the screen. It closes after [Brawler] IntroTime frames or when a player presses
-an attack or start button. [Brawler] Intros = 0 turns them off.
+does the move set by "trigger"), the game freezes and puts it in the
+spotlight: everything else fades into one color while the enemy stays
+visible on the field, and its name and info lines appear next to it. It
+closes after [Brawler] IntroTime frames or when a player presses an attack
+or start button. [Brawler] Intros = 0 turns them off.
 
 [Intro thug]                     ; alias of an enemy entry
 name     = "Two-Kick" Tony       ; Optional, default: the enemy's name
