@@ -104,6 +104,7 @@ type Brawler struct {
 	introEntry int    // Its enemy entry
 	introTime  int32  // Frames the introduction has been shown
 	introShown []bool // Per enemy entry: introduction already shown in this level
+	introLayer int32  // Draw layer of the introduced enemy before it was raised above the mask
 }
 
 func (b *Brawler) active() bool {

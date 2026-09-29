@@ -115,8 +115,9 @@ standing. Examples:
 CHARACTER INTRODUCTIONS
 -----------------------
 The first time an enemy with an [Intro alias] section appears on screen, the
-game freezes and a title card introduces it: its portrait, name and info
-lines. It closes after [Brawler] IntroTime frames or when a player presses
+game freezes and puts it in the spotlight: everything else fades into one
+color while the enemy stays visible on the field, and its name and info
+lines appear on the empty side of the screen. It closes after [Brawler] IntroTime frames or when a player presses
 an attack or start button. [Brawler] Intros = 0 turns them off.
 
 [Intro thug]                     ; alias of an enemy entry
@@ -126,8 +127,7 @@ strength = Never stops kicking   ; "STRENGTH: ..." (or strengths)
 weakness = Forgets to guard      ; "WEAKNESS: ..." (or weaknesses)
 text     = Free text line        ; Shown as is. Any number of lines
 
-Lines appear in the order they are written. The portrait is the
-character's big select screen portrait (sprite 9000,1) in its default colors.
+Lines appear in the order they are written.
 
 
 HUD

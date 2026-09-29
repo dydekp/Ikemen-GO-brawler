@@ -217,6 +217,11 @@ func (b *Brawler) drawHUD(layerno int16) {
 	if layerno != brawlerHudLayer {
 		return
 	}
+	// During an introduction, the mask replaces the HUD
+	if b.introActive() {
+		b.drawIntroMask()
+		return
+	}
 	txt := b.hudFont(brawlerHudLayer)
 	players := b.players(false)
 	for i, p := range players {
