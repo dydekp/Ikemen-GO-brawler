@@ -413,6 +413,20 @@ func brawlerRand(r [2]int32) int32 {
 	return Rand(r[0], r[1])
 }
 
+// Difficulty from the AI level (1-8) as 0..1. Level 4, the default, is about 0.43
+func brawlerSkill(c *Char) float32 {
+	return Clamp((sys.aiLevel[c.playerNo]-1)/7, 0, 1)
+}
+
+// Profiles are tuned for the default difficulty. Harder levels attack more often and guard more
+func brawlerCooldownScale(skill float32) float32 {
+	return 1.5 - skill*0.9 // 1.5x at level 1, about 1.1x at level 4, 0.6x at level 8
+}
+
+func brawlerGuardScale(skill float32) float32 {
+	return 0.4 + skill*1.4 // 0.4x at level 1, 1x at level 4, 1.8x at level 8
+}
+
 func brawlerChance(p float32) bool {
 	return p > 0 && Rand(0, 999) < int32(p*1000)
 }
@@ -620,7 +634,7 @@ func (b *Brawler) aiContinue(f *brawlerAIFrame) bool {
 func (b *Brawler) aiGuard(f *brawlerAIFrame) bool {
 	ai := f.ai
 	if ai.guardTime == 0 && f.sameLane && f.adx < 110 && f.t.ss.moveType == MT_A && f.c.ctrl() &&
-		brawlerChance(f.beh.guard) {
+		brawlerChance(f.beh.guard*brawlerGuardScale(brawlerSkill(f.c))) {
 		ai.guardTime = Rand(12, 30)
 	}
 	if ai.guardTime == 0 {
@@ -742,7 +756,7 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 		ai.start(prog, true)
 		ai.comboLeft = brawlerRand(beh.combo)
 	}
-	ai.cooldown = brawlerRand(beh.cooldown)
+	ai.cooldown = int32(float32(brawlerRand(beh.cooldown)) * brawlerCooldownScale(brawlerSkill(c)))
 	switch {
 	case beh.tactic == BT_HitRun:
 		ai.setPhase(bpRetreat, brawlerRand(beh.retreat))

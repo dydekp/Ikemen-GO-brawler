@@ -210,3 +210,17 @@ func TestBrawlerShippedFiles(t *testing.T) {
 		t.Error("behaviors.def tactics not applied")
 	}
 }
+
+func TestBrawlerDifficultyScale(t *testing.T) {
+	// Easier levels wait longer between attacks and guard less, harder levels the opposite
+	easy, def, hard := float32(0), float32(3)/7, float32(1)
+	if !(brawlerCooldownScale(easy) > brawlerCooldownScale(def) && brawlerCooldownScale(def) > brawlerCooldownScale(hard)) {
+		t.Error("cooldown scale must decrease with difficulty")
+	}
+	if !(brawlerGuardScale(easy) < brawlerGuardScale(def) && brawlerGuardScale(def) < brawlerGuardScale(hard)) {
+		t.Error("guard scale must increase with difficulty")
+	}
+	if g := brawlerGuardScale(def); g < 0.95 || g > 1.05 {
+		t.Errorf("default difficulty should keep the profile's guard chance, got x%v", g)
+	}
+}

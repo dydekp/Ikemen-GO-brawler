@@ -175,7 +175,9 @@ Move syntax:
   moves = x*2 | D, DF, F+x       mostly punches, sometimes a fireball motion
   moves = cmd:QCF_x | cmd:FF_b   named commands (Kung Fu Man)
 
-Difficulty (AI level) doesn't change profiles; tune them per enemy instead.
+Profiles are tuned for the default difficulty. The AI level of the game options
+scales them: harder levels shorten the cooldown between attacks (x1.5 at
+level 1, x0.6 at level 8) and raise the guard chance (x0.4 to x1.8).
 Characters with their own AI code (AILevel triggers) still run it.
 
 
