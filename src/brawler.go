@@ -26,12 +26,13 @@ const (
 	brawlerEnterTimeout = 240 // Frames an entering enemy may ignore screen bounds
 	brawlerSpawnMargin  = 30  // Distance outside the screen where enemies spawn (world units)
 	brawlerMaxTypes     = 1 + MaxAttachedChar
-	brawlerMaxAlive     = 6   // Default limit of enemies alive at the same time in a wave
-	brawlerLaneWeight   = 60  // Distance a lane difference counts as, when comparing distances
-	brawlerGoTime       = 240 // Frames the "GO" sign is shown after a locked wave is cleared
-	brawlerBowlMinSpeed = 2.5 // Speed (world units per frame) a flying body needs to knock others down
-	brawlerBowlHeight   = 70  // Bodies higher than this fly over other enemies
-	brawlerBowlDepth    = 12  // Depth distance within which bodies hit others
+	brawlerMaxAlive     = 6    // Default limit of enemies alive at the same time in a wave
+	brawlerLaneWeight   = 60   // Distance a lane difference counts as, when comparing distances
+	brawlerGoTime       = 240  // Frames the "GO" sign is shown after a locked wave is cleared
+	brawlerBowlMinSpeed = 2.5  // Speed (world units per frame) a flying body needs to knock others down
+	brawlerBowlHeight   = 70   // Bodies higher than this fly over other enemies
+	brawlerBowlDepth    = 12   // Depth distance within which bodies hit others
+	brawlerCamFollow    = 0.12 // Fraction of the distance to the players the camera moves per frame
 )
 
 // Per character state, stored in Char.bw. Players are roots, enemies are helpers
@@ -520,7 +521,7 @@ func (b *Brawler) stepWave() {
 		b.queueDelay--
 		return
 	}
-	if b.aliveEnemies() >= w.maxAlive {
+	if b.aliveEnemies() >= b.maxAlive(w) {
 		return
 	}
 	head := b.queue[0]
@@ -556,6 +557,16 @@ func (b *Brawler) endWave() {
 	b.wave++
 }
 
+// Enemies allowed alive at once: the wave's limit, and [Brawler] MaxEnemiesPerPlayer for each player
+// still in the fight
+func (b *Brawler) maxAlive(w BrawlerWave) int32 {
+	n := w.maxAlive
+	if per := sys.cfg.Brawler.MaxEnemiesPerPlayer; per > 0 {
+		n = Min(n, per*int32(Max(1, len(b.players(true)))))
+	}
+	return n
+}
+
 // Enemy entry for a spawn line: a random candidate, or any enemy of the level
 func (b *Brawler) pickEnemy(s BrawlerSpawn) int {
 	if len(s.enemies) > 0 {
@@ -574,10 +585,23 @@ func (b *Brawler) roundKO() (ko [2]bool) {
 	return
 }
 
-// Restrict camera movement. Takes and returns the camera X position
-func (b *Brawler) cameraX(x float32) float32 {
+// Camera X position: centered on the players in the fight, within the stage's camera bounds, and
+// held in place by locked waves. The fighting game camera only scrolls when a player pushes the screen
+// edge, which hides what lies ahead in a beat 'em up. Takes and returns the camera X position
+func (b *Brawler) cameraX(x, scl float32) float32 {
 	if !b.active() {
 		return x
+	}
+	var sum float32
+	var n int
+	for _, p := range b.players(true) {
+		sum += brawlerX(p)
+		n++
+	}
+	if n > 0 && !sys.gsf(GSF_camerafreeze) {
+		prev := sys.cam.Pos[0]
+		x = prev + (sum/float32(n)-prev)*brawlerCamFollow
+		x = sys.cam.XBound(scl, x)
 	}
 	if b.locked {
 		return b.lockX

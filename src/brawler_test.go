@@ -353,3 +353,22 @@ func TestBrawlerTurnOnAttack(t *testing.T) {
 		t.Error("AI characters keep their own facing")
 	}
 }
+
+func TestBrawlerMaxAlive(t *testing.T) {
+	oldPer, old0, old2 := sys.cfg.Brawler.MaxEnemiesPerPlayer, sys.chars[0], sys.chars[2]
+	defer func() { sys.cfg.Brawler.MaxEnemiesPerPlayer, sys.chars[0], sys.chars[2] = oldPer, old0, old2 }()
+	sys.cfg.Brawler.MaxEnemiesPerPlayer = 4
+	sys.chars[0] = []*Char{{playerNo: 0}}
+	sys.chars[2] = nil
+	b := &Brawler{}
+	if n := b.maxAlive(BrawlerWave{maxAlive: 6}); n != 4 {
+		t.Errorf("1 player: got %v, want 4", n)
+	}
+	if n := b.maxAlive(BrawlerWave{maxAlive: 3}); n != 3 {
+		t.Errorf("wave limit below the cap: got %v, want 3", n)
+	}
+	sys.chars[2] = []*Char{{playerNo: 2}}
+	if n := b.maxAlive(BrawlerWave{maxAlive: 6}); n != 6 {
+		t.Errorf("2 players: got %v, want 6", n)
+	}
+}

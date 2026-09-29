@@ -2884,7 +2884,7 @@ func (s *System) action() {
 
 	// Run camera
 	x, y, scl = s.cam.action(x, y, scl, s.supertime > 0 || s.pausetime > 0)
-	x = s.brawler.cameraX(x)
+	x = s.brawler.cameraX(x, scl)
 
 	// Character intro skipping
 	if s.tickNextFrame() {
