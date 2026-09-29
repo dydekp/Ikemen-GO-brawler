@@ -22,6 +22,15 @@ enemy = big,     kfm720,  2
 enemy = boss,    kfm720,  5, 1500, Master Kung Fu
 boss  = boss
 
+; Behavior profiles from data/brawler/behaviors.def (or [Behavior name]
+; sections in this file). Enemies without one use "default".
+behavior = thug,    kicker
+behavior = thug2,   jumper
+behavior = bruiser, comboer
+behavior = ninja,   flanker
+behavior = big,     hitrun
+behavior = boss,    brute
+
 [Wave 1]
 ; Starts right away
 trigger  = -9999

@@ -116,15 +116,67 @@ The HUD uses the fight screen's name font and scales to its localcoord.
 Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 
 
-ENEMY AI
---------
+ENEMY AI AND BEHAVIORS
+----------------------
 Enemies are driven by the engine at the input level, so any character works
-as an enemy without changes. Only a limited number of enemies attack the same
-player at once ([Brawler] AttackersPerPlayer), the others keep their distance
-and wait for their turn. Enemies follow players between lanes, guard now and
-then, use combos and occasionally their special moves. Difficulty follows the
-AI level of the game options. Characters with their own AI code (AILevel
-triggers) still run it.
+as an enemy without changes. How an enemy fights is set by a behavior
+profile. Assign profiles per enemy entry in the level's [Enemies] section:
+
+  enemy    = thug, kfm, 1
+  enemy    = acro, kfm, 2
+  behavior = thug, kicker
+  behavior = acro, jumper
+
+Enemies without a behavior use "default". Profiles come from the file set by
+[Brawler] Behaviors (data/brawler/behaviors.def) and from [Behavior name]
+sections in the level itself, which can also redefine a profile for that
+level. Every profile starts from the default values; "base = name" copies
+another profile first. behaviors.def contains ready examples: kicker, jumper,
+comboer, flanker, hitrun and brute.
+
+[Behavior name]
+base          = name       ; Start from another profile
+tactic        = direct     ; How the enemy moves around its target:
+                           ;   direct   walk up and attack
+                           ;   flank    use another lane to get behind the
+                           ;            player, then jump in and attack
+                           ;   jumpover run up, jump over the player, attack
+                           ;            from behind, back off, repeat
+                           ;   hitrun   attack, then back off for a while
+moves         = x*3 | a*3 | y | b   ; Attacks (syntax below)
+combo         = 0, 2       ; Follow-up moves after an attack (min, max)
+combo.moves   = x | a      ; Moves for follow-ups (default: moves)
+combo.delay   = 8, 14      ; Frames between combo moves
+cooldown      = 25, 70     ; Frames between attacks
+reach         = 30         ; Attack distance in front of the body
+special       = 0.15       ; Chance an attack is a random command instead
+guard         = 0.1        ; Chance to guard when the target attacks
+hover         = 70, 130    ; Distance kept while waiting to attack
+tokens        = 1          ; 1 = wait for an attack slot ([Brawler]
+                           ; AttackersPerPlayer), 0 = attack whenever ready
+run           = 0          ; 1 = run when far away (double tap forward)
+rundistance   = 140        ; Distance from which the enemy runs
+lane.follow   = 1          ; Follow the target to its lane
+lane.delay    = 10, 45     ; Reaction time before switching lanes
+retreat       = 40, 80     ; Frames spent backing off (hitrun, jumpover)
+jump.distance = 75         ; Distance at which a jump over starts
+jump.input    = UF:6       ; Input used to jump over
+
+Move syntax:
+  "|" separates moves, "*n" gives a move a weight (picked n times as often)
+  "," separates the steps of a move, "+" presses inputs together,
+  ":n" holds a step for n frames (default 2)
+  Directions (uppercase): U D F B UF UB DF DB, N = neutral. F and B are
+  relative to the enemy's facing.
+  Buttons (lowercase): a b c x y z s d w
+  cmd:name performs a command of the character's .cmd file
+
+  moves = a                      only light kicks
+  moves = x*2 | D, DF, F+x       mostly punches, sometimes a fireball motion
+  moves = cmd:QCF_x | cmd:FF_b   named commands (Kung Fu Man)
+
+Difficulty (AI level) doesn't change profiles; tune them per enemy instead.
+Characters with their own AI code (AILevel triggers) still run it.
 
 
 CONFIG ([Brawler] section)

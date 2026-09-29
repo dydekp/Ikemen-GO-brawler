@@ -57,13 +57,14 @@ type BrawlerWave struct {
 }
 
 type BrawlerEnemy struct {
-	alias string
-	def   string
-	pal   int32
-	life  int32  // 0 = the character's own life
-	name  string // Display name in the HUD. Empty = the character's name
-	boss  bool   // Shown in the boss lifebar
-	typ   int    // Index into BrawlerLevel.types
+	alias    string
+	def      string
+	pal      int32
+	life     int32            // 0 = the character's own life
+	name     string           // Display name in the HUD. Empty = the character's name
+	boss     bool             // Shown in the boss lifebar
+	behavior *BrawlerBehavior // AI profile
+	typ      int              // Index into BrawlerLevel.types
 }
 
 type BrawlerLevel struct {
@@ -80,7 +81,8 @@ type BrawlerLevel struct {
 	endX      float32
 	hasEndX   bool
 	enemies   []BrawlerEnemy
-	types     []string // Distinct enemy character defs, as written in the level
+	types     []string                    // Distinct enemy character defs, as written in the level
+	behaviors map[string]*BrawlerBehavior // AI profiles: built in, global file and level sections
 	waves     []BrawlerWave
 }
 
@@ -126,6 +128,9 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 	}
 	var pending []pendingAliases
 	var bossAliases []string
+	var behAssign [][2]string
+	var beh *BrawlerBehavior
+	lv.behaviors = loadBrawlerBehaviors()
 
 	for n, line := range strings.Split(NormalizeNewlines(text), "\n") {
 		if i := strings.Index(line, ";"); i >= 0 {
@@ -141,6 +146,13 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
 			name := strings.ToLower(strings.TrimSpace(line[1 : len(line)-1]))
 			section = strings.Fields(name + " ")[0]
+			if section == "behavior" {
+				bname := strings.TrimSpace(strings.TrimPrefix(name, "behavior"))
+				if bname == "" {
+					return nil, fail("behavior section needs a name: [Behavior name]")
+				}
+				beh = lv.behavior(bname, true)
+			}
 			if section == "wave" {
 				lv.waves = append(lv.waves, BrawlerWave{lock: true, maxAlive: brawlerMaxAlive})
 				wave = &lv.waves[len(lv.waves)-1]
@@ -199,8 +211,20 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 				}
 				lv.hasEndX = true
 			}
+		case "behavior":
+			if err := lv.setBehavior(beh, key, val); err != nil {
+				return nil, fail("%v", err)
+			}
 		case "enemies":
 			// boss = alias[, alias...]
+			// behavior = alias, profile
+			if key == "behavior" {
+				if len(args) < 2 || args[0] == "" || args[1] == "" {
+					return nil, fail("expected behavior = alias, profile")
+				}
+				behAssign = append(behAssign, [2]string{strings.ToLower(args[0]), strings.ToLower(args[1])})
+				continue
+			}
 			if key == "boss" {
 				for _, a := range args {
 					if a != "" {
@@ -333,6 +357,20 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 	if len(lv.enemies) == 0 && len(lv.waves) > 0 {
 		return nil, fmt.Errorf("%v: [Enemies] section defines no enemies", path)
 	}
+	for i := range lv.enemies {
+		lv.enemies[i].behavior = lv.behavior("default", false)
+	}
+	for _, ba := range behAssign {
+		i := lv.enemyIndex(ba[0])
+		if i < 0 {
+			return nil, fmt.Errorf("%v: behavior refers to unknown enemy '%v'", path, ba[0])
+		}
+		p := lv.behavior(ba[1], false)
+		if p == nil {
+			return nil, fmt.Errorf("%v: unknown behavior '%v'", path, ba[1])
+		}
+		lv.enemies[i].behavior = p
+	}
 	for _, a := range bossAliases {
 		i := lv.enemyIndex(a)
 		if i < 0 {
@@ -372,24 +410,6 @@ func (lv *BrawlerLevel) enemyIndex(alias string) int {
 		}
 	}
 	return -1
-}
-
-// Per character AI state
-type brawlerAI struct {
-	target       int // Player number of the current target. -1 if none
-	retarget     int32
-	hasToken     bool    // Allowed to attack. Others keep their distance
-	hover        float32 // Preferred distance while waiting for a token
-	cooldown     int32   // Frames until the next attack may start
-	press        int     // Button index currently being pressed
-	pressTime    int32
-	comboLeft    int32
-	comboDelay   int32
-	guardTime    int32
-	laneDelay    int32
-	laneCooldown int32
-	idleTime     int32
-	special      bool // Request a random command this frame
 }
 
 // Per character state, stored in Char.bw. Players are roots, enemies are helpers
@@ -762,12 +782,8 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 		aiLane:      -1,
 		entering:    true,
 		desiredFace: h.facing,
-		ai: brawlerAI{
-			target:   -1,
-			hover:    RandF32(80, 150),
-			cooldown: Rand(20, 60),
-		},
 	}
+	h.bw.ai.init(b.level.enemies[ei].behavior)
 	sys.charList.enemyNearChanged = true
 	return true
 }
@@ -1157,39 +1173,6 @@ func (b *Brawler) remainingAirTicks(c *Char) float32 {
 	return Max((-v+float32(math.Sqrt(float64(disc))))/g, 1)
 }
 
-// Give attack permission to the enemies closest to each player
-func (b *Brawler) assignTokens() {
-	maxAttackers := sys.cfg.Brawler.AttackersPerPlayer
-	type cand struct {
-		c    *Char
-		dist float32
-	}
-	byTarget := map[int][]cand{}
-	for _, c := range b.instances() {
-		c.bw.ai.hasToken = false
-		if !c.alive() || c.bw.ai.target < 0 {
-			continue
-		}
-		t := b.root(c.bw.ai.target)
-		if t == nil {
-			continue
-		}
-		d := Abs(t.pos[0]*t.localscl-c.pos[0]*c.localscl) + float32(Abs(t.bw.targetLane-c.bw.targetLane))*60
-		byTarget[c.bw.ai.target] = append(byTarget[c.bw.ai.target], cand{c, d})
-	}
-	for _, list := range byTarget {
-		// Small lists, simple insertion sort keeps this deterministic
-		for i := 1; i < len(list); i++ {
-			for j := i; j > 0 && (list[j].dist < list[j-1].dist || list[j].dist == list[j-1].dist && list[j].c.id < list[j-1].c.id); j-- {
-				list[j], list[j-1] = list[j-1], list[j]
-			}
-		}
-		for i := 0; i < len(list) && int32(i) < maxAttackers; i++ {
-			list[i].c.bw.ai.hasToken = true
-		}
-	}
-}
-
 // Nearest valid player
 func (b *Brawler) pickTarget(c *Char) int {
 	best, bestDist := -1, float32(math.MaxFloat32)
@@ -1203,156 +1186,4 @@ func (b *Brawler) pickTarget(c *Char) int {
 		}
 	}
 	return best
-}
-
-// Generate enemy inputs. Replaces random AI button jamming
-func (b *Brawler) aiButtons(c *Char) (in [14]bool) {
-	st := b.charState(c)
-	if st == nil || !st.enemy {
-		return
-	}
-	ai := &st.ai
-	// Lane requests are consumed by tryLaneJump in the same frame. Don't keep stale ones around
-	st.aiLane = -1
-	if sys.roundState() != 2 || !c.alive() || c.scf(SCF_disabled) {
-		ai.pressTime = 0
-		ai.guardTime = 0
-		return
-	}
-
-	// Difficulty from 0.125 to 1
-	skill := Clamp(sys.aiLevel[c.playerNo]/8, 0.125, 1)
-
-	// Targeting
-	if ai.retarget > 0 {
-		ai.retarget--
-	}
-	if t := b.root(ai.target); ai.retarget == 0 || t == nil || !t.alive() || t.scf(SCF_disabled) {
-		ai.target = b.pickTarget(c)
-		ai.retarget = Rand(40, 100)
-	}
-	t := b.root(ai.target)
-	if t == nil {
-		return
-	}
-	tst := &t.bw
-
-	dx := t.pos[0]*t.localscl - c.pos[0]*c.localscl
-	adx := Abs(dx)
-	toward := Sign(dx)
-	if toward == 0 {
-		toward = c.facing
-	}
-	sameLane := !st.laneJump && !tst.laneJump && st.targetLane == tst.targetLane
-	grounded := c.ss.stateType != ST_A
-
-	// Reach: front of the standing box plus a generic attack distance
-	reach := c.size.standbox[2]*c.localscl + 35
-
-	// Lane changes: follow the target to its lane after a reaction delay
-	if ai.laneCooldown > 0 {
-		ai.laneCooldown--
-	}
-	if !sameLane && !st.laneJump && !tst.laneJump && grounded && c.ctrl() && ai.laneCooldown == 0 &&
-		(ai.hasToken || adx < 200) {
-		if ai.laneDelay == 0 {
-			ai.laneDelay = Rand(10, int32(10+50*(1-skill)))
-		} else {
-			ai.laneDelay--
-			if ai.laneDelay == 0 {
-				st.aiLane = tst.targetLane
-				ai.laneCooldown = Rand(60, 150)
-			}
-		}
-	} else {
-		ai.laneDelay = 0
-	}
-
-	// Horizontal movement
-	want := ai.hover
-	if ai.hasToken {
-		want = reach * 0.75
-		// Step out of range between attacks instead of pressuring nonstop
-		if ai.cooldown > 30 && ai.comboLeft == 0 {
-			want = reach * 1.6
-		}
-	}
-	move := float32(0)
-	if ai.idleTime > 0 {
-		ai.idleTime--
-	} else if adx > want+8 {
-		move = toward
-	} else if !ai.hasToken && adx < want-25 {
-		move = -toward
-	} else if !ai.hasToken && Rand(0, 200) == 0 {
-		ai.idleTime = Rand(20, 60)
-	}
-
-	// Guarding
-	if ai.guardTime > 0 {
-		ai.guardTime--
-		move = -toward
-	} else if sameLane && adx < 110 && t.ss.moveType == MT_A && c.ctrl() && ai.pressTime == 0 &&
-		Rand(0, 999) < int32(80*skill) {
-		ai.guardTime = Rand(10, 30)
-		move = -toward
-	}
-
-	// Attacks
-	if ai.cooldown > 0 {
-		ai.cooldown--
-	}
-	if ai.pressTime > 0 {
-		ai.pressTime--
-	}
-	attackButtons := [...]int{4, 5, 6, 7, 8, 9} // a b c x y z
-	if ai.comboLeft > 0 {
-		if ai.comboDelay > 0 {
-			ai.comboDelay--
-		} else if ai.pressTime == 0 {
-			ai.press = attackButtons[Rand(0, int32(len(attackButtons))-1)]
-			ai.pressTime = 2
-			ai.comboLeft--
-			ai.comboDelay = Rand(8, 16)
-		}
-	} else if ai.hasToken && sameLane && grounded && adx <= reach && c.ctrl() && ai.cooldown == 0 &&
-		ai.guardTime == 0 && c.facing == toward {
-		if Rand(0, 999) < int32(150+200*skill) {
-			ai.special = true
-		} else {
-			// Favor light attacks
-			light := [...]int{4, 7, 4, 7, 5, 8}
-			ai.press = light[Rand(0, int32(len(light))-1)]
-			ai.pressTime = 2
-			ai.comboLeft = Rand(0, int32(1+2*skill))
-			ai.comboDelay = Rand(8, 16)
-		}
-		ai.cooldown = Rand(int32(50+60*(1-skill)), int32(100+120*(1-skill)))
-		move = 0
-	}
-
-	if move < 0 {
-		in[2] = true
-	} else if move > 0 {
-		in[3] = true
-	}
-	// Release for at least one frame between presses so every press registers
-	if ai.pressTime > 0 && ai.press >= 4 && ai.press < len(in) {
-		in[ai.press] = true
-	}
-	return
-}
-
-// Command index the AI wants to perform this frame, or -1
-func (b *Brawler) aiCheat(c *Char) int32 {
-	st := b.charState(c)
-	if st == nil || !st.ai.special {
-		return -1
-	}
-	st.ai.special = false
-	cmds := c.cmd[c.ss.sb.playerNo].Commands
-	if len(cmds) == 0 {
-		return -1
-	}
-	return Rand(0, int32(len(cmds))-1)
 }

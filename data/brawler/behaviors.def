@@ -1,0 +1,69 @@
+; Brawler enemy behavior profiles.
+; Assign them to enemies in a level: behavior = alias, profile
+; Levels can define their own [Behavior name] sections too (same keys).
+; Every profile starts from the built in "default" values, or from another
+; profile with "base = name". See README.txt for all keys and the move syntax.
+;
+; Moves of Kung Fu Man: x = light punch, y = strong punch, a = light kick,
+; b = strong kick. Named commands (cmd:name) come from the character's .cmd.
+
+; Only uses light kicks, but attacks often
+[Behavior kicker]
+tactic   = direct
+moves    = a
+combo    = 0, 1
+cooldown = 20, 45
+guard    = 0.05
+
+; Runs at the player, jumps over, and attacks from behind
+[Behavior jumper]
+tactic        = jumpover
+run           = 1
+rundistance   = 90
+jump.distance = 80
+moves         = b | y | a
+combo         = 0, 1
+cooldown      = 15, 30
+retreat       = 30, 60
+tokens        = 0
+
+; Chains attacks into combos
+[Behavior comboer]
+tactic      = direct
+moves       = x | a
+combo       = 2, 4
+combo.moves = x*2 | a*2 | y | b
+combo.delay = 7, 11
+cooldown    = 40, 80
+guard       = 0.2
+
+; Uses the lanes to get behind the player, then jumps in and attacks
+[Behavior flanker]
+tactic   = flank
+moves    = b | y | x, x
+combo    = 0, 2
+cooldown = 30, 60
+tokens   = 0
+
+; Strikes and backs off
+[Behavior hitrun]
+tactic   = hitrun
+run      = 1
+moves    = b | y
+combo    = 0
+cooldown = 20, 40
+retreat  = 40, 90
+hover    = 90, 130
+
+; Heavy hitter with special moves
+[Behavior brute]
+tactic      = direct
+run         = 1
+rundistance = 160
+moves       = y*2 | b*2 | cmd:QCF_y | cmd:upper_y | cmd:FF_b
+combo       = 0, 2
+combo.moves = y | b | cmd:QCF_x
+cooldown    = 30, 60
+special     = 0.1
+guard       = 0.3
+tokens      = 0

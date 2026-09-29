@@ -229,6 +229,7 @@ type Config struct {
 		TurnBuffer         int32    `ini:"TurnBuffer" sync:"host"`
 		LaneSelectWindow   int32    `ini:"LaneSelectWindow" sync:"host"`
 		LaneSnapSpeed      float32  `ini:"LaneSnapSpeed" sync:"host"`
+		Behaviors          string   `ini:"Behaviors" sync:"host"`
 		AttackersPerPlayer int32    `ini:"AttackersPerPlayer" sync:"host"`
 		DespawnTime        int32    `ini:"DespawnTime" sync:"host"`
 	} `ini:"Brawler"`
