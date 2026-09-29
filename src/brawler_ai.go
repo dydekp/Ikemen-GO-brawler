@@ -381,6 +381,7 @@ type brawlerAI struct {
 	laneCooldown int32
 	phase        int32
 	phaseTime    int32
+	phaseLen     int32   // Duration of timed phases, rolled when the phase starts
 	side         float32 // Flank side relative to the target: -1 left, 1 right
 	flankLane    int32
 	cheat        int32 // Command index to perform this frame, -1 if none
@@ -391,13 +392,18 @@ func (ai *brawlerAI) init(beh *BrawlerBehavior) {
 		beh = newBrawlerBehavior("default")
 	}
 	*ai = brawlerAI{
-		beh:       beh,
-		target:    -1,
+		beh:    beh,
+		target: -1,
+		// RandF32 excludes max+1, so this stays within the configured range
 		hover:     RandF32(beh.hover[0], Max(beh.hover[0], beh.hover[1]-1)),
 		cooldown:  Rand(10, 40),
 		flankLane: -1,
 		cheat:     -1,
 	}
+}
+
+func (ai *brawlerAI) setPhase(phase, length int32) {
+	ai.phase, ai.phaseTime, ai.phaseLen = phase, 0, length
 }
 
 func brawlerRand(r [2]int32) int32 {
@@ -409,6 +415,14 @@ func brawlerRand(r [2]int32) int32 {
 
 func brawlerChance(p float32) bool {
 	return p > 0 && Rand(0, 999) < int32(p*1000)
+}
+
+// Input index of a screen direction: 2 = left, 3 = right
+func brawlerDirIndex(dir float32) int {
+	if dir < 0 {
+		return 2
+	}
+	return 3
 }
 
 func (ai *brawlerAI) start(prog []brawlerStep, attack bool) {
@@ -428,10 +442,8 @@ func (ai *brawlerAI) runProgram(c *Char, in *[14]bool) bool {
 			continue
 		}
 		if ai.progTime == 0 && st.cmd != "" {
-			if cl := c.cmd[c.ss.sb.playerNo]; cl.Names != nil {
-				if i, ok := cl.Names[st.cmd]; ok {
-					ai.cheat = int32(i)
-				}
+			if i, ok := c.cmd[c.ss.sb.playerNo].Names[st.cmd]; ok {
+				ai.cheat = int32(i)
 			}
 		}
 		fwd, back := 3, 2 // R, L when facing right
@@ -467,12 +479,9 @@ func (b *Brawler) assignTokens() {
 		if ai.hasToken || !c.alive() || ai.target < 0 {
 			continue
 		}
-		t := b.root(ai.target)
-		if t == nil {
-			continue
+		if t := b.root(ai.target); t != nil {
+			byTarget[ai.target] = append(byTarget[ai.target], cand{c, brawlerDist(c, t)})
 		}
-		d := brawlerDist(c, t)
-		byTarget[ai.target] = append(byTarget[ai.target], cand{c, d})
 	}
 	for _, list := range byTarget {
 		// Small lists, simple insertion sort keeps this deterministic
@@ -487,50 +496,62 @@ func (b *Brawler) assignTokens() {
 	}
 }
 
+// Situation of an enemy and its target, computed once per frame
+type brawlerAIFrame struct {
+	c, t         *Char
+	st, tst      *brawlerChar
+	ai           *brawlerAI
+	beh          *BrawlerBehavior
+	myX, tX      float32
+	adx          float32 // Horizontal distance to the target
+	toward       float32 // Screen direction to the target
+	reach        float32 // Attack distance
+	sameLane     bool
+	grounded     bool
+	facingTarget bool
+	in           [14]bool
+}
+
+// What the tactic wants this frame
+type brawlerAIGoal struct {
+	x         float32 // Position to move to
+	lane      int32
+	canAttack bool
+}
+
 // Generate enemy inputs from its behavior profile
-func (b *Brawler) aiButtons(c *Char) (in [14]bool) {
+func (b *Brawler) aiButtons(c *Char) [14]bool {
 	st := b.charState(c)
 	if st == nil || !st.enemy {
-		return
+		return [14]bool{}
 	}
 	ai := &st.ai
 	if ai.beh == nil {
 		ai.init(nil)
 	}
-	beh := ai.beh
 	// Lane requests are consumed by tryLaneJump in the same frame. Don't keep stale ones around
 	st.aiLane = -1
 	if sys.roundState() != 2 || !c.alive() || c.scf(SCF_disabled) {
 		ai.prog = nil
 		ai.guardTime = 0
-		return
+		return [14]bool{}
 	}
-
-	// Targeting
-	if ai.retarget > 0 {
-		ai.retarget--
-	}
-	if t := b.root(ai.target); ai.retarget == 0 || t == nil || !t.alive() || t.scf(SCF_disabled) {
-		ai.target = b.pickTarget(c)
-		ai.retarget = Rand(60, 120)
-	}
-	t := b.root(ai.target)
+	t := b.aiTarget(c, ai)
 	if t == nil {
-		return
+		return [14]bool{}
 	}
-	tst := &t.bw
 
-	myX, tX := brawlerX(c), brawlerX(t)
-	dx := tX - myX
-	adx := Abs(dx)
-	toward := Sign(dx)
-	if toward == 0 {
-		toward = c.facing
+	f := &brawlerAIFrame{c: c, t: t, st: st, tst: &t.bw, ai: ai, beh: ai.beh}
+	f.myX, f.tX = brawlerX(c), brawlerX(t)
+	f.adx = Abs(f.tX - f.myX)
+	f.toward = Sign(f.tX - f.myX)
+	if f.toward == 0 {
+		f.toward = c.facing
 	}
-	sameLane := !st.laneJump && !tst.laneJump && st.targetLane == tst.targetLane
-	grounded := c.ss.stateType != ST_A
-	reach := c.size.standbox[2]*c.localscl + beh.reach
-	facingTarget := c.facing == toward
+	f.reach = c.size.standbox[2]*c.localscl + f.beh.reach
+	f.sameLane = !st.laneJump && !f.tst.laneJump && st.targetLane == f.tst.targetLane
+	f.grounded = c.ss.stateType != ST_A
+	f.facingTarget = c.facing == f.toward
 
 	if ai.cooldown > 0 {
 		ai.cooldown--
@@ -540,171 +561,220 @@ func (b *Brawler) aiButtons(c *Char) (in [14]bool) {
 	}
 	ai.phaseTime++
 
-	// An input sequence in progress has priority
+	if b.aiContinue(f) || b.aiGuard(f) {
+		return f.in
+	}
+	g := b.aiGoal(f)
+	if b.aiJumpOver(f) {
+		return f.in
+	}
+	b.aiLane(f, g.lane)
+	if g.canAttack && b.aiAttack(f) {
+		return f.in
+	}
+	b.aiMove(f, g.x)
+	return f.in
+}
+
+// Keep the current target for a while, then switch to the nearest player
+func (b *Brawler) aiTarget(c *Char, ai *brawlerAI) *Char {
+	if ai.retarget > 0 {
+		ai.retarget--
+	}
+	if t := b.root(ai.target); ai.retarget == 0 || t == nil || !t.alive() || t.scf(SCF_disabled) {
+		ai.target = b.pickTarget(c)
+		ai.retarget = Rand(60, 120)
+	}
+	return b.root(ai.target)
+}
+
+// Input sequences and combo follow-ups in progress have priority
+func (b *Brawler) aiContinue(f *brawlerAIFrame) bool {
+	ai := f.ai
 	if len(ai.prog) > 0 {
-		if ai.runProgram(c, &in) {
-			return
+		if ai.runProgram(f.c, &f.in) {
+			return true
 		}
 		if ai.attacking {
-			ai.comboDelay = brawlerRand(beh.comboDelay)
+			ai.comboDelay = brawlerRand(f.beh.comboDelay)
 		}
 	}
+	if ai.comboLeft <= 0 {
+		return false
+	}
+	if ai.comboDelay > 0 {
+		ai.comboDelay--
+		return true
+	}
+	moves := f.beh.comboMoves
+	if len(moves) == 0 {
+		moves = f.beh.moves
+	}
+	ai.comboLeft--
+	ai.start(pickBrawlerMove(moves), true)
+	ai.runProgram(f.c, &f.in)
+	return true
+}
 
-	// Combo follow-ups
-	if ai.comboLeft > 0 {
-		if ai.comboDelay > 0 {
-			ai.comboDelay--
-			return
-		}
-		moves := beh.comboMoves
-		if len(moves) == 0 {
-			moves = beh.moves
-		}
-		ai.comboLeft--
-		ai.start(pickBrawlerMove(moves), true)
-		ai.runProgram(c, &in)
-		return
-	}
-
-	// Guarding
-	if ai.guardTime > 0 {
-		ai.guardTime--
-		in[b.dirIndex(-toward)] = true
-		return
-	}
-	if sameLane && adx < 110 && t.ss.moveType == MT_A && c.ctrl() && brawlerChance(beh.guard) {
+// Hold back while the target attacks, now and then
+func (b *Brawler) aiGuard(f *brawlerAIFrame) bool {
+	ai := f.ai
+	if ai.guardTime == 0 && f.sameLane && f.adx < 110 && f.t.ss.moveType == MT_A && f.c.ctrl() &&
+		brawlerChance(f.beh.guard) {
 		ai.guardTime = Rand(12, 30)
-		in[b.dirIndex(-toward)] = true
-		return
 	}
+	if ai.guardTime == 0 {
+		return false
+	}
+	ai.guardTime--
+	f.in[brawlerDirIndex(-f.toward)] = true
+	return true
+}
 
-	// Where to go, according to the tactic
-	wantLane := tst.targetLane
-	wantX := tX - toward*reach*0.75
-	canAttack := ai.hasToken
+// Position, lane and attack permission according to the tactic
+func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
+	ai, beh := f.ai, f.beh
+	g := brawlerAIGoal{x: f.tX - f.toward*f.reach*0.75, lane: f.tst.targetLane, canAttack: ai.hasToken}
 	switch beh.tactic {
 	case BT_Flank:
 		if ai.phase == bpApproach {
 			// Pick a side lane and the target's back
-			if ai.flankLane < 0 || ai.flankLane == tst.targetLane {
-				ai.flankLane = b.sideLane(tst.targetLane)
-				ai.side = -t.facing
+			if ai.flankLane < 0 || ai.flankLane == f.tst.targetLane {
+				ai.flankLane = b.sideLane(f.tst.targetLane)
+				ai.side = -f.t.facing
 			}
-			wantLane = ai.flankLane
-			wantX = tX + ai.side*reach*0.9
-			canAttack = false
-			if st.targetLane == ai.flankLane && !st.laneJump && Abs(myX-wantX) < 15 || ai.phaseTime > 360 {
-				ai.phase, ai.phaseTime = bpEngage, 0
+			g.lane = ai.flankLane
+			g.x = f.tX + ai.side*f.reach*0.9
+			g.canAttack = false
+			inPlace := f.st.targetLane == ai.flankLane && !f.st.laneJump && Abs(f.myX-g.x) < 15
+			if inPlace || ai.phaseTime > 360 {
+				ai.setPhase(bpEngage, 0)
 			}
 		} else {
 			// Jump into the target's lane from its side, then fight there
-			wantX = tX + ai.side*reach*0.75
+			g.x = f.tX + ai.side*f.reach*0.75
 		}
+		return g
 	case BT_JumpOver:
 		switch ai.phase {
-		case bpApproach:
-			wantX = tX
-			canAttack = false
-			if sameLane && grounded && c.ctrl() && facingTarget && adx < beh.jumpDist && adx > 15 {
-				ai.start(beh.jump, false)
-				ai.phase, ai.phaseTime = bpAirborne, 0
-				ai.runProgram(c, &in)
-				return
-			}
-		case bpAirborne:
-			wantX = tX
-			canAttack = false
-			if grounded && ai.phaseTime > 10 {
+		case bpApproach, bpAirborne:
+			g.x = f.tX
+			g.canAttack = false
+			if ai.phase == bpAirborne && f.grounded && ai.phaseTime > 10 {
 				// Landed behind the target: attack right away
-				ai.phase, ai.phaseTime = bpEngage, 0
+				ai.setPhase(bpEngage, 90)
 				ai.cooldown = 0
 			}
 		case bpEngage:
-			canAttack = true
-			if ai.phaseTime > 90 {
-				ai.phase, ai.phaseTime = bpRetreat, 0
+			g.canAttack = true
+			if ai.phaseTime > ai.phaseLen {
+				ai.setPhase(bpRetreat, brawlerRand(beh.retreat))
 			}
 		case bpRetreat:
-			wantX = tX - toward*Max(beh.jumpDist+60, 150)
-			canAttack = false
-			if ai.phaseTime > brawlerRand(beh.retreat) || adx > beh.jumpDist+50 {
-				ai.phase, ai.phaseTime = bpApproach, 0
+			g.x = f.tX - f.toward*Max(beh.jumpDist+60, 150)
+			g.canAttack = false
+			if ai.phaseTime > ai.phaseLen || f.adx > beh.jumpDist+50 {
+				ai.setPhase(bpApproach, 0)
 			}
 		}
+		return g
 	case BT_HitRun:
 		if ai.phase == bpRetreat {
-			wantX = tX - toward*ai.hover*1.5
-			canAttack = false
-			if ai.phaseTime > brawlerRand(beh.retreat) {
-				ai.phase, ai.phaseTime = bpApproach, 0
+			g.x = f.tX - f.toward*ai.hover*1.5
+			g.canAttack = false
+			if ai.phaseTime > ai.phaseLen {
+				ai.setPhase(bpApproach, 0)
 			}
+			return g
 		}
 	}
-	if !canAttack && beh.tactic != BT_Flank && beh.tactic != BT_JumpOver {
-		wantX = tX - toward*ai.hover
+	// Enemies waiting for their turn keep their distance
+	if !g.canAttack {
+		g.x = f.tX - f.toward*ai.hover
 	}
-
-	// Lane changes after a reaction delay
-	if (beh.laneFollow || beh.tactic == BT_Flank) && wantLane != st.targetLane && !st.laneJump && !tst.laneJump &&
-		grounded && c.ctrl() && ai.laneCooldown == 0 {
-		if ai.laneDelay == 0 {
-			ai.laneDelay = brawlerRand(beh.laneDelay) + 1
-		} else if ai.laneDelay--; ai.laneDelay == 0 {
-			st.aiLane = wantLane
-			ai.laneCooldown = Rand(40, 90)
-		}
-	} else {
-		ai.laneDelay = 0
-	}
-
-	// Attack
-	if canAttack && sameLane && grounded && adx <= reach && c.ctrl() && ai.cooldown == 0 && facingTarget {
-		if brawlerChance(beh.special) {
-			if cmds := c.cmd[c.ss.sb.playerNo].Commands; len(cmds) > 0 {
-				ai.cheat = Rand(0, int32(len(cmds))-1)
-			}
-		} else if prog := pickBrawlerMove(beh.moves); prog != nil {
-			ai.start(prog, true)
-			ai.comboLeft = brawlerRand(beh.combo)
-		}
-		ai.cooldown = brawlerRand(beh.cooldown)
-		if beh.tactic == BT_HitRun {
-			ai.phase, ai.phaseTime = bpRetreat, 0
-		} else if beh.tactic == BT_Flank && brawlerChance(0.5) {
-			// Circle around again after attacking
-			ai.phase, ai.phaseTime = bpApproach, 0
-			ai.flankLane = -1
-		}
-		if len(ai.prog) > 0 {
-			ai.runProgram(c, &in)
-		}
-		return
-	}
-
-	// Movement towards the wanted position
-	moveDx := wantX - myX
-	if Abs(moveDx) > 6 {
-		dir := Sign(moveDx)
-		// Running: double tap forward, then keep holding it
-		if beh.run && dir == c.facing && Abs(moveDx) > beh.runDist && grounded && c.ctrl() && c.ss.no != 100 {
-			ai.start([]brawlerStep{{dirs: bdF, frames: 2}, {frames: 2}, {dirs: bdF, frames: 2}}, false)
-			ai.runProgram(c, &in)
-			return
-		}
-		if c.ss.no == 100 && (dir != c.facing || Abs(moveDx) < reach) {
-			return // Release forward to stop running
-		}
-		in[b.dirIndex(dir)] = true
-	}
-	return
+	return g
 }
 
-// Input index of a screen direction: 2 = left, 3 = right
-func (b *Brawler) dirIndex(dir float32) int {
-	if dir < 0 {
-		return 2
+// Jump over tactic: leap when close enough
+func (b *Brawler) aiJumpOver(f *brawlerAIFrame) bool {
+	ai := f.ai
+	if f.beh.tactic != BT_JumpOver || ai.phase != bpApproach {
+		return false
 	}
-	return 3
+	if !f.sameLane || !f.grounded || !f.c.ctrl() || !f.facingTarget || f.adx >= f.beh.jumpDist || f.adx <= 15 {
+		return false
+	}
+	ai.start(f.beh.jump, false)
+	ai.setPhase(bpAirborne, 0)
+	ai.runProgram(f.c, &f.in)
+	return true
+}
+
+// Switch lanes towards the wanted lane after a reaction delay
+func (b *Brawler) aiLane(f *brawlerAIFrame, lane int32) {
+	ai, st := f.ai, f.st
+	follow := f.beh.laneFollow || f.beh.tactic == BT_Flank
+	if !follow || lane == st.targetLane || st.laneJump || f.tst.laneJump || !f.grounded || !f.c.ctrl() || ai.laneCooldown > 0 {
+		ai.laneDelay = 0
+		return
+	}
+	if ai.laneDelay == 0 {
+		ai.laneDelay = brawlerRand(f.beh.laneDelay) + 1
+		return
+	}
+	if ai.laneDelay--; ai.laneDelay == 0 {
+		st.aiLane = lane
+		ai.laneCooldown = Rand(40, 90)
+	}
+}
+
+// Start an attack when in range
+func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
+	ai, beh, c := f.ai, f.beh, f.c
+	if !f.sameLane || !f.grounded || f.adx > f.reach || !c.ctrl() || ai.cooldown > 0 || !f.facingTarget {
+		return false
+	}
+	if brawlerChance(beh.special) {
+		if cmds := c.cmd[c.ss.sb.playerNo].Commands; len(cmds) > 0 {
+			ai.cheat = Rand(0, int32(len(cmds))-1)
+		}
+	} else if prog := pickBrawlerMove(beh.moves); prog != nil {
+		ai.start(prog, true)
+		ai.comboLeft = brawlerRand(beh.combo)
+	}
+	ai.cooldown = brawlerRand(beh.cooldown)
+	switch {
+	case beh.tactic == BT_HitRun:
+		ai.setPhase(bpRetreat, brawlerRand(beh.retreat))
+	case beh.tactic == BT_Flank && brawlerChance(0.5):
+		// Circle around again after attacking
+		ai.setPhase(bpApproach, 0)
+		ai.flankLane = -1
+	}
+	if len(ai.prog) > 0 {
+		ai.runProgram(c, &f.in)
+	}
+	return true
+}
+
+// Walk or run towards x
+func (b *Brawler) aiMove(f *brawlerAIFrame, x float32) {
+	c := f.c
+	dx := x - f.myX
+	if Abs(dx) <= 6 {
+		return
+	}
+	dir := Sign(dx)
+	// Running: double tap forward, then keep holding it
+	if f.beh.run && dir == c.facing && Abs(dx) > f.beh.runDist && f.grounded && c.ctrl() && c.ss.no != 100 {
+		f.ai.start([]brawlerStep{{dirs: bdF, frames: 2}, {frames: 2}, {dirs: bdF, frames: 2}}, false)
+		f.ai.runProgram(c, &f.in)
+		return
+	}
+	if c.ss.no == 100 && (dir != c.facing || Abs(dx) < f.reach) {
+		return // Release forward to stop running
+	}
+	f.in[brawlerDirIndex(dir)] = true
 }
 
 // Command index the AI wants to perform this frame, or -1
