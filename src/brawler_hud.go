@@ -8,7 +8,8 @@ package main
 //
 // The layout is computed from the number of players: the top edge is split into equal columns, so
 // 3 and 4 player games work without changes. brawlerHudLayout is the single place to tune sizes.
-// All coordinates are in the fight screen's 320x240 space and converted like the regular lifebars.
+// Coordinates are in a virtual space 320 units wide, scaled to the fight screen's localcoord and
+// converted to pixels like the regular lifebars.
 
 import "fmt"
 
@@ -115,6 +116,12 @@ func brawlerHudBar(x, y, w, h, value, red float32, color uint32) {
 	brawlerHudFill(x, y, w*value, h*0.35, 0xffffff, 70)
 }
 
+// Current and recoverable (red) life as fractions of max life
+func brawlerLifeRatio(c *Char) (life, red float32) {
+	max := float32(Max(1, c.lifeMax))
+	return float32(c.life) / max, float32(c.redLife) / max
+}
+
 // Life color: green, then yellow, then red as life goes down
 func brawlerHudLifeColor(ratio float32) uint32 {
 	switch {
@@ -132,12 +139,17 @@ type brawlerHudText struct {
 	palfx *PalFX
 }
 
+var brawlerHudPalFX *PalFX // Neutral PalFX for HUD text, created on first use
+
 // Font of the fight screen's P1 name, so the HUD matches the screenpack
 func (b *Brawler) hudFont() brawlerHudText {
+	if brawlerHudPalFX == nil {
+		brawlerHudPalFX = newPalFX()
+	}
 	fs := &sys.fightScreen
 	for _, lay := range fs.names {
 		if len(lay) > 0 && lay[0] != nil && lay[0].name.fnt != nil {
-			return brawlerHudText{lay[0].name.fnt, lay[0].name.font[1], newPalFX()}
+			return brawlerHudText{lay[0].name.fnt, lay[0].name.font[1], brawlerHudPalFX}
 		}
 	}
 	return brawlerHudText{}
@@ -221,8 +233,8 @@ func (b *Brawler) drawPlayerPanel(p *Char, l brawlerHudPanel, slot int, txt braw
 
 	// Name, life and power
 	txt.draw(l.barX, l.nameY, sys.cgi[p.playerNo].lifebarname, 1)
-	life := float32(p.life) / float32(Max(1, p.lifeMax))
-	brawlerHudBar(l.barX, l.lifeY, l.barW, l.lifeH, life, float32(p.redLife)/float32(Max(1, p.lifeMax)), brawlerHudLifeColor(life))
+	life, red := brawlerLifeRatio(p)
+	brawlerHudBar(l.barX, l.lifeY, l.barW, l.lifeH, life, red, brawlerHudLifeColor(life))
 	brawlerHudBar(l.barX, l.powerY, l.barW, l.powerH, float32(p.power)/float32(Max(1, p.powerMax)), 0, 0x3aa0ff)
 	// Power level separators
 	for lv := int32(1000); lv < p.powerMax; lv += 1000 {
@@ -233,8 +245,8 @@ func (b *Brawler) drawPlayerPanel(p *Char, l brawlerHudPanel, slot int, txt braw
 	if p.bw.hudTime > 0 {
 		if e := sys.playerID(p.bw.hudTarget); e != nil && e.bw.enemy {
 			txt.draw(l.barX, l.targetName, b.enemyName(e), 1)
-			brawlerHudBar(l.barX, l.targetY, l.barW, l.targetH,
-				float32(e.life)/float32(Max(1, e.lifeMax)), float32(e.redLife)/float32(Max(1, e.lifeMax)), 0xe04848)
+			life, red := brawlerLifeRatio(e)
+			brawlerHudBar(l.barX, l.targetY, l.barW, l.targetH, life, red, 0xe04848)
 		}
 	}
 }
@@ -280,8 +292,8 @@ func (b *Brawler) drawBossBars(txt brawlerHudText) {
 		brawlerHudFill(x-4, y-11, w+8, 1.5, 0xc03ae0, 255)
 		txt.draw(x, y-2, b.enemyName(e), 1)
 		txt.draw(x+w, y-2, "BOSS", -1)
-		brawlerHudBar(x, y, w, h, float32(e.life)/float32(Max(1, e.lifeMax)),
-			float32(e.redLife)/float32(Max(1, e.lifeMax)), 0xc03ae0)
+		life, red := brawlerLifeRatio(e)
+		brawlerHudBar(x, y, w, h, life, red, 0xc03ae0)
 		y -= h + 18
 		shown++
 	}
