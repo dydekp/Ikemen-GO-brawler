@@ -177,6 +177,12 @@ Move syntax:
   moves = x*2 | D, DF, F+x       mostly punches, sometimes a fireball motion
   moves = cmd:QCF_x | cmd:FF_b   named commands (Kung Fu Man)
 
+Enemies take up space: they push each other like opponents do, so they
+can't stack on the same spot. A knocked down or thrown enemy that flies into
+other enemies in its lane knocks them down too. Each enemy hit takes damage
+based on the body's speed ([Brawler] BowlDamage) and slows the body down
+([Brawler] BowlSlowdown).
+
 Profiles are tuned for the default difficulty. The AI level of the game options
 scales them: harder levels shorten the cooldown between attacks (x1.3 at
 level 1, x0.6 at level 8) and raise the guard chance (x0.4 to x1.8).

@@ -29,6 +29,9 @@ const (
 	brawlerMaxAlive     = 6   // Default limit of enemies alive at the same time in a wave
 	brawlerLaneWeight   = 60  // Distance a lane difference counts as, when comparing distances
 	brawlerGoTime       = 240 // Frames the "GO" sign is shown after a locked wave is cleared
+	brawlerBowlMinSpeed = 2.5 // Speed (world units per frame) a flying body needs to knock others down
+	brawlerBowlHeight   = 70  // Bodies higher than this fly over other enemies
+	brawlerBowlDepth    = 12  // Depth distance within which bodies hit others
 )
 
 // Per character state, stored in Char.bw. Players are roots, enemies are helpers
@@ -64,6 +67,8 @@ type brawlerChar struct {
 	enterTime int32
 	koTime    int32
 	koForced  bool
+	bowled    [8]int32 // Enemies hit by this body during the current fall
+	bowledN   int
 	ai        brawlerAI
 }
 
@@ -422,6 +427,8 @@ func (b *Brawler) step() {
 		b.goTime--
 	}
 	b.updateEnemies()
+	b.spaceEnemies()
+	b.bowlBodies()
 	b.assignTokens()
 	b.trackHudTargets()
 
@@ -609,4 +616,85 @@ func (b *Brawler) ignoreScreenBound(c *Char) bool {
 // Roots, and brawler enemy instances, which use hardcoded keys and auto turning like roots
 func (c *Char) actsAsRoot() bool {
 	return c.helperIndex == 0 || sys.brawler.isInstance(c)
+}
+
+// Enemies push each other like opponents do, so they can't stand in the same spot and stack up
+func (b *Brawler) spaceEnemies() {
+	for _, c := range b.instances() {
+		// Only replace the default (push enemies only). Explicit PlayerPush settings of the character stay
+		if c.pushAffectTeam > 0 {
+			c.pushAffectTeam = 0
+		}
+	}
+}
+
+// A knocked down or thrown enemy flying into other enemies knocks them down too. Each enemy hit takes
+// damage based on the body's speed and slows it down
+func (b *Brawler) bowlBodies() {
+	enemies := b.instances()
+	for _, c := range enemies {
+		st := &c.bw
+		flying := c.ss.moveType == MT_H && c.ghv.fallflag && c.bindTime == 0 && !c.isTargetBound()
+		if !flying {
+			st.bowledN = 0
+			continue
+		}
+		vx := c.vel[0] * c.facing * c.localscl // World units per frame
+		speed := Abs(vx)
+		// Bodies high in the air fly over the others
+		if speed < brawlerBowlMinSpeed || c.pos[1]*c.localscl < -brawlerBowlHeight {
+			continue
+		}
+		for _, e := range enemies {
+			if e == c || !e.alive() || st.hasBowled(e.id) || e.ss.moveType == MT_H && e.ghv.fallflag {
+				continue
+			}
+			if Abs(e.pos[2]*e.localscl-c.pos[2]*c.localscl) > brawlerBowlDepth {
+				continue
+			}
+			dx := brawlerX(e) - brawlerX(c)
+			reach := c.size.standbox[2]*c.localscl + e.size.standbox[2]*e.localscl + speed
+			if Abs(dx) > reach || dx != 0 && Sign(dx) != Sign(vx) {
+				continue
+			}
+			damage := int32(speed * sys.cfg.Brawler.BowlDamage)
+			b.knockDown(e, Sign(vx), speed, damage)
+			st.addBowled(e.id)
+			c.vel[0] *= sys.cfg.Brawler.BowlSlowdown
+			speed *= sys.cfg.Brawler.BowlSlowdown
+			if speed < brawlerBowlMinSpeed {
+				break
+			}
+		}
+	}
+}
+
+// Knock an enemy down, as if hit hard: it flies in direction dir and falls
+func (b *Brawler) knockDown(e *Char, dir, speed float32, damage int32) {
+	e.ghv.reset(e)
+	e.ghv.fallflag = true
+	e.ghv.hittime = 0
+	e.ghv.damage = damage
+	e.ghv.xvel = dir * Max(speed*0.6, 2) / e.localscl
+	e.ghv.yvel = -4 / e.localscl
+	e.setFacing(-dir) // Face the incoming body, so it falls backwards
+	e.lifeAdd(-float64(damage), true, true)
+	e.redLife = e.life
+	e.selfState(5030, -1, -1, 0, "")
+}
+
+func (st *brawlerChar) hasBowled(id int32) bool {
+	for _, b := range st.bowled[:st.bowledN] {
+		if b == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (st *brawlerChar) addBowled(id int32) {
+	if st.bowledN < len(st.bowled) {
+		st.bowled[st.bowledN] = id
+		st.bowledN++
+	}
 }

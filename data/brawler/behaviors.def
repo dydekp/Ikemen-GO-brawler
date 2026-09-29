@@ -12,7 +12,7 @@
 tactic   = direct
 moves    = a
 combo    = 0, 1
-cooldown = 18, 40
+cooldown = 40, 80
 guard    = 0.05
 
 ; Runs at the player, jumps over, and attacks from behind
@@ -23,7 +23,7 @@ rundistance   = 90
 jump.distance = 80
 moves         = b | y | a
 combo         = 0, 1
-cooldown      = 15, 30
+cooldown      = 40, 80
 retreat       = 30, 60
 tokens        = 0
 
@@ -34,7 +34,7 @@ moves       = x | a
 combo       = 2, 4
 combo.moves = x*2 | a*2 | y | b
 combo.delay = 7, 11
-cooldown    = 35, 70
+cooldown    = 40, 80
 guard       = 0.2
 
 ; Uses the lanes to get behind the player, then jumps in and attacks
@@ -42,7 +42,7 @@ guard       = 0.2
 tactic   = flank
 moves    = b | y | x, x
 combo    = 0, 2
-cooldown = 28, 55
+cooldown = 40, 80
 tokens   = 0
 
 ; Strikes and backs off
@@ -51,7 +51,7 @@ tactic   = hitrun
 run      = 1
 moves    = b | y
 combo    = 0
-cooldown = 18, 36
+cooldown = 40, 80
 retreat  = 40, 90
 hover    = 90, 130
 
@@ -63,7 +63,7 @@ rundistance = 160
 moves       = y*2 | b*2 | cmd:QCF_y | cmd:upper_y | cmd:FF_b
 combo       = 0, 2
 combo.moves = y | b | cmd:QCF_x
-cooldown    = 28, 55
+cooldown    = 40, 80
 special     = 0.1
 guard       = 0.3
 tokens      = 0
