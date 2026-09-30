@@ -1,0 +1,107 @@
+; Brawler enemy library: MUGEN characters set up as NPCs.
+; Any level uses them with "enemy = id" in its [Enemies] section.
+; See README.txt, section "ENEMY LIBRARY".
+;
+; [Enemy id]
+; char     = character, like in select.def (kfm, kfm720/kfm720.def, ...)
+; pal      = palette number (default 1)
+; life     = exact life, or 0 for the character's life scaled by
+;            [Brawler] EnemyLife (default 0)
+; name     = name shown in the HUD (default: the character's name)
+; behavior = behavior profile (behaviors.def or [Behavior] sections here)
+; boss     = 1 to show the big boss lifebar
+;
+; [Intro id] sections work like in levels. Levels can override both the
+; behavior (behavior = id, profile) and the intro ([Intro id]) of an enemy.
+
+; ---------------------------------------------------------------------------
+[Enemy thug]
+char     = kfm
+pal      = 7
+name     = Street Thug
+behavior = kicker
+
+[Intro thug]
+name     = "Two-Kick" Tony
+style    = Street kicks
+strength = Never stops kicking
+weakness = Forgets to guard
+trigger  = attack
+color    = 40, 70, 20
+
+; ---------------------------------------------------------------------------
+[Enemy leaper]
+char     = kfm
+pal      = 8
+name     = Leaper
+behavior = jumper
+
+[Intro leaper]
+name     = Leapfrog Lenny
+style    = Over the top
+strength = Jumps over you, hits your back
+weakness = Lands wide open
+trigger  = jump
+color    = 70, 45, 20
+
+; ---------------------------------------------------------------------------
+[Enemy bruiser]
+char     = kfm
+pal      = 9
+name     = Bruiser
+behavior = comboer
+
+[Intro bruiser]
+name     = The Accountant
+style    = Combos
+strength = Never stops at one hit
+weakness = Needs a breather after
+trigger  = attack
+delay    = 8
+color    = 25, 25, 70
+
+; ---------------------------------------------------------------------------
+[Enemy ninja]
+char     = kfm_zss
+pal      = 3
+life     = 50
+name     = Shadow Ninja
+behavior = flanker
+
+[Intro ninja]
+style    = Shadow lanes
+strength = Sneaks in through the lanes
+weakness = One good punch and he's out
+trigger  = lane
+color    = 60, 60, 10
+
+; ---------------------------------------------------------------------------
+[Enemy runner]
+char     = kfm720
+pal      = 2
+name     = Runner
+behavior = hitrun
+
+[Intro runner]
+name     = Hit-and-Run Harry
+style    = Hit and run
+strength = Fast, hard to pin down
+weakness = Never finishes a fight
+trigger  = run
+color    = 10, 55, 60
+
+; ---------------------------------------------------------------------------
+[Enemy master]
+char     = kfm720
+pal      = 5
+life     = 1500
+name     = Master Kung Fu
+behavior = brute
+boss     = 1
+
+[Intro master]
+style    = Kung fu master
+strength = Specials, guards a lot
+weakness = Slow to start
+text     = Nobody has walked past him. Yet.
+color    = 75, 10, 20

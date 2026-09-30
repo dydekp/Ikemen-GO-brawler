@@ -6199,9 +6199,31 @@ func systemScriptInit(l *lua.LState) {
 		sys.brawler.typeDefs = defs
 		return 0
 	})
+	luaRegister(l, "brawlerCampaigns", func(*lua.LState) int {
+		/*List the beat 'em up campaigns in the [Brawler] Campaigns folder.
+		@function brawlerCampaigns
+		@treturn table campaigns Array of `{name, text, path, levels}`, `levels` being an array of
+		  level file paths. Campaign files that can't be loaded are skipped and logged.*/
+		tbl := l.NewTable()
+		for _, c := range loadBrawlerCampaigns() {
+			ct := l.NewTable()
+			ct.RawSetString("name", lua.LString(c.name))
+			ct.RawSetString("text", lua.LString(c.text))
+			ct.RawSetString("path", lua.LString(c.path))
+			levels := l.NewTable()
+			for _, lv := range c.levels {
+				levels.Append(lua.LString(lv))
+			}
+			ct.RawSetString("levels", levels)
+			tbl.Append(ct)
+		}
+		l.Push(tbl)
+		return 1
+	})
 	luaRegister(l, "brawlerClearLevel", func(*lua.LState) int {
 		/*Unload the current beat 'em up level.
 		@function brawlerClearLevel*/
+		sys.brawler.restoreStage()
 		sys.brawler.level = nil
 		sys.brawler.typeDefs = nil
 		sys.brawler.enabled = false

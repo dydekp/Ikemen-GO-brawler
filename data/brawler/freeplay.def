@@ -1,0 +1,34 @@
+; Free Play ([Brawler] FreePlay): this level has no stage, so the stage picked
+; on the stage select screen is used. It works with any stage: without depth,
+; the level's topbound/botbound give it lanes. Two endless waves, won after
+; 12 and 20 defeats. The camera may scroll both ways (backtrack).
+
+[Level]
+name      = Free Play
+lanes     = 3
+; Depth, in the chosen stage's coordinates. A stage with its own
+; topbound/botbound can drop these two lines.
+topbound  = -30
+botbound  = 30
+backtrack = 1
+
+[Enemies]
+enemy = thug
+enemy = leaper
+enemy = bruiser
+enemy = ninja
+enemy = runner
+
+[Wave 1]
+trigger  = -9999
+lock     = 0
+maxalive = 4
+kills    = 12
+spawn    = thug|leaper, random, random, 60, inf
+
+[Wave 2]
+trigger  = -9999
+lock     = 0
+maxalive = 4
+kills    = 20
+spawn    = thug|leaper|bruiser|ninja|runner, random, random, 45, inf

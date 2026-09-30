@@ -1,0 +1,68 @@
+; Level 2 of the demo campaign. See ../README.txt for the format.
+; Shows how a regular 1v1 stage becomes a brawler stage, and how a level
+; adjusts NPCs of the enemy library for itself.
+
+[Level]
+name      = Training Hall
+stage     = stages/stage0-720.def
+; stage0-720 is a flat 1v1 stage (localcoord 1280x720). These values are in
+; its coordinates and override the stage for this level only:
+; depth for the lanes...
+topbound   = -120
+botbound   = 120
+; ...a wider camera range, so there is something to scroll through...
+boundleft  = -500
+boundright = 900
+; ...and players may walk that far.
+leftbound  = -1100
+rightbound = 1500
+endx       = 1200
+
+[Enemies]
+; Library NPCs
+enemy = thug
+enemy = ninja
+; An inline enemy, defined only for this level:
+; alias, character, palette, life, name
+enemy = sensei, kfm_zss, 5, 900, Sensei
+boss  = sensei
+
+; Level specific behavior: in the hall, the thugs fight like the bruiser
+behavior = thug, comboer
+behavior = sensei, sensei
+
+; A profile defined for this level only, based on a shared one
+[Behavior sensei]
+base     = brute
+cooldown = 35, 60
+guard    = 0.4
+
+; A level specific introduction replaces the library's
+[Intro thug]
+name     = Dojo Student
+style    = Borrowed combos
+weakness = Still learning
+trigger  = attack
+color    = 30, 30, 30
+
+[Intro sensei]
+style    = The teacher
+strength = Reads your moves
+weakness = Old knees
+color    = 80, 60, 10
+
+[Wave 1]
+trigger  = -9999
+maxalive = 3
+spawn    = thug, right, player, 30, 3
+spawn    = ninja, left, random, 60, 2
+
+[Wave 2]
+trigger  = 500
+maxalive = 4
+spawn    = thug|ninja, random, random, 40, 5
+
+[Wave 3]
+trigger  = 900
+spawn    = sensei, right, 1, 30
+spawn    = thug, left, random, 120, 2

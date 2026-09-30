@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ type BrawlerEnemy struct {
 	name     string           // Display name in the HUD. Empty = the character's name
 	boss     bool             // Shown in the boss lifebar
 	behavior *BrawlerBehavior // AI profile
+	behName  string           // Profile set by the enemy library, resolved once the level is parsed
 	intro    *BrawlerIntro    // Character introduction shown when it first appears, or nil
 	typ      int              // Index into BrawlerLevel.types
 }
@@ -48,8 +50,12 @@ type BrawlerLevel struct {
 	lanePos   []float32 // Explicit lane Z positions in stage coordinates
 	topbound  float32
 	botbound  float32
-	hasBounds bool // Level overrides the stage's topbound and botbound
-	backtrack bool // Camera may scroll back to the left
+	hasBounds bool       // Level overrides the stage's topbound and botbound
+	camBounds [2]int32   // Overrides the stage's camera boundleft, boundright
+	hasCam    bool       // camBounds is set
+	pBounds   [2]float32 // Overrides the stage's player leftbound, rightbound
+	hasPBound bool       // pBounds is set
+	backtrack bool       // Camera may scroll back to the left
 	endX      float32
 	hasEndX   bool
 	enemies   []BrawlerEnemy
@@ -153,6 +159,7 @@ type brawlerLevelParser struct {
 	bosses    []string
 	behAssign [][2]string // Enemy alias, profile name
 	intro     *BrawlerIntro
+	lib       *brawlerLibrary
 }
 
 // Parse a brawler level definition
@@ -164,6 +171,9 @@ func loadBrawlerLevel(path string) (*BrawlerLevel, error) {
 	p := &brawlerLevelParser{
 		lv:  &BrawlerLevel{path: path, lanes: 3, behaviors: loadBrawlerBehaviors()},
 		dir: filepath.Dir(path),
+	}
+	if p.lib, err = loadBrawlerLibrary(p.lv.behaviors); err != nil {
+		return nil, err
 	}
 	if err := readBrawlerIni(text, p.line); err != nil {
 		return nil, fmt.Errorf("%v:%w", path, err)
@@ -259,6 +269,34 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 			lv.botbound = f
 		}
 		lv.hasBounds = true
+	case "boundleft", "boundright":
+		v, err := brawlerParseI(l.val)
+		if err != nil {
+			return fmt.Errorf("invalid %v: %v", l.key, l.val)
+		}
+		if !lv.hasCam {
+			lv.camBounds = [2]int32{math.MinInt32, math.MaxInt32}
+		}
+		if l.key == "boundleft" {
+			lv.camBounds[0] = v
+		} else {
+			lv.camBounds[1] = v
+		}
+		lv.hasCam = true
+	case "leftbound", "rightbound":
+		v, err := brawlerParseF(l.val)
+		if err != nil {
+			return fmt.Errorf("invalid %v: %v", l.key, l.val)
+		}
+		if !lv.hasPBound {
+			lv.pBounds = [2]float32{float32(math.Inf(-1)), float32(math.Inf(1))}
+		}
+		if l.key == "leftbound" {
+			lv.pBounds[0] = v
+		} else {
+			lv.pBounds[1] = v
+		}
+		lv.hasPBound = true
 	case "backtrack":
 		lv.backtrack = brawlerParseB(l.val)
 	case "endx":
@@ -292,20 +330,25 @@ func (p *brawlerLevelParser) enemiesKey(l brawlerIniLine) error {
 	return nil
 }
 
-// enemy = alias, def[, palette[, life[, name]]]. The name is the rest of the line and may contain commas
+// enemy = id (from the enemy library) or enemy = alias, def[, palette[, life[, name]]].
+// The name is the rest of the line and may contain commas
 func (p *brawlerLevelParser) enemy(val string) error {
-	lv := p.lv
 	args := strings.SplitN(val, ",", 5)
 	for i := range args {
 		args[i] = strings.TrimSpace(args[i])
 	}
+	if len(args) == 1 && args[0] != "" {
+		id := strings.ToLower(args[0])
+		le, ok := p.lib.enemies[id]
+		if !ok {
+			return fmt.Errorf("unknown enemy '%v': not in the enemy library ([Brawler] Enemies), and no character given", id)
+		}
+		return p.addEnemy(le)
+	}
 	if len(args) < 2 || args[0] == "" || args[1] == "" {
-		return fmt.Errorf("expected enemy = alias, def[, palette[, life[, name]]]")
+		return fmt.Errorf("expected enemy = id or enemy = alias, def[, palette[, life[, name]]]")
 	}
 	e := BrawlerEnemy{alias: strings.ToLower(args[0]), def: p.resolve(args[1]), pal: 1}
-	if lv.enemyIndex(e.alias) >= 0 {
-		return fmt.Errorf("duplicate enemy alias '%v'", e.alias)
-	}
 	var err error
 	if len(args) > 2 && args[2] != "" {
 		if e.pal, err = brawlerParseI(args[2]); err != nil || e.pal < 1 {
@@ -320,7 +363,15 @@ func (p *brawlerLevelParser) enemy(val string) error {
 	if len(args) > 4 {
 		e.name = args[4]
 	}
-	// Enemies using the same character share one loaded type
+	return p.addEnemy(e)
+}
+
+// Add an enemy entry. Enemies using the same character share one loaded type
+func (p *brawlerLevelParser) addEnemy(e BrawlerEnemy) error {
+	lv := p.lv
+	if lv.enemyIndex(e.alias) >= 0 {
+		return fmt.Errorf("duplicate enemy alias '%v'", e.alias)
+	}
 	e.typ = -1
 	for i, t := range lv.types {
 		if strings.EqualFold(t, e.def) {
@@ -425,14 +476,20 @@ func (p *brawlerLevelParser) spawn(args []string) error {
 // Resolve references between sections and validate the level
 func (p *brawlerLevelParser) finish() error {
 	lv := p.lv
-	if lv.stage == "" {
-		return fmt.Errorf("[Level] stage is not defined")
-	}
 	if len(lv.enemies) == 0 && len(lv.waves) > 0 {
 		return fmt.Errorf("[Enemies] section defines no enemies")
 	}
-	for i := range lv.enemies {
-		lv.enemies[i].behavior = lv.behavior("default", false)
+	// Behavior: level assignment, else the enemy library's profile, else "default"
+	for i, e := range lv.enemies {
+		name := e.behName
+		if name == "" {
+			name = "default"
+		}
+		b := lv.behavior(name, false)
+		if b == nil {
+			return fmt.Errorf("enemy '%v' uses unknown behavior '%v'", e.alias, name)
+		}
+		lv.enemies[i].behavior = b
 	}
 	for _, ba := range p.behAssign {
 		i := lv.enemyIndex(ba[0])

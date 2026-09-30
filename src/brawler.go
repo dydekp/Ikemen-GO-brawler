@@ -16,6 +16,7 @@ package main
 // Files:
 //   brawler.go          mode state, round setup, spawning, waves, camera
 //   brawler_level.go    level file format and parser
+//   brawler_library.go  enemy library (NPCs) and campaigns
 //   brawler_control.go  lane and facing buttons, lane movement
 //   brawler_ai.go       enemy behavior profiles and AI
 //   brawler_hud.go      lifebars
@@ -99,13 +100,14 @@ type Brawler struct {
 	camMin     float32
 	camMinSet  bool
 	complete   bool
-	goTime     int32  // Frames left to show the "GO" sign after a wave
-	introOn    bool   // A character introduction is shown and the game is frozen
-	introID    int32  // Player ID of the introduced enemy
-	introEntry int    // Its enemy entry
-	introTime  int32  // Frames the introduction has been shown
-	introShown []bool // Per enemy entry: introduction already shown in this level
-	introLayer int32  // Draw layer of the introduced enemy before it was raised above the mask
+	stageEdit  *brawlerStageEdit // Stage values changed by the level, to restore when the level is unloaded
+	goTime     int32             // Frames left to show the "GO" sign after a wave
+	introOn    bool              // A character introduction is shown and the game is frozen
+	introID    int32             // Player ID of the introduced enemy
+	introEntry int               // Its enemy entry
+	introTime  int32             // Frames the introduction has been shown
+	introShown []bool            // Per enemy entry: introduction already shown in this level
+	introLayer int32             // Draw layer of the introduced enemy before it was raised above the mask
 }
 
 func (b *Brawler) active() bool {
@@ -294,6 +296,7 @@ func (b *Brawler) roundInit() {
 func (b *Brawler) setupLanes() {
 	lv := b.level
 	stg := sys.stage
+	b.editStage(stg)
 	if lv.hasBounds {
 		stg.topbound = lv.topbound
 		stg.botbound = lv.botbound
@@ -737,4 +740,55 @@ func (st *brawlerChar) addBowled(id int32) {
 		st.bowled[st.bowledN] = id
 		st.bowledN++
 	}
+}
+
+// Stage values a level may override. The loaded stage can be reused by later matches, also in other
+// modes, so the original values are kept and restored when the level is unloaded
+type brawlerStageEdit struct {
+	stage              *Stage
+	topbound, botbound float32
+	boundL, boundR     int32
+	leftB, rightB      float32
+}
+
+// Apply the level's camera and player bound overrides. Depth is handled by setupLanes
+func (b *Brawler) editStage(stg *Stage) {
+	// Start from the stage's own values every time, so a level never inherits another level's changes
+	b.restoreStage()
+	b.stageEdit = &brawlerStageEdit{
+		stage: stg, topbound: stg.topbound, botbound: stg.botbound,
+		boundL: stg.stageCamera.boundleft, boundR: stg.stageCamera.boundright,
+		leftB: stg.leftbound, rightB: stg.rightbound,
+	}
+	lv := b.level
+	if lv.hasCam {
+		if lv.camBounds[0] != math.MinInt32 {
+			stg.stageCamera.boundleft = lv.camBounds[0]
+		}
+		if lv.camBounds[1] != math.MaxInt32 {
+			stg.stageCamera.boundright = lv.camBounds[1]
+		}
+		sys.cam.stageCamera = stg.stageCamera
+		sys.cam.Init()
+	}
+	if lv.hasPBound {
+		if !math.IsInf(float64(lv.pBounds[0]), 0) {
+			stg.leftbound = lv.pBounds[0]
+		}
+		if !math.IsInf(float64(lv.pBounds[1]), 0) {
+			stg.rightbound = lv.pBounds[1]
+		}
+	}
+}
+
+// Undo the level's changes to the stage
+func (b *Brawler) restoreStage() {
+	e := b.stageEdit
+	if e == nil {
+		return
+	}
+	e.stage.topbound, e.stage.botbound = e.topbound, e.botbound
+	e.stage.stageCamera.boundleft, e.stage.stageCamera.boundright = e.boundL, e.boundR
+	e.stage.leftbound, e.stage.rightbound = e.leftB, e.rightB
+	b.stageEdit = nil
 }

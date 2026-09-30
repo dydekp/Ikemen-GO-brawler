@@ -111,7 +111,6 @@ spawn = any, left, 2, 0, inf
 
 func TestBrawlerLevelErrors(t *testing.T) {
 	for name, text := range map[string]string{
-		"no stage":        "[Level]\nname = x\n",
 		"unknown spawn":   "[Level]\nstage = s\n[Enemies]\nenemy = a, kfm\n[Wave]\nspawn = b\n",
 		"endless":         "[Level]\nstage = s\n[Enemies]\nenemy = a, kfm\n[Wave]\nspawn = a, right, 0, 0, inf\n",
 		"duplicate alias": "[Level]\nstage = s\n[Enemies]\nenemy = a, kfm\nenemy = a, kfm\n",
@@ -186,24 +185,49 @@ func TestBrawlerBehaviorBase(t *testing.T) {
 	}
 }
 
-// The level and profiles shipped in data/brawler must stay valid
-func TestBrawlerShippedFiles(t *testing.T) {
-	old := sys.cfg.Brawler.Behaviors
-	sys.cfg.Brawler.Behaviors = "../data/brawler/behaviors.def"
-	defer func() { sys.cfg.Brawler.Behaviors = old }()
+// Point the brawler config at the shipped data files for a test
+func useShippedBrawlerData(t *testing.T) {
+	t.Helper()
+	cfg := &sys.cfg.Brawler
+	oldB, oldE, oldC := cfg.Behaviors, cfg.Enemies, cfg.Campaigns
+	cfg.Behaviors = "../data/brawler/behaviors.def"
+	cfg.Enemies = "../data/brawler/enemies.def"
+	cfg.Campaigns = "../data/brawler/campaigns"
+	t.Cleanup(func() { cfg.Behaviors, cfg.Enemies, cfg.Campaigns = oldB, oldE, oldC })
+}
 
-	lv, err := loadBrawlerLevel("../data/brawler/demo.def")
+// The levels, campaigns, NPCs and profiles shipped in data/brawler must stay valid
+func TestBrawlerShippedFiles(t *testing.T) {
+	useShippedBrawlerData(t)
+
+	campaigns := loadBrawlerCampaigns()
+	if len(campaigns) == 0 {
+		t.Fatal("no campaign loaded")
+	}
+	var levels []string
+	for _, c := range campaigns {
+		levels = append(levels, c.levels...)
+	}
+	levels = append(levels, "../data/brawler/freeplay.def")
+	for _, path := range levels {
+		lv, err := loadBrawlerLevel(path)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		for _, e := range lv.enemies {
+			if e.behavior == nil {
+				t.Errorf("%v: enemy %v has no behavior", path, e.alias)
+			}
+		}
+	}
+	lv, err := loadBrawlerLevel("../data/brawler/levels/street.def")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, name := range []string{"kicker", "jumper", "comboer", "flanker", "hitrun", "brute"} {
 		if lv.behaviors[name] == nil {
 			t.Errorf("profile %v missing from behaviors.def", name)
-		}
-	}
-	for _, e := range lv.enemies {
-		if e.behavior == nil {
-			t.Errorf("enemy %v has no behavior", e.alias)
 		}
 	}
 	if lv.behaviors["jumper"].tactic != BT_JumpOver || lv.behaviors["flanker"].tactic != BT_Flank {
@@ -486,5 +510,79 @@ func TestBrawlerButtonAssistExclusion(t *testing.T) {
 	ex := sys.brawler.assistExcluded()
 	if !ex[7] || !ex[8] || ex[3] {
 		t.Errorf("excluded: %v (want d and w only)", ex)
+	}
+}
+
+func TestBrawlerLibraryAndOverrides(t *testing.T) {
+	useShippedBrawlerData(t)
+	lv, err := loadBrawlerLevel("../data/brawler/levels/dojo.def")
+	if err != nil {
+		t.Fatal(err)
+	}
+	get := func(alias string) BrawlerEnemy {
+		i := lv.enemyIndex(alias)
+		if i < 0 {
+			t.Fatalf("enemy %v missing", alias)
+		}
+		return lv.enemies[i]
+	}
+	// Library values
+	ninja := get("ninja")
+	if ninja.life != 50 || ninja.pal != 3 || ninja.name != "Shadow Ninja" || ninja.behavior.tactic != BT_Flank ||
+		ninja.intro == nil || ninja.intro.trigger != BIT_Lane {
+		t.Errorf("library ninja: %+v", ninja)
+	}
+	// Level overrides of a library NPC
+	thug := get("thug")
+	if thug.behavior.name != "comboer" || thug.intro == nil || thug.intro.name != "Dojo Student" {
+		t.Errorf("overridden thug: behavior %v, intro %+v", thug.behavior.name, thug.intro)
+	}
+	// Inline enemy with a level profile based on a shared one
+	sensei := get("sensei")
+	if !sensei.boss || sensei.life != 900 || sensei.behavior.tactic != BT_Direct || sensei.behavior.guard != 0.4 {
+		t.Errorf("sensei: %+v, behavior %+v", sensei, sensei.behavior)
+	}
+	// Stage overrides
+	if !lv.hasCam || lv.camBounds != [2]int32{-500, 900} || !lv.hasPBound || lv.pBounds != [2]float32{-1100, 1500} {
+		t.Errorf("bounds: cam %v %v, players %v %v", lv.hasCam, lv.camBounds, lv.hasPBound, lv.pBounds)
+	}
+}
+
+func TestBrawlerLibraryErrors(t *testing.T) {
+	old := sys.cfg.Brawler.Enemies
+	t.Cleanup(func() { sys.cfg.Brawler.Enemies = old })
+	for name, text := range map[string]string{
+		"no char":          "[Enemy a]\npal = 2\n",
+		"unknown key":      "[Enemy a]\nchar = kfm\ncolor = 1\n",
+		"unknown behavior": "[Enemy a]\nchar = kfm\nbehavior = nope\n",
+		"orphan intro":     "[Enemy a]\nchar = kfm\n[Intro b]\nstyle = x\n",
+	} {
+		sys.cfg.Brawler.Enemies = writeBrawlerLevel(t, text)
+		if _, err := loadBrawlerLibrary(map[string]*BrawlerBehavior{"default": newBrawlerBehavior("default")}); err == nil {
+			t.Errorf("%v accepted", name)
+		}
+	}
+	// A level can't use an id missing from the library
+	sys.cfg.Brawler.Enemies = ""
+	if _, err := loadBrawlerLevel(writeBrawlerLevel(t, "[Level]\nstage = s\n[Enemies]\nenemy = ghost\n")); err == nil {
+		t.Error("unknown library enemy accepted")
+	}
+}
+
+func TestBrawlerCampaignFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.def")
+	os.WriteFile(path, []byte("[Campaign]\nname = Test\nlevel = a.def\nlevel = sub/b.def\n"), 0644)
+	c, err := loadBrawlerCampaign(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{filepath.ToSlash(filepath.Join(dir, "a.def")), filepath.ToSlash(filepath.Join(dir, "sub/b.def"))}
+	if c.name != "Test" || len(c.levels) != 2 || c.levels[0] != want[0] || c.levels[1] != want[1] {
+		t.Errorf("campaign: %+v", c)
+	}
+	os.WriteFile(path, []byte("[Campaign]\nname = Empty\n"), 0644)
+	if _, err := loadBrawlerCampaign(path); err == nil {
+		t.Error("campaign without levels accepted")
 	}
 }

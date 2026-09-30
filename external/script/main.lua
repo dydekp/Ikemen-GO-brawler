@@ -1978,6 +1978,29 @@ function main.f_default()
 	hook.run("main.f_default")
 end
 
+-- Brawler (beat 'em up) mode setup shared by campaigns and free play.
+-- levels: level files played in order by brawler.lua; stageSelect: pick the
+-- stage for levels that don't set one.
+function main.f_brawlerMode(t, item, levels, stageSelect)
+	main.brawlerLevels = levels
+	main.coop = true
+	main.elimination = true
+	main.exitSelect = true
+	main.luaPath = 'external/script/brawler.lua'
+	main.numSimul = {2, math.max(2, math.min(4, gameOption('Config.Players')))}
+	main.persistLife = true
+	main.stageMenu = stageSelect
+	main.teamMenu[1].single = true
+	if gameOption('Config.Players') >= 2 then
+		main.teamMenu[1].simul = true
+	end
+	main.teamMenu[2].single = true
+	textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.brawler or 'Brawler')
+	setGameMode('brawler')
+	hook.run("main.t_itemname", t, item)
+	return start.f_selectMode
+end
+
 -- Associative elements table storing functions controlling behaviour of each
 -- menu item (modes configuration). Can be appended via external module.
 main.t_itemname = {
@@ -2056,23 +2079,14 @@ main.t_itemname = {
 		hook.run("main.t_itemname", t, item)
 		return start.f_selectMode
 	end,
-	--BRAWLER (beat 'em up)
-	['brawler'] = function(t, item)
-		main.coop = true
-		main.elimination = true
-		main.exitSelect = true
-		main.luaPath = 'external/script/brawler.lua'
-		main.numSimul = {2, math.max(2, math.min(4, gameOption('Config.Players')))}
-		main.persistLife = true
-		main.teamMenu[1].single = true
-		if gameOption('Config.Players') >= 2 then
-			main.teamMenu[1].simul = true
-		end
-		main.teamMenu[2].single = true
-		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.brawler or 'Brawler')
-		setGameMode('brawler')
-		hook.run("main.t_itemname", t, item)
-		return start.f_selectMode
+	--BRAWLER CAMPAIGN (entries generated from [Brawler] Campaigns)
+	['brawlercampaign'] = function(t, item)
+		local c = main.brawlerCampaigns[t[item].itemname]
+		return main.f_brawlerMode(t, item, c.levels, false)
+	end,
+	--BRAWLER FREE PLAY (stage select, [Brawler] FreePlay level)
+	['brawlerfree'] = function(t, item)
+		return main.f_brawlerMode(t, item, {gameOption('Brawler.FreePlay')}, true)
 	end,
 	--DEMO
 	['demo'] = function(t, item)
@@ -2645,6 +2659,8 @@ function main.f_getSingleMenuAction(tbl)
 					fname = 'storyarc'
 				elseif fname:match('^bonus_') then
 					fname = 'bonus'
+				elseif fname:match('^campaign_') then
+					fname = 'brawlercampaign'
 				elseif fname:match('^ip_') then
 					fname = 'serverconnect'
 				end
@@ -2809,6 +2825,8 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 							f = 'storyarc'
 						elseif f:match('^bonus_') then
 							f = 'bonus'
+						elseif f:match('^campaign_') then
+							f = 'brawlercampaign'
 						elseif f:match('^ip_') then
 							f = 'serverconnect'
 						elseif tbl.submenu[f].loop ~= nil and #tbl.submenu[f].items > 0 then
@@ -2895,9 +2913,19 @@ end
 
 -- Dynamically generates all menus and submenus
 function main.f_start()
-	-- Beat 'em up mode entry, unless the screenpack already defines (or hides) it
+	-- Beat 'em up mode submenu, unless the screenpack already defines (or hides) it:
+	-- one entry per campaign file in [Brawler] Campaigns, then free play
 	if main.group == 'title_info' then
-		main.f_appendItemname(motif.title_info.menu, '', 'brawler', 'BRAWLER', 'options')
+		main.brawlerCampaigns = {}
+		for k, v in ipairs(brawlerCampaigns()) do
+			main.brawlerCampaigns['campaign_' .. k] = v
+		end
+		main.f_appendItemname(motif.title_info.menu, '', 'brawler', {
+			__value = 'BRAWLER',
+			__order = {'brawlerfree', 'back'},
+			brawlerfree = 'FREE PLAY',
+			back = 'BACK',
+		}, 'options')
 	end
 	main.menu = {title = main.f_itemnameUpper(motif[main.group].title.text, motif[main.group].menu.title.uppercase), submenu = {}, items = {}}
 	main.menu.loop = main.f_createMenu(main.menu, true, main.group == 'title_info', main.group == 'title_info', false)
@@ -2978,6 +3006,19 @@ function main.f_start()
 						displayname = v.displayname,
 						paramname = suffix:gsub('back$', itemname),
 					})
+				end
+			end
+			--add campaigns to brawler submenu, before free play
+			if suffix:match('brawler_back$') and c == 'brawler' and main.brawlerCampaigns then
+				local k = 1
+				while main.brawlerCampaigns['campaign_' .. k] do
+					local itemname = 'campaign_' .. k
+					table.insert(t_pos.items, k, {
+						itemname = itemname,
+						displayname = main.brawlerCampaigns[itemname].name,
+						paramname = suffix:gsub('back$', itemname),
+					})
+					k = k + 1
 				end
 			end
 			--add IP addresses for serverjoin submenu

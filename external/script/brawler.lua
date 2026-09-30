@@ -1,18 +1,21 @@
 -- Brawler (beat 'em up) mode match sequence.
--- Plays every level listed in the [Brawler] Levels config option in order.
--- Each level is a single round: the players win by clearing all enemy waves
--- and lose when all of them are KO.
+-- Plays the levels in main.brawlerLevels in order (set by the Brawler menu:
+-- a campaign's levels, or the free play level). Each level is a single round:
+-- the players win by clearing all enemy waves and lose when all of them are KO.
+-- A level without a stage is played on the stage picked on the stage select
+-- screen (free play), or on a random stage when there is no stage select.
 
-local levels = gameOption('Brawler.Levels')
-if type(levels) ~= 'table' then
-	levels = {levels}
-end
+local levels = main.brawlerLevels or {}
 
 -- Abort the mode with an error message
 local function fail(msg)
 	panicError("\n" .. msg .. "\n")
 	brawlerClearLevel()
 	setMatchNo(-1)
+end
+
+if #levels == 0 then
+	return fail("No brawler levels to play")
 end
 
 for i = matchNo(), #levels do
@@ -38,11 +41,13 @@ for i = matchNo(), #levels do
 		p2rounds = 1,
 		p1orderselect = false,
 		p2orderselect = false,
-		stage = lvl.stage,
 		time = -1,
 		vsscreen = false,
 		continue = false,
 	}
+	if lvl.stage ~= '' then
+		t.stage = lvl.stage
+	end
 	if lvl.music ~= '' then
 		t.music = lvl.music
 	end

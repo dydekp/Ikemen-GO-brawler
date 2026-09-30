@@ -221,23 +221,25 @@ type Config struct {
 		PauseExitDelay             int32   `ini:"PauseExitDelay" sync:"host"`
 	} `ini:"Input"`
 	Brawler struct {
-		Levels              []string `ini:"Levels" sync:"host"`
-		LaneButton          string   `ini:"LaneButton" sync:"host"`
-		FacingButton        string   `ini:"FacingButton" sync:"host"`
-		FacingMode          string   `ini:"FacingMode" sync:"host"`
-		TurnDelay           int32    `ini:"TurnDelay" sync:"host"`
-		TurnBuffer          int32    `ini:"TurnBuffer" sync:"host"`
-		LaneSelectWindow    int32    `ini:"LaneSelectWindow" sync:"host"`
-		LaneSnapSpeed       float32  `ini:"LaneSnapSpeed" sync:"host"`
-		Behaviors           string   `ini:"Behaviors" sync:"host"`
-		AttackersPerPlayer  int32    `ini:"AttackersPerPlayer" sync:"host"`
-		DespawnTime         int32    `ini:"DespawnTime" sync:"host"`
-		BowlDamage          float32  `ini:"BowlDamage" sync:"host"`
-		BowlSlowdown        float32  `ini:"BowlSlowdown" sync:"host"`
-		EnemyLife           float32  `ini:"EnemyLife" sync:"host"`
-		MaxEnemiesPerPlayer int32    `ini:"MaxEnemiesPerPlayer" sync:"host"`
-		Intros              bool     `ini:"Intros" sync:"host"`
-		IntroTime           int32    `ini:"IntroTime" sync:"host"`
+		Campaigns           string  `ini:"Campaigns" sync:"host"`
+		FreePlay            string  `ini:"FreePlay" sync:"host"`
+		Enemies             string  `ini:"Enemies" sync:"host"`
+		LaneButton          string  `ini:"LaneButton" sync:"host"`
+		FacingButton        string  `ini:"FacingButton" sync:"host"`
+		FacingMode          string  `ini:"FacingMode" sync:"host"`
+		TurnDelay           int32   `ini:"TurnDelay" sync:"host"`
+		TurnBuffer          int32   `ini:"TurnBuffer" sync:"host"`
+		LaneSelectWindow    int32   `ini:"LaneSelectWindow" sync:"host"`
+		LaneSnapSpeed       float32 `ini:"LaneSnapSpeed" sync:"host"`
+		Behaviors           string  `ini:"Behaviors" sync:"host"`
+		AttackersPerPlayer  int32   `ini:"AttackersPerPlayer" sync:"host"`
+		DespawnTime         int32   `ini:"DespawnTime" sync:"host"`
+		BowlDamage          float32 `ini:"BowlDamage" sync:"host"`
+		BowlSlowdown        float32 `ini:"BowlSlowdown" sync:"host"`
+		EnemyLife           float32 `ini:"EnemyLife" sync:"host"`
+		MaxEnemiesPerPlayer int32   `ini:"MaxEnemiesPerPlayer" sync:"host"`
+		Intros              bool    `ini:"Intros" sync:"host"`
+		IntroTime           int32   `ini:"IntroTime" sync:"host"`
 	} `ini:"Brawler"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`

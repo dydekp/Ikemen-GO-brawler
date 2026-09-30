@@ -1,0 +1,9 @@
+; A campaign: levels played in order. Every .def file in this folder
+; ([Brawler] Campaigns) is listed in the Brawler menu, sorted by file name.
+; Level paths are relative to this file.
+
+[Campaign]
+name  = Demo Campaign
+text  = Two levels on the default screenpack's stages
+level = ../levels/street.def
+level = ../levels/dojo.def

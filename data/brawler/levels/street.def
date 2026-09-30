@@ -1,0 +1,44 @@
+; Level 1 of the demo campaign. See ../README.txt for the format.
+; Uses the Z-axis stage shipped with the default Ikemen GO screenpack and the
+; NPCs of ../enemies.def.
+
+[Level]
+name      = Demo Street
+stage     = stages/stageZ.def
+; Three lanes spread over the stage's topbound/botbound (-30..30)
+lanes     = 3
+backtrack = 0
+; After the last wave, walk to the right end of the stage to finish
+endx      = 300
+
+[Enemies]
+; NPCs from the enemy library: character, palette, life, behavior and intro
+; are defined there. See the dojo level for inline enemies and overrides.
+enemy = thug
+enemy = leaper
+enemy = bruiser
+enemy = ninja
+enemy = runner
+enemy = master
+
+[Wave 1]
+; Starts right away
+trigger  = -9999
+maxalive = 4
+; alias(es), side, lane, delay, count
+spawn    = thug|leaper, right, player, 30, 3
+spawn    = bruiser, left, random, 60, 2
+
+[Wave 2]
+; Endless stream of enemies until 8 of them are defeated
+trigger  = 60
+maxalive = 5
+kills    = 8
+spawn    = ninja|thug|leaper, random, random, 45, inf
+
+[Wave 3]
+trigger  = 180
+maxalive = 5
+spawn    = runner, right, player, 60
+spawn    = master, right, 1, 60
+spawn    = thug|leaper|bruiser, random, random, 90, 4
