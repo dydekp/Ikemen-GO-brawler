@@ -469,7 +469,22 @@ func (ir *InputReader) LocalInput(in int) [14]bool {
 	// Apply button assist
 	// Checked locally so that network inputs are processed before being sent
 	if sys.cfg.Input.ButtonAssist {
-		result := ir.ButtonAssistCheck([9]bool{a, b, c, x, y, z, s, d, w})
+		raw := [9]bool{a, b, c, x, y, z, s, d, w}
+		// Buttons consumed by beat 'em up mode (lane, facing) must not take part in button assist.
+		// Holding one would make assist treat every other press as simultaneous and stretch it by a frame
+		consumed := sys.brawler.assistExcluded()
+		in := raw
+		for i := range in {
+			if consumed[i] {
+				in[i] = false
+			}
+		}
+		result := ir.ButtonAssistCheck(in)
+		for i := range result {
+			if consumed[i] {
+				result[i] = raw[i]
+			}
+		}
 		a, b, c, x, y, z, s, d, w = result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7], result[8]
 	}
 

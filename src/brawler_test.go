@@ -469,3 +469,22 @@ color   = #ff8000
 		}
 	}
 }
+
+// Holding the facing button must not change how button assist treats the attack buttons
+func TestBrawlerButtonAssistExclusion(t *testing.T) {
+	oldMode, oldLane, oldFace := sys.gameMode, sys.cfg.Brawler.LaneButton, sys.cfg.Brawler.FacingButton
+	oldAssist, oldPaused := sys.cfg.Input.ButtonAssist, sys.paused
+	defer func() {
+		sys.gameMode, sys.cfg.Brawler.LaneButton, sys.cfg.Brawler.FacingButton = oldMode, oldLane, oldFace
+		sys.cfg.Input.ButtonAssist, sys.paused = oldAssist, oldPaused
+	}()
+	sys.gameMode = "brawler"
+	sys.cfg.Brawler.LaneButton, sys.cfg.Brawler.FacingButton = "d", "w"
+	sys.brawler = Brawler{enabled: true, level: &BrawlerLevel{}}
+	defer func() { sys.brawler = Brawler{} }()
+
+	ex := sys.brawler.assistExcluded()
+	if !ex[7] || !ex[8] || ex[3] {
+		t.Errorf("excluded: %v (want d and w only)", ex)
+	}
+}

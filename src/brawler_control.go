@@ -301,3 +301,16 @@ func (b *Brawler) turnOnAttack(c *Char) {
 		c.setFacing(-c.facing)
 	}
 }
+
+// Buttons consumed by the mode, as flags for the button assist array (a b c x y z s d w)
+func (b *Brawler) assistExcluded() (out [9]bool) {
+	if !b.active() {
+		return
+	}
+	for _, name := range []string{sys.cfg.Brawler.LaneButton, sys.cfg.Brawler.FacingButton} {
+		if i := brawlerButtonIndex(name) - 4; i >= 0 && i < len(out) {
+			out[i] = true
+		}
+	}
+	return
+}
