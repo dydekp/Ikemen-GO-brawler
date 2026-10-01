@@ -363,6 +363,11 @@ func TestBrawlerTurnOnAttack(t *testing.T) {
 	if c.facing != -1 {
 		t.Error("ground attack should turn the player")
 	}
+	c = player(MT_A, ST_C)
+	b.turnOnAttack(c)
+	if c.facing != -1 {
+		t.Error("crouching attack should turn the player")
+	}
 	// Not an attack, an air attack, or an AI character: no turn
 	for name, c := range map[string]*Char{"idle": player(MT_I, ST_S), "air attack": player(MT_A, ST_A)} {
 		b.turnOnAttack(c)
@@ -375,6 +380,29 @@ func TestBrawlerTurnOnAttack(t *testing.T) {
 	b.turnOnAttack(ai)
 	if ai.facing != 1 {
 		t.Error("AI characters keep their own facing")
+	}
+}
+
+// Lock mode: holding back turns the character, crouching (down-back) included, unless the facing
+// button is held, which keeps motion inputs through back intact
+func TestBrawlerLockFacing(t *testing.T) {
+	oldMode, oldDelay := sys.cfg.Brawler.FacingMode, sys.cfg.Brawler.TurnDelay
+	defer func() { sys.cfg.Brawler.FacingMode, sys.cfg.Brawler.TurnDelay = oldMode, oldDelay }()
+	sys.cfg.Brawler.FacingMode, sys.cfg.Brawler.TurnDelay = "lock", 3
+	b := &Brawler{}
+	hold := func(held bool) float32 {
+		c := &Char{facing: 1}
+		st := &brawlerChar{facingHeld: held}
+		for i := 0; i < 3; i++ {
+			b.updateFacing(c, st, false, true, false)
+		}
+		return st.desiredFace
+	}
+	if f := hold(false); f != -1 {
+		t.Errorf("holding back (also while crouching) should turn, got facing %v", f)
+	}
+	if f := hold(true); f != 1 {
+		t.Errorf("holding the facing button should keep the facing, got %v", f)
 	}
 }
 

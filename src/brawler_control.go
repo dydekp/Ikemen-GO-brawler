@@ -91,12 +91,12 @@ func (b *Brawler) processInput(c *Char, in [14]bool) [14]bool {
 
 	// Facing is only overridden for human players. AI characters keep facing P2
 	if c.controller >= 0 {
-		b.updateFacing(c, st, facePressed, in[1], in[2], in[3])
+		b.updateFacing(c, st, facePressed, in[2], in[3])
 	}
 	return in
 }
 
-func (b *Brawler) updateFacing(c *Char, st *brawlerChar, pressed, down, left, right bool) {
+func (b *Brawler) updateFacing(c *Char, st *brawlerChar, pressed, left, right bool) {
 	switch b.facingMode() {
 	case BFM_Toggle:
 		if pressed {
@@ -114,9 +114,10 @@ func (b *Brawler) updateFacing(c *Char, st *brawlerChar, pressed, down, left, ri
 		} else if right && !left {
 			dir = 1
 		}
-		// Holding the facing button locks the current facing (walk backwards, guard, charge moves)
-		// Down is ignored so that motion inputs like QCB don't turn the character mid-motion
-		if st.facingHeld || dir == 0 || down || dir == c.facing {
+		// Holding the facing button locks the current facing (walk backwards, guard, charge moves,
+		// motion inputs like QCB). Otherwise crouching turns like standing, so crouching attacks can
+		// be aimed at both sides
+		if st.facingHeld || dir == 0 || dir == c.facing {
 			st.dirHold = 0
 			st.desiredFace = c.facing
 		} else {

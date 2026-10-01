@@ -390,10 +390,12 @@ default screenpacks, which open the pause menu with it)
 FacingButton (default "w")
   FacingMode = lock: the character turns towards the direction it walks.
     Holding the button keeps the current facing, which allows walking
-    backwards, guarding and charge moves. Holding down never turns the
-    character, so motion inputs like quarter circles are unaffected.
-    The character also turns when an attack starts, so holding back while
-    mashing chained light attacks switches sides at the next hit.
+    backwards, guarding, charge moves and motion inputs (quarter circles
+    etc.) that pass through back. Without the button, crouching turns like
+    standing (down-back turns around).
+    The character also turns when an attack starts, standing or crouching,
+    so holding back while mashing chained light attacks switches sides at
+    the next hit.
   FacingMode = toggle: the character never turns on its own. Pressing the
     button turns it around. Back and forward work exactly like in 1v1.
 
