@@ -777,9 +777,7 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 		return false
 	}
 	if brawlerChance(beh.special) {
-		if cmds := c.cmd[c.ss.sb.playerNo].Commands; len(cmds) > 0 {
-			ai.cheat = Rand(0, int32(len(cmds))-1)
-		}
+		ai.cheat = brawlerRandomCommand(c.cmd[c.ss.sb.playerNo].Commands, b.ownAIOff(c))
 	} else if prog := pickBrawlerMove(beh.moves); prog != nil {
 		ai.start(prog, true)
 		ai.comboLeft = brawlerRand(beh.combo)
@@ -824,6 +822,22 @@ func (b *Brawler) aiMove(f *brawlerAIFrame, x float32) {
 	f.in[brawlerDirIndex(dir)] = true
 }
 
+// Enemies are driven by their behavior profile. Their own AI code is switched off (AILevel reads 0)
+// unless the enemy entry sets ownai, since it would fight against the profile. Helpers spawned by an
+// enemy follow it
+func (b *Brawler) ownAIOff(c *Char) bool {
+	if !b.active() || b.level == nil {
+		return false
+	}
+	for i := 0; c != nil && !c.bw.enemy && c.helperIndex != 0 && i < 8; i++ {
+		c = c.parent(false)
+	}
+	if c == nil || !c.bw.enemy || c.bw.entry < 0 || c.bw.entry >= len(b.level.enemies) {
+		return false
+	}
+	return !b.level.enemies[c.bw.entry].ownAI
+}
+
 // Command index the AI wants to perform this frame, or -1
 func (b *Brawler) aiCheat(c *Char) int32 {
 	if !c.bw.enemy {
@@ -846,4 +860,36 @@ func (b *Brawler) attackersOn(t, self *Char) int32 {
 		}
 	}
 	return n
+}
+
+// Random command for a "special" attack, or -1. Commands that switch on a character's own AI
+// ("cpu1", "AI_3"...) are skipped while its AI is off, since cheating them would turn it on
+func brawlerRandomCommand(cmds [][]Command, skipAI bool) int32 {
+	var ok []int32
+	for i, list := range cmds {
+		if len(list) == 0 {
+			continue
+		}
+		if skipAI && brawlerAICommand(list[0].name) {
+			continue
+		}
+		ok = append(ok, int32(i))
+	}
+	if len(ok) == 0 {
+		return -1
+	}
+	return ok[Rand(0, int32(len(ok))-1)]
+}
+
+func brawlerAICommand(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	for _, p := range []string{"cpu", "ai"} {
+		if rest, found := strings.CutPrefix(name, p); found {
+			rest = strings.TrimLeft(rest, "_- ")
+			if rest == "" || strings.Trim(rest, "0123456789") == "" {
+				return true
+			}
+		}
+	}
+	return false
 }

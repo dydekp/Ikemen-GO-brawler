@@ -181,6 +181,30 @@ func (b *Brawler) isTemplate(c *Char) bool {
 	return false
 }
 
+// Screen-fixed explods of enemies (a character's own gauges, cut-ins and other 1v1 HUD elements) are
+// hidden unless the enemy entry sets screenfx: every enemy, and the hidden type templates, would draw
+// them on top of each other. Explods in the stage space (hit sparks, projectiles' effects) still show
+func (b *Brawler) hideExplod(e *Explod) bool {
+	if e.space != Space_screen || !b.active() || b.level == nil || e.playerno < 0 || e.playerno >= len(sys.chars) ||
+		len(sys.chars[e.playerno]) == 0 || !b.isTemplate(e.root()) {
+		return false
+	}
+	// The enemy instance that made it, or any entry of the type for the template's own explods
+	c := e.parent()
+	for i := 0; c != nil && !c.bw.enemy && c.helperIndex != 0 && i < 8; i++ {
+		c = c.parent(false)
+	}
+	if c != nil && c.bw.enemy && c.bw.entry >= 0 && c.bw.entry < len(b.level.enemies) {
+		return !b.level.enemies[c.bw.entry].screenFX
+	}
+	for _, en := range b.level.enemies {
+		if en.screenFX && brawlerTypeSlot(en.typ) == e.playerno {
+			return false
+		}
+	}
+	return true
+}
+
 // Alive (or all) player characters on the player team
 func (b *Brawler) players(aliveOnly bool) []*Char {
 	var list []*Char
@@ -308,6 +332,14 @@ func (b *Brawler) setupLanes() {
 			stg.botbound = Max(stg.botbound, z)
 		}
 	}
+	if lv.hasZScale {
+		// Character scale at the top and bottom of the lanes, instead of the stage's [Scaling]
+		stg.stageCamera.topz, stg.stageCamera.botz = stg.topbound, stg.botbound
+		if stg.topbound == stg.botbound {
+			stg.stageCamera.botz = stg.topbound + 1
+		}
+		stg.stageCamera.ztopscale, stg.stageCamera.zbotscale = lv.zScale[0], lv.zScale[1]
+	}
 	sys.zmin = stg.topbound * stg.localscl
 	sys.zmax = stg.botbound * stg.localscl
 
@@ -402,6 +434,12 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 	h.localcoord = t.localcoord
 	h.unsetSCF(SCF_standby)
 	t.helperInit(h, 0, PT_P1, [3]float32{}, 1, [2]int32{1, e.pal})
+	if e.scale > 0 && e.scale != 1 {
+		// Like the character's own xscale/yscale constants: sprites, hitboxes and projectiles grow together
+		h.size.xscale *= e.scale
+		h.size.yscale *= e.scale
+		h.ownclsnscale = true
+	}
 
 	if e.life > 0 {
 		h.lifeMax = e.life
@@ -749,6 +787,8 @@ type brawlerStageEdit struct {
 	topbound, botbound float32
 	boundL, boundR     int32
 	leftB, rightB      float32
+	topz, botz         float32
+	ztop, zbot         float32
 }
 
 // Apply the level's camera and player bound overrides. Depth is handled by setupLanes
@@ -759,6 +799,8 @@ func (b *Brawler) editStage(stg *Stage) {
 		stage: stg, topbound: stg.topbound, botbound: stg.botbound,
 		boundL: stg.stageCamera.boundleft, boundR: stg.stageCamera.boundright,
 		leftB: stg.leftbound, rightB: stg.rightbound,
+		topz: stg.stageCamera.topz, botz: stg.stageCamera.botz,
+		ztop: stg.stageCamera.ztopscale, zbot: stg.stageCamera.zbotscale,
 	}
 	lv := b.level
 	if lv.hasCam {
@@ -790,5 +832,7 @@ func (b *Brawler) restoreStage() {
 	e.stage.topbound, e.stage.botbound = e.topbound, e.botbound
 	e.stage.stageCamera.boundleft, e.stage.stageCamera.boundright = e.boundL, e.boundR
 	e.stage.leftbound, e.stage.rightbound = e.leftB, e.rightB
+	e.stage.stageCamera.topz, e.stage.stageCamera.botz = e.topz, e.botz
+	e.stage.stageCamera.ztopscale, e.stage.stageCamera.zbotscale = e.ztop, e.zbot
 	b.stageEdit = nil
 }

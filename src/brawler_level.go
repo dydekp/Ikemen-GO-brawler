@@ -38,6 +38,9 @@ type BrawlerEnemy struct {
 	behavior *BrawlerBehavior // AI profile
 	behName  string           // Profile set by the enemy library, resolved once the level is parsed
 	intro    *BrawlerIntro    // Character introduction shown when it first appears, or nil
+	scale    float32          // Size multiplier (sprites, hitboxes, projectiles). 0 = 1
+	ownAI    bool             // Keep the character's own AI code (AILevel triggers) running
+	screenFX bool             // Keep the character's screen-fixed explods (its own gauges, cut-ins)
 	typ      int              // Index into BrawlerLevel.types
 }
 
@@ -55,6 +58,8 @@ type BrawlerLevel struct {
 	hasCam    bool       // camBounds is set
 	pBounds   [2]float32 // Overrides the stage's player leftbound, rightbound
 	hasPBound bool       // pBounds is set
+	zScale    [2]float32 // Overrides the stage's character scale at the top and bottom of the lanes
+	hasZScale bool       // zScale is set
 	backtrack bool       // Camera may scroll back to the left
 	endX      float32
 	hasEndX   bool
@@ -245,6 +250,13 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 		lv.stage = p.resolve(l.val)
 	case "music", "bgmusic":
 		lv.music = p.resolve(l.val)
+	case "library":
+		// A content pack's own enemy library, added to (and overriding) the shared one
+		path := p.resolve(l.val)
+		if FileExist(path) == "" {
+			return fmt.Errorf("enemy library not found: %v", l.val)
+		}
+		return p.lib.load(path, lv.behaviors)
 	case "lanes":
 		if lv.lanes, err = brawlerParseI(l.val); err != nil || lv.lanes < 1 {
 			return fmt.Errorf("invalid lanes: %v", l.val)
@@ -297,6 +309,16 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 			lv.pBounds[1] = v
 		}
 		lv.hasPBound = true
+	case "zscale":
+		if len(l.args) != 2 {
+			return fmt.Errorf("expected zscale = top, bottom")
+		}
+		for i, a := range l.args {
+			if lv.zScale[i], err = brawlerParseF(a); err != nil || lv.zScale[i] <= 0 {
+				return fmt.Errorf("invalid zscale: %v", l.val)
+			}
+		}
+		lv.hasZScale = true
 	case "backtrack":
 		lv.backtrack = brawlerParseB(l.val)
 	case "endx":

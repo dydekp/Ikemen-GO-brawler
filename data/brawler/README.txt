@@ -19,6 +19,10 @@ and campaigns are plain text files. No character or stage has to be edited.
 The paths are set in the [Brawler] section of the config file (Enemies,
 Behaviors, Campaigns, FreePlay).
 
+Your own characters, stages, levels and campaigns don't have to be in the
+engine's folders at all: a content pack lives in a folder of its own,
+anywhere on disk (section 12).
+
 
 CONTENTS
 --------
@@ -33,6 +37,7 @@ CONTENTS
   9. Controls
  10. HUD
  11. Config
+ 12. Content packs: content outside the engine
 
 
 1. QUICK START: YOUR OWN CAMPAIGN
@@ -124,6 +129,12 @@ life     = 0                ; exact life, or 0 (default) for the character's
 name     = Street Thug      ; HUD name (default: the character's name)
 behavior = kicker           ; behavior profile (default "default")
 boss     = 1                ; big boss lifebar (default 0)
+scale    = 1.1              ; size multiplier: sprites, hitboxes and
+                            ; projectiles (default 1)
+ownai    = 0                ; 1 = keep the character's own AI code
+                            ; (default 0, see below)
+screenfx = 0                ; 1 = keep its screen-fixed effects (default 0,
+                            ; see below)
 
 [Intro thug]                ; optional introduction (section 8)
 
@@ -139,9 +150,17 @@ Tips for converting characters:
 - Moves: find the command names in the character's .cmd file for
   "cmd:name" moves, or write them as inputs (D, DF, F+x). Inputs are
   performed as if the NPC faced right, so they work on both sides.
-- Characters with their own AI code (AILevel triggers) still run it on top.
-  Such AI can make them fight unlike the profile; pick characters without
-  AI, or give them simple profiles.
+- AI: characters with their own AI code (AILevel triggers) have it switched
+  off as enemies, so they fight the way their profile says. "ownai = 1"
+  keeps it running on top of the profile. Commands that switch on such AI
+  ("cpu1", "ai2"...) are never picked for random "special" attacks.
+- Screen effects: many characters draw their own 1v1 HUD with explods fixed
+  to the screen (guard gauges, super portraits, cut-ins). With a crowd of
+  enemies these would pile up, so screen-fixed explods of enemies are
+  hidden. Effects in the stage (sparks, auras, projectiles) still show.
+  "screenfx = 1" keeps them for one enemy.
+- Size: "scale" makes an NPC bigger or smaller than the character, e.g. a
+  boss 10% taller than the same character's regular enemies.
 - Characters that rely on the opponent (custom states, throws) keep
   working: every NPC is a full character instance in the fight.
 
@@ -158,6 +177,9 @@ stage     = stages/mystage.def   ; The stage (see section 6). Without it,
                                  ; campaign a random one (or the first
                                  ; enemy character's select.def stage)
 music     = sound/level1.mp3     ; Optional
+library   = ../enemies.def        ; Optional: a content pack's own enemy
+                                 ; library, added to the shared one. Its
+                                 ; ids replace shared ones with the same id
 lanes     = 3                    ; Number of lanes (default 3)
 lanepos   = -60, 0, 60           ; Optional: explicit lane depths
 backtrack = 0                    ; 1 = the camera may scroll back to the left
@@ -166,6 +188,7 @@ endx      = 900                  ; Optional: after the last wave, a player
 ; Stage overrides, in the stage's coordinates (section 6):
 topbound   = -60                 ; depth range of the lanes
 botbound   = 60
+zscale     = 0.9, 1              ; character scale at topbound and botbound
 boundleft  = -500                ; camera range
 boundright = 900
 leftbound  = -1100               ; how far players may walk
@@ -243,6 +266,14 @@ Depth (lanes): the lanes are spread over the stage's topbound..botbound
   coordinates: about -30..30 for 320x240 stages, -120..120 for 1280x720.
   The floor should look deep enough for that; the characters' shadows and
   reflections follow their depth.
+  Lanes don't have to be centered on 0: on a stage whose floor line is at
+  the bottom of the screen (where the boss lifebar is), negative values put
+  the lanes higher up the painted floor.
+
+Depth scale: characters further back are drawn smaller, following the
+  stage's [Scaling] section (topz, botz, topscale, botscale). Many 1v1
+  stages have values there that were never meant for depth, so the level
+  can set the scale at the top and bottom lane with zscale = top, bottom.
 
 Length: 1v1 stages are usually only a bit wider than the screen. The level
   can widen the camera range (boundleft/boundright) and the area players
@@ -419,10 +450,41 @@ Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 
 11. CONFIG ([Brawler] section)
 ------------------------------
-Content:   Campaigns, FreePlay, Enemies, Behaviors
+Content:   Campaigns (comma separated folders), FreePlay, Enemies, Behaviors
 Controls:  LaneButton, FacingButton, FacingMode, TurnDelay, TurnBuffer,
            LaneSelectWindow, LaneSnapSpeed
 Balance:   AttackersPerPlayer, MaxEnemiesPerPlayer, EnemyLife, DespawnTime,
            BowlDamage, BowlSlowdown
 Intros:    Intros, IntroTime
 See the comments in the default config for details.
+
+
+12. CONTENT PACKS: CONTENT OUTSIDE THE ENGINE
+---------------------------------------------
+A content pack keeps everything of a campaign (characters, stages, levels,
+NPCs, profiles) in one folder of its own, outside the engine's folders.
+Nothing of it ends up in the engine's repository, and the folder can be
+moved, backed up or shared as a whole.
+
+  MyPack/
+    campaign.def       [Campaign] with "level = levels/...". Any .def file
+                       directly in the folder with a [Campaign] section is
+                       a campaign; other .def files are ignored
+    enemies.def        The pack's enemy library (and its behavior profiles
+                       and intros). Characters relative to this file
+    levels/*.def       Levels, with "library = ../enemies.def" in [Level]
+                       and stage, music paths relative to the level
+    chars/             The pack's characters, each in its own folder
+    stages/            The pack's stages
+
+To use it, add its folder to [Brawler] Campaigns in the config file
+(save/config.ini), after the engine's own folder:
+
+  Campaigns = data/brawler/campaigns, C:/Games/MyPack
+
+Paths may be absolute or relative to the engine's folder. The pack's
+campaigns are listed in the BRAWLER menu after the engine's.
+
+The pack's levels can still use the shared library (data/brawler/
+enemies.def) and the shared profiles (behaviors.def); its own enemies.def
+adds to them and replaces ids it redefines.

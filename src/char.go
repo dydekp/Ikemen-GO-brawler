@@ -2296,6 +2296,9 @@ func (e *Explod) cueDraw() {
 	if e.hidewithbars && sys.shouldHideWithBars() {
 		return
 	}
+	if sys.brawler.hideExplod(e) {
+		return
+	}
 
 	parent := e.parent()
 
@@ -5538,6 +5541,9 @@ func (c *Char) isEnemyOf(e *Char) bool {
 
 // Returns AI level as a float. Is truncated for AIlevel trigger, or not for AIlevelF
 func (c *Char) getAILevel() float32 {
+	if sys.brawler.ownAIOff(c) {
+		return 0
+	}
 	if c.helperIndex != 0 && c.gi().mugenver[0] == 1 {
 		return 0
 	}

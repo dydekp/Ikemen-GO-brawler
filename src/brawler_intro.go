@@ -12,11 +12,12 @@ package main
 // introduction lasts.
 
 const (
-	brawlerIntroSkipDelay = 45       // Frames before a button press may close the introduction
-	brawlerIntroFade      = 30       // Frames the mask takes to fade in
-	brawlerIntroText      = 20       // Frame the text starts to appear
-	brawlerIntroMaskColor = 0x1c0a12 // Default color everything but the introduced enemy fades into
-	brawlerIntroAccent    = 0xd8382a
+	brawlerIntroSkipDelay   = 45       // Frames before a button press may close the introduction
+	brawlerIntroFade        = 30       // Frames the mask takes to fade in
+	brawlerIntroText        = 20       // Frame the text starts to appear
+	brawlerIntroMaskColor   = 0x1c0a12 // Default color everything but the introduced enemy fades into
+	brawlerIntroEnterMargin = 0.15     // "enter" introductions wait until the enemy is this far (screen width fraction) inside
+	brawlerIntroAccent      = 0xd8382a
 )
 
 // Buttons that close an introduction
@@ -151,7 +152,9 @@ func (b *Brawler) checkIntro(c *Char) {
 	if x := brawlerX(c); x >= sys.xmin && x <= sys.xmax {
 		switch in.trigger {
 		case BIT_Enter:
-			active = true
+			// Fully on the screen, not half cut off at the edge it walks in from
+			margin := (sys.xmax - sys.xmin) * brawlerIntroEnterMargin
+			active = x >= sys.xmin+margin && x <= sys.xmax-margin
 		case BIT_Attack:
 			active = c.ss.moveType == MT_A
 		case BIT_Jump:

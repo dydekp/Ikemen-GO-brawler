@@ -3,21 +3,25 @@ package main
 // Brawler mode content outside of levels: the enemy library and campaigns.
 //
 // Enemy library ([Brawler] Enemies): turns MUGEN characters into NPCs that any level can use.
+// A level can add a content pack's own library file with "library = path" in [Level].
 //
 //   [Enemy thug]            ; id, used in levels as "enemy = thug"
-//   char     = kfm          ; character, like in select.def
+//   char     = kfm          ; character, like in select.def, or a path relative to the library file
 //   pal      = 7
 //   life     = 0            ; 0 = the character's life scaled by [Brawler] EnemyLife
 //   name     = Street Thug
 //   behavior = kicker       ; behavior profile
 //   boss     = 0
+//   scale    = 1            ; size multiplier
+//   ownai    = 0            ; 1 = keep the character's own AI code running
+//   screenfx = 0            ; 1 = keep its screen-fixed explods (own gauges, cut-ins)
 //
 //   [Intro thug]            ; optional introduction, like in levels
 //   [Behavior name]         ; profiles can be defined here too
 //
 // Levels can override an enemy's behavior (behavior = id, profile) and intro ([Intro id]).
 //
-// Campaigns ([Brawler] Campaigns, a folder of .def files): a named list of levels played in order.
+// Campaigns ([Brawler] Campaigns, folders of .def files): a named list of levels played in order.
 //
 //   [Campaign]
 //   name  = Demo Campaign
@@ -37,17 +41,24 @@ type brawlerLibrary struct {
 	enemies map[string]BrawlerEnemy
 }
 
-// Load the enemy library. Profiles defined in it are added to behaviors
+// Load the shared enemy library ([Brawler] Enemies). Profiles defined in it are added to behaviors
 func loadBrawlerLibrary(behaviors map[string]*BrawlerBehavior) (*brawlerLibrary, error) {
 	lib := &brawlerLibrary{enemies: map[string]BrawlerEnemy{}}
 	path := strings.TrimSpace(sys.cfg.Brawler.Enemies)
 	if path == "" || FileExist(path) == "" {
 		return lib, nil
 	}
+	return lib, lib.load(path, behaviors)
+}
+
+// Add the enemies of a library file. Ids already known are replaced, so a content pack's library
+// (level "library" key) can redefine shared enemies
+func (lib *brawlerLibrary) load(path string, behaviors map[string]*BrawlerBehavior) error {
 	text, err := LoadText(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	file := map[string]BrawlerEnemy{}
 	dir := filepath.Dir(path)
 	resolve := func(p string) string {
 		if cand := filepath.ToSlash(filepath.Join(dir, p)); p != "" && !filepath.IsAbs(p) && FileExist(cand) != "" {
@@ -62,7 +73,7 @@ func loadBrawlerLibrary(behaviors map[string]*BrawlerBehavior) (*brawlerLibrary,
 	var intro *BrawlerIntro
 	store := func() {
 		if enemy != nil {
-			lib.enemies[enemy.alias] = *enemy
+			file[enemy.alias] = *enemy
 			enemy = nil
 		}
 	}
@@ -103,25 +114,27 @@ func loadBrawlerLibrary(behaviors map[string]*BrawlerBehavior) (*brawlerLibrary,
 	})
 	store()
 	if err != nil {
-		return nil, fmt.Errorf("%v:%w", path, err)
+		return fmt.Errorf("%v:%w", path, err)
 	}
+	for id, e := range file {
+		if e.def == "" {
+			return fmt.Errorf("%v: [Enemy %v] has no char", path, id)
+		}
+		if e.behName != "" && behaviors[e.behName] == nil {
+			return fmt.Errorf("%v: [Enemy %v] uses unknown behavior '%v'", path, id, e.behName)
+		}
+		lib.enemies[id] = e
+	}
+	// Intros may also introduce enemies of libraries loaded before this one
 	for id, in := range intros {
 		e, ok := lib.enemies[id]
 		if !ok {
-			return nil, fmt.Errorf("%v: intro refers to unknown enemy '%v'", path, id)
+			return fmt.Errorf("%v: intro refers to unknown enemy '%v'", path, id)
 		}
 		e.intro = in
 		lib.enemies[id] = e
 	}
-	for id, e := range lib.enemies {
-		if e.def == "" {
-			return nil, fmt.Errorf("%v: [Enemy %v] has no char", path, id)
-		}
-		if e.behName != "" && behaviors[e.behName] == nil {
-			return nil, fmt.Errorf("%v: [Enemy %v] uses unknown behavior '%v'", path, id, e.behName)
-		}
-	}
-	return lib, nil
+	return nil
 }
 
 func setBrawlerEnemyKey(e *BrawlerEnemy, l brawlerIniLine, resolve func(string) string) error {
@@ -143,8 +156,16 @@ func setBrawlerEnemyKey(e *BrawlerEnemy, l brawlerIniLine, resolve func(string) 
 		e.behName = strings.ToLower(l.val)
 	case "boss":
 		e.boss = brawlerParseB(l.val)
+	case "scale":
+		if e.scale, err = brawlerParseF(l.val); err != nil || e.scale <= 0 {
+			return fmt.Errorf("invalid scale: %v", l.val)
+		}
+	case "ownai":
+		e.ownAI = brawlerParseB(l.val)
+	case "screenfx":
+		e.screenFX = brawlerParseB(l.val)
 	default:
-		return fmt.Errorf("unknown enemy parameter '%v' (char, pal, life, name, behavior, boss)", l.key)
+		return fmt.Errorf("unknown enemy parameter '%v' (char, pal, life, name, behavior, boss, scale, ownai, screenfx)", l.key)
 	}
 	return nil
 }
@@ -156,6 +177,8 @@ type BrawlerCampaign struct {
 	levels []string
 }
 
+// Load a campaign file. Returns nil without error for .def files that have no [Campaign] section,
+// so a content pack's folder can hold its campaigns next to its other files
 func loadBrawlerCampaign(path string) (*BrawlerCampaign, error) {
 	text, err := LoadText(path)
 	if err != nil {
@@ -163,8 +186,13 @@ func loadBrawlerCampaign(path string) (*BrawlerCampaign, error) {
 	}
 	c := &BrawlerCampaign{path: path}
 	dir := filepath.Dir(path)
+	found := false
 	err = readBrawlerIni(text, func(l brawlerIniLine) error {
-		if l.header || l.section != "campaign" {
+		if l.section != "campaign" {
+			return nil
+		}
+		found = true
+		if l.header {
 			return nil
 		}
 		switch l.key {
@@ -186,6 +214,9 @@ func loadBrawlerCampaign(path string) (*BrawlerCampaign, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%v:%w", path, err)
 	}
+	if !found {
+		return nil, nil
+	}
 	if len(c.levels) == 0 {
 		return nil, fmt.Errorf("%v: campaign has no levels", path)
 	}
@@ -195,31 +226,35 @@ func loadBrawlerCampaign(path string) (*BrawlerCampaign, error) {
 	return c, nil
 }
 
-// All campaigns in the [Brawler] Campaigns folder, sorted by file name. Broken files are logged and skipped
+// All campaigns in the [Brawler] Campaigns folders (comma separated), folder by folder, sorted by file
+// name. Broken files are logged and skipped
 func loadBrawlerCampaigns() []*BrawlerCampaign {
-	dir := strings.TrimSpace(sys.cfg.Brawler.Campaigns)
-	if dir == "" {
-		return nil
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	var names []string
-	for _, e := range entries {
-		if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".def") {
-			names = append(names, e.Name())
-		}
-	}
-	sort.Strings(names)
 	var list []*BrawlerCampaign
-	for _, n := range names {
-		c, err := loadBrawlerCampaign(filepath.ToSlash(filepath.Join(dir, n)))
-		if err != nil {
-			LogMessage("brawler: %v", err)
+	for _, dir := range strings.Split(sys.cfg.Brawler.Campaigns, ",") {
+		dir = strings.TrimSpace(dir)
+		if dir == "" {
 			continue
 		}
-		list = append(list, c)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			LogMessage("brawler: campaign folder: %v", err)
+			continue
+		}
+		var names []string
+		for _, e := range entries {
+			if !e.IsDir() && strings.EqualFold(filepath.Ext(e.Name()), ".def") {
+				names = append(names, e.Name())
+			}
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			c, err := loadBrawlerCampaign(filepath.ToSlash(filepath.Join(dir, n)))
+			if err != nil {
+				LogMessage("brawler: %v", err)
+			} else if c != nil {
+				list = append(list, c)
+			}
+		}
 	}
 	return list
 }

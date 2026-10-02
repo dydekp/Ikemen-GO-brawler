@@ -614,3 +614,145 @@ func TestBrawlerCampaignFile(t *testing.T) {
 		t.Error("campaign without levels accepted")
 	}
 }
+
+// A content pack: its own library (level "library" key) overrides shared ids, resolves characters
+// relative to itself and sets scale / ownai
+func TestBrawlerPackLibrary(t *testing.T) {
+	useShippedBrawlerData(t)
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "chars", "tiger"), 0755)
+	os.WriteFile(filepath.Join(dir, "chars", "tiger", "tiger.def"), []byte("[Info]\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "enemies.def"), []byte(
+		"[Enemy tiger]\nchar = chars/tiger/tiger.def\nscale = 1.1\nboss = 1\nbehavior = packbrute\n"+
+			"[Enemy thug]\nchar = chars/tiger/tiger.def\nownai = 1\n"+
+			"[Behavior packbrute]\nbase = brute\n[Intro tiger]\nstyle = Tiger\n"), 0644)
+	os.MkdirAll(filepath.Join(dir, "levels"), 0755)
+	level := filepath.Join(dir, "levels", "l.def")
+	os.WriteFile(level, []byte("[Level]\nstage = s\nlibrary = ../enemies.def\n[Enemies]\nenemy = tiger\nenemy = thug\nenemy = ninja\n"), 0644)
+	lv, err := loadBrawlerLevel(level)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tiger := lv.enemies[lv.enemyIndex("tiger")]
+	wantDef := filepath.ToSlash(filepath.Join(dir, "chars/tiger/tiger.def"))
+	if tiger.def != wantDef || tiger.scale != 1.1 || !tiger.boss || tiger.ownAI || tiger.behavior.name != "packbrute" || tiger.intro == nil {
+		t.Errorf("pack tiger: %+v", tiger)
+	}
+	// The pack's thug replaces the shared one, the shared ninja is still available
+	if thug := lv.enemies[lv.enemyIndex("thug")]; thug.def != wantDef || !thug.ownAI {
+		t.Errorf("pack thug: %+v", thug)
+	}
+	if lv.enemyIndex("ninja") < 0 {
+		t.Error("shared enemy missing")
+	}
+	os.WriteFile(level, []byte("[Level]\nstage = s\nlibrary = nope.def\n"), 0644)
+	if _, err := loadBrawlerLevel(level); err == nil {
+		t.Error("missing library accepted")
+	}
+}
+
+// Several campaign folders; .def files without [Campaign] in them are not campaigns
+func TestBrawlerCampaignFolders(t *testing.T) {
+	old := sys.cfg.Brawler.Campaigns
+	t.Cleanup(func() { sys.cfg.Brawler.Campaigns = old })
+	a, b := t.TempDir(), t.TempDir()
+	os.WriteFile(filepath.Join(a, "1.def"), []byte("[Campaign]\nname = A\nlevel = x.def\n"), 0644)
+	os.WriteFile(filepath.Join(b, "campaign.def"), []byte("[Campaign]\nname = B\nlevel = x.def\n"), 0644)
+	os.WriteFile(filepath.Join(b, "enemies.def"), []byte("[Enemy a]\nchar = kfm\n"), 0644)
+	sys.cfg.Brawler.Campaigns = a + " , " + b
+	list := loadBrawlerCampaigns()
+	if len(list) != 2 || list[0].name != "A" || list[1].name != "B" {
+		t.Errorf("campaigns: %+v", list)
+	}
+}
+
+func TestBrawlerOwnAI(t *testing.T) {
+	oldMode := sys.gameMode
+	defer func() { sys.gameMode = oldMode }()
+	sys.gameMode = "brawler"
+	b := &Brawler{enabled: true, level: &BrawlerLevel{enemies: []BrawlerEnemy{{}, {ownAI: true}}}}
+	enemy := &Char{}
+	enemy.bw = brawlerChar{enemy: true, entry: 0}
+	if !b.ownAIOff(enemy) {
+		t.Error("enemy AI code should be off by default")
+	}
+	enemy.bw.entry = 1
+	if b.ownAIOff(enemy) {
+		t.Error("ownai enemy should keep its AI code")
+	}
+	if b.ownAIOff(&Char{}) {
+		t.Error("players keep their AI level")
+	}
+}
+
+func TestBrawlerAICommandFilter(t *testing.T) {
+	for name, want := range map[string]bool{"cpu1": true, "CPU30": true, "ai": true, "AI_3": true, "cpu": true,
+		"QCF_x": false, "aim": false, "air_x": false, "x": false} {
+		if got := brawlerAICommand(name); got != want {
+			t.Errorf("%v: got %v, want %v", name, got, want)
+		}
+	}
+	cmds := [][]Command{{{name: "cpu1"}}, {{name: "QCF_x"}}, {{name: "cpu2"}}}
+	for i := 0; i < 20; i++ {
+		if got := brawlerRandomCommand(cmds, true); got != 1 {
+			t.Fatalf("picked command %v", got)
+		}
+	}
+}
+
+func TestBrawlerHideScreenExplods(t *testing.T) {
+	oldMode, oldChars := sys.gameMode, sys.chars[1]
+	defer func() { sys.gameMode, sys.chars[1], sys.brawler = oldMode, oldChars, Brawler{} }()
+	sys.gameMode = "brawler"
+	sys.chars[1] = []*Char{{playerNo: 1}}
+	lv := &BrawlerLevel{types: []string{"a"}, enemies: []BrawlerEnemy{{typ: 0}}}
+	sys.brawler = Brawler{enabled: true, level: lv}
+	screen := &Explod{space: Space_screen, playerno: brawlerTypeSlot(0), ownerId: -1}
+	if !sys.brawler.hideExplod(screen) {
+		t.Error("enemy screen explod should be hidden")
+	}
+	if sys.brawler.hideExplod(&Explod{space: Space_stage, playerno: brawlerTypeSlot(0), ownerId: -1}) {
+		t.Error("stage explods stay visible")
+	}
+	lv.enemies[0].screenFX = true
+	if sys.brawler.hideExplod(screen) {
+		t.Error("screenfx enemy keeps its screen explods")
+	}
+}
+
+// An "enter" introduction waits until the enemy is well inside the screen, not cut off at its edge
+func TestBrawlerIntroEnterMargin(t *testing.T) {
+	oldMode, oldIntros, oldMin, oldMax := sys.gameMode, sys.cfg.Brawler.Intros, sys.xmin, sys.xmax
+	defer func() { sys.gameMode, sys.cfg.Brawler.Intros, sys.xmin, sys.xmax = oldMode, oldIntros, oldMin, oldMax }()
+	sys.gameMode = "brawler"
+	sys.cfg.Brawler.Intros = true
+	sys.xmin, sys.xmax = 0, 320
+	b := &Brawler{enabled: true, level: &BrawlerLevel{enemies: []BrawlerEnemy{{intro: &BrawlerIntro{trigger: BIT_Enter}}}}}
+	c := &Char{id: 3, localscl: 1}
+	c.pos[0] = 310
+	b.checkIntro(c)
+	b.checkIntro(c)
+	if b.introOn {
+		t.Fatal("intro started at the screen edge")
+	}
+	c.pos[0] = 250
+	b.checkIntro(c)
+	if !b.introOn {
+		t.Error("intro not started inside the screen")
+	}
+}
+
+func TestBrawlerZScale(t *testing.T) {
+	lv, err := loadBrawlerLevel(writeBrawlerLevel(t, "[Level]\nstage = s\ntopbound = -50\nbotbound = -16\nzscale = 0.9, 1\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !lv.hasZScale || lv.zScale != [2]float32{0.9, 1} {
+		t.Errorf("zscale: %v %v", lv.hasZScale, lv.zScale)
+	}
+	for _, bad := range []string{"zscale = 1", "zscale = 0, 1", "zscale = a, 1"} {
+		if _, err := loadBrawlerLevel(writeBrawlerLevel(t, "[Level]\nstage = s\n"+bad+"\n")); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}
