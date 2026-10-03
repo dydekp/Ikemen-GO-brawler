@@ -18,6 +18,31 @@ if #levels == 0 then
 	return fail("No brawler levels to play")
 end
 
+-- Characters players can pick when they drop in during a level
+brawlerSetRoster(main.t_randomChars)
+
+-- Select the players' team for the next level, including characters that dropped in during the last
+-- one. Member i plays in player slot 2i-1 with the inputs of player party[i].cmd, like co-op picks
+local function f_carryParty()
+	local party = brawlerParty()
+	if #party == 0 then
+		return
+	end
+	start.p[1].t_selected = {}
+	start.p[1].t_selCmd = {}
+	for i, m in ipairs(party) do
+		table.insert(start.p[1].t_selected, {
+			ref = m.ref,
+			pal = m.pal,
+			pn = start.f_getPlayerNo(1, i),
+			life = m.life,
+		})
+		table.insert(start.p[1].t_selCmd, {cmd = m.cmd, player = start.f_getPlayerNo(1, i), selectState = 0})
+	end
+	start.p[1].numChars = #party
+	start.p[1].teamMode = #party > 1 and 1 or 0
+end
+
 for i = matchNo(), #levels do
 	local lvl, err = brawlerLoadLevel(levels[i])
 	if lvl == nil then
@@ -55,6 +80,7 @@ for i = matchNo(), #levels do
 		brawlerClearLevel()
 		return
 	end
+	f_carryParty()
 end
 
 brawlerClearLevel()

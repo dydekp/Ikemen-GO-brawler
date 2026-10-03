@@ -95,8 +95,9 @@ menu.itemname.brawler.brawlerfree, menu.itemname.brawler.back). Campaign
 entries are always inserted before FREE PLAY.
 
 In both, player characters are chosen like in other modes (single, or
-simul for 2+ players). Life carries over from level to level. The mode ends
-when all players are KO or the last level is won.
+simul for 2+ players). More players can drop in at any time during a level
+(see DROP-IN in section 9). Life carries over from level to level. The mode
+ends when all players are KO and nobody continues, or the last level is won.
 
 
 3. CAMPAIGN FILES
@@ -449,6 +450,21 @@ FacingButton (default "w")
 
 Enemies always face the nearest player.
 
+DROP-IN, REJOIN AND CONTINUE (arcade style, without coins)
+  Every player up to [Config] Players (max. 4) can join while a level is
+  being fought: press start. A quick select opens in the player's HUD
+  column: left/right picks the character, up/down the color, an attack
+  button or start confirms (it also confirms by itself after 10 seconds).
+  The character loads in the background while the fight goes on and
+  appears next to the team with a blinking "1P"/"2P"... marker, safe from
+  hits for a moment. The quick select offers the characters of the select
+  screen.
+  A KO'd player rejoins the same way after a moment: picking the same
+  character revives it right away, another one replaces it.
+  When all players are down, a CONTINUE countdown gives everyone 10
+  seconds to drop back in before the level is lost.
+  Players who dropped in stay in the team for the following levels.
+
 
 10. HUD
 -------
@@ -456,6 +472,10 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
 - One big panel per player along the top: portrait, name, life (with
   recoverable damage in orange) and power with level marks. The top edge is
   split into equal columns, so 3 and 4 player games fit automatically.
+  Players who aren't in the fight get a "PRESS START" panel; columns for
+  a 3rd and 4th player appear once they join.
+- When characters appear (level start, drop-in, rejoin), a blinking
+  player marker shows who is who.
 - Under each player's bars: the enemy that player is hitting, with its name
   and lifebar. It stays for 3 seconds after the last hit.
 - Bosses get a wide bar at the bottom center.

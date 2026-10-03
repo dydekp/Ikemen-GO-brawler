@@ -826,3 +826,83 @@ func TestBrawlerWaitLaneAndPatrolFacing(t *testing.T) {
 		t.Error("enemies face their target by default")
 	}
 }
+
+// With every player down the level isn't lost until the continue time ran out, and never while a
+// player is picking or loading a character
+func TestBrawlerContinue(t *testing.T) {
+	old0, old2 := sys.chars[0], sys.chars[2]
+	defer func() { sys.chars[0], sys.chars[2], brawlerJoin.seats = old0, old2, [MaxSimul]brawlerSeat{} }()
+	p := &Char{playerNo: 0, life: 0}
+	p.setSCF(SCF_ko)
+	sys.chars[0], sys.chars[2] = []*Char{p}, nil
+	b := &Brawler{}
+	if ko := b.roundKO(); ko[0] {
+		t.Error("lost right away")
+	}
+	b.downTime = brawlerContinueTime + 1
+	if ko := b.roundKO(); !ko[0] {
+		t.Error("not lost after the continue time")
+	}
+	brawlerJoin.seats[1].phase = bsLoading
+	if ko := b.roundKO(); ko[0] {
+		t.Error("lost while a player is loading")
+	}
+}
+
+func TestBrawlerJoinHelpers(t *testing.T) {
+	oldList, oldRoster := sys.sel.charlist, brawlerJoin.roster
+	defer func() { sys.sel.charlist, brawlerJoin.roster = oldList, oldRoster }()
+	sys.sel.charlist = []SelectChar{
+		{def: "chars/a/a.def", name: "A", pal: []int32{1, 2, 5}},
+		{def: "randomselect", name: "Random"},
+		{name: "dummyslot"},
+		{def: "chars/b/b.def", name: "B"},
+	}
+	brawlerSetRoster([]int{0, 1, 2, 3, 9, -1})
+	if len(brawlerJoin.roster) != 2 || brawlerJoin.roster[0] != 0 || brawlerJoin.roster[1] != 3 {
+		t.Errorf("roster: %v", brawlerJoin.roster)
+	}
+	if p := brawlerValidPal(0, 5); p != 5 {
+		t.Errorf("valid pal changed: %v", p)
+	}
+	if p := brawlerValidPal(0, 3); p != 1 {
+		t.Errorf("missing pal: %v", p)
+	}
+	if p := brawlerValidPal(3, 4); p != 1 {
+		t.Errorf("char without pal list: %v", p)
+	}
+	for held, want := range map[int32]bool{0: false, 1: true, 2: false, brawlerJoinRepeat: false,
+		brawlerJoinRepeat + 4: true, brawlerJoinRepeat + 5: false} {
+		if got := brawlerJoinRepeatFire(held); got != want {
+			t.Errorf("repeat %v: got %v", held, got)
+		}
+	}
+}
+
+// A slot's player is recorded at the level start and when someone drops in, not read from the remap that
+// Lua restores after each match
+func TestBrawlerSeats(t *testing.T) {
+	old0, old2, old4, oldRemap, oldSeats := sys.chars[0], sys.chars[2], sys.chars[4], sys.inputRemap, brawlerJoin.slotSeat
+	defer func() {
+		sys.chars[0], sys.chars[2], sys.chars[4], sys.inputRemap, brawlerJoin.slotSeat = old0, old2, old4, oldRemap, oldSeats
+	}()
+	sys.inputRemap = [len(sys.inputRemap)]int{}
+	for i := range sys.inputRemap {
+		sys.inputRemap[i] = i
+	}
+	p1, p2 := &Char{playerNo: 0, controller: 0}, &Char{playerNo: 2, controller: 2}
+	sys.chars[0], sys.chars[2], sys.chars[4] = []*Char{p1}, []*Char{p2}, nil
+	sys.inputRemap[2] = 1 // Co-op: the second member uses P2's inputs
+	brawlerInitSeats()
+	sys.inputRemap[2] = 2 // Restored after the match
+	b := &Brawler{}
+	if b.seatChar(0) != p1 || b.seatChar(1) != p2 || b.seatChar(2) != nil {
+		t.Error("seat lookup")
+	}
+	if k := b.charSeat(p2); k != 1 {
+		t.Errorf("seat of P2's character: %v", k)
+	}
+	if pn := b.freeSlot(); pn != 4 {
+		t.Errorf("free slot: %v", pn)
+	}
+}

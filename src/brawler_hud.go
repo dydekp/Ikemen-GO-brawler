@@ -223,12 +223,11 @@ func (b *Brawler) drawHUD(layerno int16) {
 		return
 	}
 	txt := b.hudFont(brawlerHudLayer)
-	players := b.players(false)
-	for i, p := range players {
-		b.drawPlayerPanel(p, brawlerHudLayout(i, len(players)), i, txt)
-	}
+	b.drawSeats(txt)
+	b.drawSpawnMarkers(txt)
 	b.drawBossBars(txt)
 	b.drawGoSign(txt)
+	b.drawContinue(txt)
 }
 
 // Blinking "GO" arrow at the right edge after a locked wave is cleared
@@ -275,6 +274,9 @@ func (b *Brawler) drawPlayerPanel(p *Char, l brawlerHudPanel, slot int, txt braw
 		brawlerHudFill(px, py, l.portrait, l.portrait, 0x000000, 150)
 	}
 	txt.draw(px+1, py+l.portrait-1, fmt.Sprintf("%vP", slot+1), 1)
+	if _, _, _, _, rejoin, _ := b.seatHud(slot); rejoin && (sys.gameTime()/20)%2 == 0 {
+		txt.draw(l.barX+l.barW/2, l.lifeY+l.lifeH-1, "PRESS START", 0)
+	}
 
 	// Name, life and power
 	txt.draw(l.barX, l.nameY, sys.cgi[p.playerNo].lifebarname, 1)
@@ -295,29 +297,9 @@ func (b *Brawler) drawPlayerPanel(p *Char, l brawlerHudPanel, slot int, txt braw
 
 // Draw the character's lifebar face sprite scaled into a square box
 func (b *Brawler) drawPortrait(p *Char, x, y, size float32) {
-	fs := &sys.fightScreen
-	layout := fs.curLayout[0]
-	if layout < 0 || layout >= len(fs.faces) || p.playerNo >= len(fs.faces[layout]) {
-		return
+	if spr := b.faceSprite(p); spr != nil {
+		brawlerHudSprite(spr, x, y, size)
 	}
-	face := fs.faces[layout][p.playerNo]
-	if face == nil || face.face == nil {
-		return
-	}
-	spr := face.face
-	sw, sh := float32(spr.Size[0]), float32(spr.Size[1])
-	if sw <= 0 || sh <= 0 {
-		return
-	}
-	// Work in fight screen local units, where face sprites are drawn 1:1
-	u := brawlerHudUnit()
-	x, y, size = x*u, y*u, size*u
-	scl := size / Max(sw, sh)
-	// Center the sprite in the box, compensating for its axis
-	ox := x + (size-sw*scl)/2 + float32(spr.Offset[0])*scl
-	oy := y + (size-sh*scl)/2 + float32(spr.Offset[1])*scl
-	newLayout(brawlerHudLayer).DrawFaceSprite((ox+fs.offsetX)*fs.scale, oy*fs.scale, brawlerHudLayer,
-		spr, face.face_pfx, scl*fs.scale, nil)
 }
 
 // Wide bars for alive bosses at the bottom center
@@ -339,4 +321,201 @@ func (b *Brawler) drawBossBars(txt brawlerHudText) {
 		y -= h + 18
 		shown++
 	}
+}
+
+// One panel per seat (P1, P2, ...): the player's character, the quick select, a loading panel, or an
+// invitation to press start. Seats beyond the second only get a column once their player is in
+func (b *Brawler) drawSeats(txt brawlerHudText) {
+	n := b.seatCount()
+	cols := Min(2, n)
+	for k := 0; k < n; k++ {
+		if phase, _, _, _, _, _ := b.seatHud(k); phase != bsIdle || b.seatChar(k) != nil {
+			cols = Max(cols, k+1)
+		}
+	}
+	for k := 0; k < cols; k++ {
+		l := brawlerHudLayout(k, cols)
+		phase, ref, pal, timer, _, errText := b.seatHud(k)
+		switch {
+		case phase == bsSelect:
+			b.drawSelectPanel(k, l, ref, pal, timer, txt)
+		case phase == bsLoading:
+			b.drawSeatMessage(k, l, sys.sel.charlist[ref].name, "LOADING...", txt)
+		case b.seatChar(k) != nil:
+			b.drawPlayerPanel(b.seatChar(k), l, k, txt)
+		case errText != "":
+			b.drawSeatMessage(k, l, "", errText, txt)
+		case b.canJoin() && (sys.gameTime()/30)%2 == 0:
+			b.drawSeatMessage(k, l, "", "PRESS START", txt)
+		default:
+			b.drawSeatMessage(k, l, "", "", txt)
+		}
+	}
+}
+
+// Frame of an empty seat panel with a title and a message
+func (b *Brawler) drawSeatMessage(k int, l brawlerHudPanel, title, msg string, txt brawlerHudText) {
+	accent := brawlerHudColors[k%len(brawlerHudColors)]
+	bottom := l.powerY + l.powerH + 3
+	brawlerHudFill(l.x, l.y, l.w, bottom-l.y, 0x000000, 70)
+	brawlerHudFill(l.x, l.y, 2, bottom-l.y, accent, 255)
+	txt.draw(l.x+5, l.nameY, fmt.Sprintf("%vP", k+1), 1)
+	if title != "" {
+		txt.draw(l.barX, l.nameY, title, 1)
+	}
+	if msg != "" {
+		txt.draw(l.x+l.w/2, l.lifeY+l.lifeH+1, msg, 0)
+	}
+}
+
+// Quick select: portrait, name, color and the time left
+func (b *Brawler) drawSelectPanel(k int, l brawlerHudPanel, ref int, pal, timer int32, txt brawlerHudText) {
+	accent := brawlerHudColors[k%len(brawlerHudColors)]
+	bottom := l.powerY + l.powerH + 3
+	brawlerHudFill(l.x, l.y, l.w, bottom-l.y, 0x000000, 150)
+	brawlerHudFill(l.x, l.y, 2, bottom-l.y, accent, 255)
+	px, py := l.x+3, l.y+1
+	brawlerHudFill(px-1, py-1, l.portrait+2, l.portrait+2, accent, 255)
+	brawlerHudFill(px, py, l.portrait, l.portrait, 0x101018, 255)
+	if spr := b.rosterPortrait(ref); spr != nil {
+		brawlerHudSprite(spr, px, py, l.portrait)
+	}
+	txt.draw(px+1, py+l.portrait-1, fmt.Sprintf("%vP", k+1), 1)
+	sc := &sys.sel.charlist[ref]
+	name := sc.lifebarname
+	if name == "" {
+		name = sc.name
+	}
+	// Arrows around the name blink to show that left and right change it
+	arrows := (sys.gameTime()/15)%2 == 0
+	txt.draw(l.barX, l.nameY, name, 1)
+	if arrows {
+		txt.draw(l.x+l.w-4, l.nameY, "< >", -1)
+	}
+	txt.draw(l.barX, l.lifeY+l.lifeH-1, fmt.Sprintf("COLOR %v", pal), 1)
+	txt.draw(l.x+l.w-4, l.lifeY+l.lifeH-1, brawlerJoinTimerText(timer), -1)
+	brawlerHudBar(l.barX, l.powerY, l.barW, l.powerH, float32(timer)/brawlerJoinSelectTime, 0, accent)
+}
+
+// Blinking "1P", "2P" markers over characters that just appeared
+func (b *Brawler) drawSpawnMarkers(txt brawlerHudText) {
+	for _, c := range b.players(false) {
+		if c.bw.spawnTime <= 0 || (c.bw.spawnTime/8)%2 == 1 {
+			continue
+		}
+		k := b.charSeat(c)
+		if k < 0 {
+			continue
+		}
+		x, y := brawlerHudPos(c, c.size.head.pos[1]*c.localscl-14)
+		accent := brawlerHudColors[k%len(brawlerHudColors)]
+		brawlerHudFill(x-9, y-9, 18, 9, 0x000000, 150)
+		brawlerHudFill(x-9, y-9, 18, 1.5, accent, 255)
+		txt.draw(x, y-1.5, fmt.Sprintf("%vP", k+1), 0)
+		// Pointer down to the character
+		for i := float32(0); i < 4; i++ {
+			brawlerHudFill(x-3.5+i, y+i, 7-i*2, 1, accent, 255)
+		}
+	}
+}
+
+// HUD position of a point dy world units above a character's feet, following the camera and depth
+func brawlerHudPos(c *Char, dy float32) (x, y float32) {
+	cam := &sys.cam
+	wx := c.pos[0] * c.localscl
+	wy := (c.pos[1]*c.localscl + dy) * c.zScale
+	if sys.zEnabled() {
+		wx = (wx-cam.Pos[0])*c.zScale + cam.Pos[0]
+		wy += sys.posZtoYoffset(c.pos[2], c.localscl)
+	}
+	// World to game screen pixels, then to HUD units (inverse of brawlerHudRect without the window scale)
+	gx := (wx - cam.ScreenPos[0]) * cam.Scale
+	gy := (wy - cam.ScreenPos[1]) * cam.Scale
+	fs := &sys.fightScreen
+	u := brawlerHudUnit()
+	midX := float32(int32(sys.gameWidth)-320) / 2
+	midY := float32(int32(sys.gameHeight)-240) / 2
+	if fs.scale == 0 {
+		return gx, gy
+	}
+	return ((gx-midX)/fs.scale - fs.offsetX) / u, ((gy-midY)/fs.scale - fs.offsetY) / u
+}
+
+// Draw a sprite scaled into a square HUD box
+func brawlerHudSprite(spr *Sprite, x, y, size float32) {
+	sw, sh := float32(spr.Size[0]), float32(spr.Size[1])
+	if sw <= 0 || sh <= 0 {
+		return
+	}
+	fs := &sys.fightScreen
+	// Work in fight screen local units, where face sprites are drawn 1:1
+	u := brawlerHudUnit()
+	x, y, size = x*u, y*u, size*u
+	scl := size / Max(sw, sh)
+	// Center the sprite in the box, compensating for its axis
+	ox := x + (size-sw*scl)/2 + float32(spr.Offset[0])*scl
+	oy := y + (size-sh*scl)/2 + float32(spr.Offset[1])*scl
+	newLayout(brawlerHudLayer).DrawFaceSprite((ox+fs.offsetX)*fs.scale, oy*fs.scale, brawlerHudLayer,
+		spr, nil, scl*fs.scale, nil)
+}
+
+// Lifebar face sprite group and number of the fight screen
+func brawlerFaceSpr() [2]int32 {
+	fs := &sys.fightScreen
+	for _, lay := range fs.faces {
+		for _, f := range lay {
+			if f != nil && f.face_spr[0] >= 0 {
+				return f.face_spr
+			}
+		}
+	}
+	return [2]int32{9000, 0}
+}
+
+// A character's face sprite with its current palette, cached until the palette changes
+func (b *Brawler) faceSprite(c *Char) *Sprite {
+	gi := c.gi()
+	if gi.sff == nil {
+		return nil
+	}
+	if fc, ok := brawlerJoin.faces[c]; ok && fc.pal == gi.remappedpal {
+		return fc.spr
+	}
+	g := brawlerFaceSpr()
+	spr := gi.sff.cloneSpriteWithPal(uint16(g[0]), uint16(g[1]), &gi.palettedata.palList)
+	brawlerJoin.faces[c] = brawlerFaceCache{spr, gi.remappedpal}
+	return spr
+}
+
+// Select screen portrait of a select list character, as preloaded for the select screen
+func (b *Brawler) rosterPortrait(ref int) *Sprite {
+	if spr, ok := brawlerJoin.portraits[ref]; ok {
+		return spr
+	}
+	var spr *Sprite
+	sc := &sys.sel.charlist[ref]
+	for _, key := range [][2]int32{{9000, 0}, {9000, 1}, brawlerFaceSpr()} {
+		if a := sc.anims.get(key[0], key[1]); a != nil && a.sff != nil && a.palettedata != nil {
+			if spr = a.sff.cloneSpriteWithPal(uint16(key[0]), uint16(key[1]), a.palettedata); spr != nil {
+				break
+			}
+		}
+	}
+	brawlerJoin.portraits[ref] = spr
+	return spr
+}
+
+// Arcade continue countdown while every player is down
+func (b *Brawler) drawContinue(txt brawlerHudText) {
+	if b.downTime <= brawlerJoinRejoinWait || b.joinBusy() || len(b.players(true)) > 0 {
+		return
+	}
+	left := (brawlerContinueTime - b.downTime + 59) / 60
+	if left < 0 {
+		return
+	}
+	y := brawlerHudHeight() * 0.42
+	brawlerHudFill(100, y-22, 120, 34, 0x000000, 160)
+	txt.drawScaled(160, y-8, "CONTINUE?", 0, 1.6)
+	txt.drawScaled(160, y+9, fmt.Sprintf("%v", left), 0, 1.6)
 }

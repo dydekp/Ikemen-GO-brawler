@@ -1720,8 +1720,10 @@ function start.f_matchPersistence()
 						if not main.cpuSide[side] then
 							for _, f in ipairs(fighters) do
 								local memberIdx = (f.MemberNo or 0) + 1
+								-- members can be missing when the team changed during the match (brawler drop-in)
+								if start.p[1].t_selected[memberIdx] == nil then
 								-- if defeated
-								if f.KO and (f.Life or 0) <= 0 then
+								elseif f.KO and (f.Life or 0) <= 0 then
 									if main.persistLife then
 										start.p[1].t_selected[memberIdx].life = math.max(1, f_lifeRecovery(f.LifeMax or 0, f))
 									end

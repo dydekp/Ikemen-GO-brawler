@@ -21,6 +21,7 @@ package main
 //   brawler_ai.go       enemy behavior profiles and AI
 //   brawler_hud.go      lifebars
 //   brawler_intro.go    character introduction title cards
+//   brawler_join.go     drop-in, rejoin and continue, arcade style
 
 import "math"
 
@@ -59,6 +60,10 @@ type brawlerChar struct {
 	desiredFace float32
 	turnBuffer  int32
 	dirHold     int32
+
+	// Drop-in (players)
+	spawnTime int32 // Frames the player marker keeps blinking
+	invulTime int32 // Frames the character can't be hit after dropping in
 
 	// HUD (players)
 	hudTarget int32 // Player ID of the enemy last hit, shown in the player's HUD panel
@@ -102,6 +107,7 @@ type Brawler struct {
 	complete   bool
 	stageEdit  *brawlerStageEdit // Stage values changed by the level, to restore when the level is unloaded
 	goTime     int32             // Frames left to show the "GO" sign after a wave
+	downTime   int32             // Frames all players have been down. The level is lost when the continue time runs out
 	introOn    bool              // A character introduction is shown and the game is frozen
 	introID    int32             // Player ID of the introduced enemy
 	introEntry int               // Its enemy entry
@@ -284,12 +290,16 @@ func (b *Brawler) roundInit() {
 	b.camMinSet = false
 	b.complete = false
 	b.goTime = 0
+	b.downTime = 0
 	b.introOn = false
 	b.introShown = nil
+	brawlerFinishJoinLoads()
+	brawlerInitSeats()
 
 	// Players start on the lane closest to their stage start position
 	for _, c := range b.players(false) {
 		c.bw = brawlerChar{initialized: true, aiLane: -1}
+		c.bw.spawnTime = brawlerSpawnBlink
 		c.bw.lane = b.nearestLane(c.pos[2] * c.localscl)
 		c.bw.targetLane = c.bw.lane
 		c.bw.desiredFace = c.facing
@@ -478,6 +488,7 @@ func (b *Brawler) step() {
 		return
 	}
 	b.keepTemplatesHidden()
+	b.stepJoin()
 	if b.goTime > 0 {
 		b.goTime--
 	}
@@ -634,7 +645,8 @@ func (b *Brawler) pickEnemy(s BrawlerSpawn) int {
 
 // Decide the round result. Returns ko flags for team 1 and team 2
 func (b *Brawler) roundKO() (ko [2]bool) {
-	ko[0] = len(b.players(true)) == 0
+	// With every player down, the players get the continue time to drop back in
+	ko[0] = len(b.players(true)) == 0 && b.downTime > brawlerContinueTime && !b.joinBusy()
 	ko[1] = b.complete
 	return
 }

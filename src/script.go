@@ -6220,9 +6220,40 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(tbl)
 		return 1
 	})
+	luaRegister(l, "brawlerSetRoster", func(*lua.LState) int {
+		/*Set the characters the beat 'em up drop-in quick select offers.
+		@function brawlerSetRoster
+		@tparam table refs Array of character select list indexes (as in `main.t_randomChars`).*/
+		var refs []int
+		tableArg(l, 1).ForEach(func(_, v lua.LValue) {
+			if n, ok := v.(lua.LNumber); ok {
+				refs = append(refs, int(n))
+			}
+		})
+		brawlerSetRoster(refs)
+		return 0
+	})
+	luaRegister(l, "brawlerParty", func(*lua.LState) int {
+		/*The players' team after a beat 'em up level, including characters that dropped in during it.
+		@function brawlerParty
+		@treturn table party Array of `{ref, pal, cmd, life}` in player slot order: select list index,
+		  palette, input player number (1-based) and life.*/
+		tbl := l.NewTable()
+		for _, m := range sys.brawler.party() {
+			t := l.NewTable()
+			t.RawSetString("ref", lua.LNumber(m.ref))
+			t.RawSetString("pal", lua.LNumber(m.pal))
+			t.RawSetString("cmd", lua.LNumber(m.cmd))
+			t.RawSetString("life", lua.LNumber(m.life))
+			tbl.Append(t)
+		}
+		l.Push(tbl)
+		return 1
+	})
 	luaRegister(l, "brawlerClearLevel", func(*lua.LState) int {
 		/*Unload the current beat 'em up level.
 		@function brawlerClearLevel*/
+		brawlerFinishJoinLoads()
 		sys.brawler.restoreStage()
 		sys.brawler.level = nil
 		sys.brawler.typeDefs = nil
