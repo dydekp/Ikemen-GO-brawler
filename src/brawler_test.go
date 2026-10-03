@@ -756,3 +756,73 @@ func TestBrawlerZScale(t *testing.T) {
 		}
 	}
 }
+
+func TestBrawlerPatrolAndWaitParams(t *testing.T) {
+	lv := &BrawlerLevel{behaviors: map[string]*BrawlerBehavior{"default": newBrawlerBehavior("default")}}
+	b := lv.behavior("runner", true)
+	for k, v := range map[string]string{"tactic": "patrol", "jump.attack": "8", "wait.lane": "0", "taunt": "0.5",
+		"taunt.delay": "60, 120", "taunt.input": "s:4"} {
+		if err := lv.setBehavior(b, k, v); err != nil {
+			t.Fatalf("%v: %v", k, err)
+		}
+	}
+	if b.tactic != BT_Patrol || b.jumpAttack != 8 || b.waitLane || b.taunt != 0.5 || b.tauntDelay != [2]int32{60, 120} ||
+		len(b.tauntInput) != 1 || b.tauntInput[0].frames != 4 {
+		t.Errorf("profile: %+v", b)
+	}
+	if d := newBrawlerBehavior("d"); !d.waitLane || d.taunt <= 0 || len(d.tauntInput) == 0 {
+		t.Errorf("defaults: %+v", d)
+	}
+}
+
+func TestBrawlerAttackersOverride(t *testing.T) {
+	old := sys.cfg.Brawler.AttackersPerPlayer
+	defer func() { sys.cfg.Brawler.AttackersPerPlayer = old }()
+	sys.cfg.Brawler.AttackersPerPlayer = 2
+	lv, err := loadBrawlerLevel(writeBrawlerLevel(t, "[Level]\nstage = s\nattackers = 1\n[Enemies]\nenemy = a, kfm\n"+
+		"[Wave 1]\nspawn = a\n[Wave 2]\nattackers = 3\nspawn = a\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := &Brawler{level: lv}
+	if n := b.attackersPerPlayer(); n != 1 {
+		t.Errorf("level: %v", n)
+	}
+	b.waveActive, b.wave = true, 1
+	if n := b.attackersPerPlayer(); n != 3 {
+		t.Errorf("wave: %v", n)
+	}
+	b.level = &BrawlerLevel{}
+	if n := b.attackersPerPlayer(); n != 2 {
+		t.Errorf("config: %v", n)
+	}
+	if _, err := loadBrawlerLevel(writeBrawlerLevel(t, "[Level]\nstage = s\nattackers = 0\n")); err == nil {
+		t.Error("attackers = 0 accepted")
+	}
+}
+
+// Waiting enemies pick a lane away from the target; patrolling enemies turn the way they run
+func TestBrawlerWaitLaneAndPatrolFacing(t *testing.T) {
+	oldMode := sys.gameMode
+	defer func() { sys.gameMode = oldMode }()
+	sys.gameMode = "brawler"
+	b := &Brawler{enabled: true, level: &BrawlerLevel{}, lanesZ: []float32{-20, 0, 20}}
+	f := &brawlerAIFrame{ai: &brawlerAI{waitLane: -1}, st: &brawlerChar{targetLane: 1}, tst: &brawlerChar{targetLane: 1}}
+	if l := b.aiWaitLane(f); l == 1 {
+		t.Error("waiting in the target's lane")
+	}
+	f.st.targetLane, f.ai.waitLane = 2, -1
+	if l := b.aiWaitLane(f); l != 2 {
+		t.Errorf("should stay in its own lane, got %v", l)
+	}
+	c := &Char{facing: 1}
+	c.bw = brawlerChar{enemy: true}
+	c.bw.ai.faceDir = -1
+	if turn, ok := b.shouldTurn(c); !ok || !turn {
+		t.Error("patrolling enemy should turn to its running direction")
+	}
+	c.bw.ai.faceDir = 0
+	if _, ok := b.shouldTurn(c); ok {
+		t.Error("enemies face their target by default")
+	}
+}

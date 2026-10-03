@@ -183,6 +183,9 @@ library   = ../enemies.def        ; Optional: a content pack's own enemy
 lanes     = 3                    ; Number of lanes (default 3)
 lanepos   = -60, 0, 60           ; Optional: explicit lane depths
 backtrack = 0                    ; 1 = the camera may scroll back to the left
+attackers = 1                    ; Optional: enemies that may attack the same
+                                 ; player at once (default: [Brawler]
+                                 ; AttackersPerPlayer). Fewer = slower pace
 endx      = 900                  ; Optional: after the last wave, a player
                                  ; must reach this X to finish the level
 ; Stage overrides, in the stage's coordinates (section 6):
@@ -233,6 +236,7 @@ maxalive = 6     ; Max enemies alive at once (default 6). Spawning waits
                  ; while the limit is reached
 kills    = 20    ; Optional: stop spawning after this many defeats
 time     = 3600  ; Optional: stop spawning after this many frames
+attackers = 2   ; Optional: overrides the level's attackers in this wave
 spawn    = alias, side, lane, delay, count
 
 spawn parameters:
@@ -317,6 +321,11 @@ tactic        = direct     ; How the enemy moves around its target:
                            ;   jumpover run up, jump over the player, attack
                            ;            from behind, back off, repeat
                            ;   hitrun   attack, then back off for a while
+                           ;   patrol   run along a lane without a player
+                           ;            from one screen edge to the other,
+                           ;            jump to the next lane, run back,
+                           ;            through all lanes. Leaps at the
+                           ;            player when crossing its path
 moves         = x*3 | a*3 | y | b   ; Attacks (syntax below)
 combo         = 0, 2       ; Follow-up moves after an attack (min, max)
 combo.moves   = x | a      ; Moves for follow-ups (default: moves)
@@ -337,6 +346,14 @@ lane.delay    = 10, 45     ; Reaction time before switching lanes
 retreat       = 40, 80     ; Frames spent backing off (hitrun, jumpover)
 jump.distance = 75         ; Distance at which a jump over starts
 jump.input    = UF:6       ; Input used to jump over
+jump.attack   = 0          ; patrol: frames into the leap before an air
+                           ; attack from "moves" (0 = no air attack)
+wait.lane     = 1          ; Without an attack turn, wait in a lane away
+                           ; from the target (when there are 2+ lanes)
+taunt         = 0.3        ; Chance to taunt while waiting, each time
+taunt.delay   = 90, 240    ; this many frames have passed
+taunt.input   = s:4        ; Taunt input (MUGEN characters usually taunt
+                           ; with the start button)
 
 Two numbers "min, max" mean a random value in that range each time.
 

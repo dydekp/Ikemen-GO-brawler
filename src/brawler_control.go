@@ -129,8 +129,12 @@ func (b *Brawler) updateFacing(c *Char, st *brawlerChar, pressed, left, right bo
 	}
 }
 
-// Replaces the "face P2" check for human players. Returns (shouldTurn, overridden)
+// Replaces the "face P2" check for human players, and for enemies whose AI wants to face a direction
+// (patrolling). Returns (shouldTurn, overridden)
 func (b *Brawler) shouldTurn(c *Char) (bool, bool) {
+	if b.active() && c.bw.enemy && c.bw.ai.faceDir != 0 {
+		return c.bw.ai.faceDir != c.facing, true
+	}
 	if !b.active() || c.controller < 0 {
 		return false, false
 	}

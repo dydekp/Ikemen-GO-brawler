@@ -20,12 +20,13 @@ type BrawlerSpawn struct {
 }
 
 type BrawlerWave struct {
-	trigger  float32 // Stage X coordinate the leading player must reach to start the wave
-	lock     bool    // Lock the camera until the wave is cleared
-	maxAlive int32   // Enemies alive at the same time. Spawning waits while the limit is reached
-	kills    int32   // Stop spawning after this many defeats (0 = no limit)
-	time     int32   // Stop spawning after this many frames (0 = no limit)
-	spawns   []BrawlerSpawn
+	trigger   float32 // Stage X coordinate the leading player must reach to start the wave
+	lock      bool    // Lock the camera until the wave is cleared
+	maxAlive  int32   // Enemies alive at the same time. Spawning waits while the limit is reached
+	kills     int32   // Stop spawning after this many defeats (0 = no limit)
+	time      int32   // Stop spawning after this many frames (0 = no limit)
+	attackers int32   // Enemies that may attack the same player at once in this wave (0 = the level's)
+	spawns    []BrawlerSpawn
 }
 
 type BrawlerEnemy struct {
@@ -61,6 +62,7 @@ type BrawlerLevel struct {
 	zScale    [2]float32 // Overrides the stage's character scale at the top and bottom of the lanes
 	hasZScale bool       // zScale is set
 	backtrack bool       // Camera may scroll back to the left
+	attackers int32      // Enemies that may attack the same player at once (0 = [Brawler] AttackersPerPlayer)
 	endX      float32
 	hasEndX   bool
 	enemies   []BrawlerEnemy
@@ -319,6 +321,10 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 			}
 		}
 		lv.hasZScale = true
+	case "attackers":
+		if lv.attackers, err = brawlerParseI(l.val); err != nil || lv.attackers < 1 {
+			return fmt.Errorf("invalid attackers: %v", l.val)
+		}
 	case "backtrack":
 		lv.backtrack = brawlerParseB(l.val)
 	case "endx":
@@ -433,6 +439,10 @@ func (p *brawlerLevelParser) waveKey(l brawlerIniLine) error {
 	case "time":
 		if w.time, err = brawlerParseI(l.val); err != nil || w.time < 0 {
 			return fmt.Errorf("invalid time: %v", l.val)
+		}
+	case "attackers":
+		if w.attackers, err = brawlerParseI(l.val); err != nil || w.attackers < 1 {
+			return fmt.Errorf("invalid attackers: %v", l.val)
 		}
 	case "spawn":
 		return p.spawn(l.args)
