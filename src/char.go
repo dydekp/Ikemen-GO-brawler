@@ -13367,7 +13367,7 @@ func (c *Char) cueDraw() {
 			charSD.pos[0] -= c.facing
 		}
 
-		if !c.asf(ASF_invisible) {
+		if !c.asf(ASF_invisible) && !sys.brawler.spawnFlicker(c) {
 
 			// Add sprite to the appropriate layer's drawlist
 			sys.spriteList.add(charSD)

@@ -589,6 +589,10 @@ func (b *Brawler) stepWave() {
 		}
 		return
 	}
+	// No new enemies while every player is down: whoever continues doesn't drop into a full crowd
+	if len(b.players(true)) == 0 {
+		return
+	}
 	if b.queueDelay > 0 {
 		b.queueDelay -= b.spawnPace()
 		return

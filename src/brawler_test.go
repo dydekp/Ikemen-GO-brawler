@@ -906,3 +906,42 @@ func TestBrawlerSeats(t *testing.T) {
 		t.Errorf("free slot: %v", pn)
 	}
 }
+
+// A dropped in character flickers while it can't be hit
+func TestBrawlerSpawnFlicker(t *testing.T) {
+	oldMode := sys.gameMode
+	defer func() { sys.gameMode = oldMode }()
+	sys.gameMode = "brawler"
+	b := &Brawler{enabled: true, level: &BrawlerLevel{}}
+	c := &Char{}
+	hidden := 0
+	for c.bw.invulTime = brawlerSpawnInvul; c.bw.invulTime > 0; c.bw.invulTime-- {
+		if b.spawnFlicker(c) {
+			hidden++
+		}
+	}
+	if hidden < brawlerSpawnInvul/3 || hidden > brawlerSpawnInvul*2/3 {
+		t.Errorf("hidden %v of %v frames", hidden, brawlerSpawnInvul)
+	}
+	if b.spawnFlicker(c) {
+		t.Error("flickers after the protection")
+	}
+}
+
+// While every player is down, waves don't spawn
+func TestBrawlerNoSpawnWhileDown(t *testing.T) {
+	old0 := sys.chars[0]
+	defer func() { sys.chars[0] = old0 }()
+	p := &Char{playerNo: 0, localscl: 1}
+	p.setSCF(SCF_ko)
+	sys.chars[0] = []*Char{p}
+	lv := &BrawlerLevel{waves: []BrawlerWave{{maxAlive: 4}}, enemies: []BrawlerEnemy{{typ: 0}}}
+	b := &Brawler{enabled: true, level: lv, waveActive: true}
+	b.queue = []brawlerQueued{{spawn: BrawlerSpawn{count: 3}, left: 3}}
+	b.queueDelay = 5
+	b.stepWave()
+	// The spawn delay doesn't even count down
+	if b.queueDelay != 5 || len(b.queue) != 1 || b.queue[0].left != 3 || !b.waveActive {
+		t.Errorf("queue changed while everyone is down: %+v", b.queue)
+	}
+}

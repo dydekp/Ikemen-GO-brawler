@@ -407,7 +407,7 @@ func (b *Brawler) activate(k, pn, ref int, c *Char) {
 func (b *Brawler) revive(c *Char, pal int32) {
 	pn := c.playerNo
 	gi := &sys.cgi[pn]
-	if pal > 0 && pal != gi.palno || gi.remappedpal[1] != pal {
+	if pal > 0 && (pal != gi.palno || gi.remappedpal[1] != pal) {
 		gi.palno = brawlerValidPal(c.selectNo, pal)
 		gi.palettedata.palList.ResetRemap()
 		if gi.sff != nil && gi.sff.header.Version[0] == 1 {
@@ -533,4 +533,9 @@ func (b *Brawler) joinBusy() bool {
 		}
 	}
 	return false
+}
+
+// A character that just dropped in flickers while it can't be hit, like in arcade games
+func (b *Brawler) spawnFlicker(c *Char) bool {
+	return b.active() && c.bw.invulTime > 0 && (c.bw.invulTime/3)%2 == 1
 }
