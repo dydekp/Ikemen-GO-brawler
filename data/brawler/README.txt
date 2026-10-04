@@ -234,7 +234,8 @@ trigger  = 300   ; Stage X the leading player must reach to start the wave
                  ; (-9999: right away)
 lock     = 1     ; 1 = the camera stops until the wave is cleared (default)
 maxalive = 6     ; Max enemies alive at once (default 6). Spawning waits
-                 ; while the limit is reached
+                 ; while the limit is reached. With the director it's
+                 ; the limit for one player, see DIRECTOR in section 7
 kills    = 20    ; Optional: stop spawning after this many defeats
 time     = 3600  ; Optional: stop spawning after this many frames
 attackers = 2   ; Optional: overrides the level's attackers in this wave
@@ -339,7 +340,8 @@ hover         = 60, 120    ; Distance kept while waiting to attack
 priority      = 0          ; 1 = gets an attack turn before other enemies.
                            ; Only [Brawler] AttackersPerPlayer enemies may
                            ; attack the same player at once, whatever the
-                           ; profile. The others wait at hover distance
+                           ; profile (fewer with the director, see below).
+                           ; The others wait, see "wait"
 run           = 0          ; 1 = run when far away (double tap forward)
 rundistance   = 140        ; Distance from which the enemy runs
 lane.follow   = 1          ; Follow the target to its lane
@@ -349,8 +351,13 @@ jump.distance = 75         ; Distance at which a jump over starts
 jump.input    = UF:6       ; Input used to jump over
 jump.attack   = 0          ; patrol: frames into the leap before an air
                            ; attack from "moves" (0 = no air attack)
-wait.lane     = 1          ; Without an attack turn, wait in a lane away
-                           ; from the target (when there are 2+ lanes)
+wait          = surround   ; How the enemy waits without an attack turn:
+                           ;   surround on the director's ring around its
+                           ;            target: the waiting enemies circle
+                           ;            the player (without the director:
+                           ;            like lane)
+                           ;   lane     in a lane away from the target
+                           ;   hover    at hover distance in front of it
 taunt         = 0.3        ; Chance to taunt while waiting, each time
 taunt.delay   = 90, 240    ; this many frames have passed
 taunt.input   = s:4        ; Taunt input (MUGEN characters usually taunt
@@ -376,6 +383,38 @@ can't stack on the same spot. A knocked down or thrown enemy that flies into
 other enemies in its lane knocks them down too. Each enemy hit takes damage
 based on the body's speed ([Brawler] BowlDamage) and slows the body down
 ([Brawler] BowlSlowdown).
+
+DIRECTOR ([Brawler] Director = 1, the default)
+The director keeps the fight balanced for the whole team. Every frame it
+looks at all players and enemies together:
+- Pressure: every player's damage in the last few seconds (it wears off
+  with a half-life of 4 seconds) and low life. 0 = relaxed, 1 = in trouble.
+- How many enemies may be alive: a wave's maxalive is for one player, every
+  other player adds [Brawler] ExtraPlayerEnemies percent of it (still within
+  MaxEnemiesPerPlayer). While the team is under pressure, up to half of
+  that is held back. While there are fewer enemies than players, spawns
+  come three times as fast.
+- Who fights whom: enemies are spread over the players in fair shares, the
+  closest enemies first. A player under pressure gets a smaller share, so
+  the others take more of the crowd.
+- Who may attack: AttackersPerPlayer enemies per player, one fewer per half
+  of the player's pressure (at least one), priority profiles first, then
+  the closest. An enemy keeps its turn unless another one is clearly
+  closer. Attacks against a player under pressure come up to 1.6x slower.
+- Where the others wait ("wait = surround"): on a ring around their player
+  at their hover distance, spread evenly. The ring keeps turning (about 13
+  seconds per turn), so the crowd circles the player through the lanes and
+  around both sides, and nobody waits right in front of the player in its
+  own lane. On a single lane, where they can't get past the player, they
+  line up in rows on their side instead.
+The behavior profiles still decide how an enemy approaches and fights
+(flank, jumpover, hitrun, patrol); flankers go for the less crowded side.
+The debug display (Ctrl+D) shows the director's numbers and the waiting
+spots. Director = 0 brings back the simpler rules: every enemy fights the
+nearest player, AttackersPerPlayer turns per player.
+
+The director works with positions in continuous depth and only turns them
+into lanes at the end, so it works with any number of lanes.
 
 Profiles are tuned for the default difficulty. The AI level of the game options
 scales them: harder levels shorten the cooldown between attacks (x1.3 at
@@ -490,7 +529,8 @@ Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 Content:   Campaigns (comma separated folders), FreePlay, Enemies, Behaviors
 Controls:  LaneButton, FacingButton, FacingMode, TurnDelay, TurnBuffer,
            LaneSelectWindow, LaneSnapSpeed
-Balance:   AttackersPerPlayer, MaxEnemiesPerPlayer, EnemyLife, DespawnTime,
+Balance:   AttackersPerPlayer, Director, ExtraPlayerEnemies, MaxEnemiesPerPlayer,
+           EnemyLife, DespawnTime,
            BowlDamage, BowlSlowdown
 Intros:    Intros, IntroTime
 See the comments in the default config for details.

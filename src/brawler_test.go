@@ -766,11 +766,11 @@ func TestBrawlerPatrolAndWaitParams(t *testing.T) {
 			t.Fatalf("%v: %v", k, err)
 		}
 	}
-	if b.tactic != BT_Patrol || b.jumpAttack != 8 || b.waitLane || b.taunt != 0.5 || b.tauntDelay != [2]int32{60, 120} ||
+	if b.tactic != BT_Patrol || b.jumpAttack != 8 || b.wait != BW_Hover || b.taunt != 0.5 || b.tauntDelay != [2]int32{60, 120} ||
 		len(b.tauntInput) != 1 || b.tauntInput[0].frames != 4 {
 		t.Errorf("profile: %+v", b)
 	}
-	if d := newBrawlerBehavior("d"); !d.waitLane || d.taunt <= 0 || len(d.tauntInput) == 0 {
+	if d := newBrawlerBehavior("d"); d.wait != BW_Surround || d.taunt <= 0 || len(d.tauntInput) == 0 {
 		t.Errorf("defaults: %+v", d)
 	}
 }

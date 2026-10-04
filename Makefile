@@ -10,6 +10,7 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/brawler.go \
 	src/brawler_ai.go \
 	src/brawler_control.go \
+	src/brawler_director.go \
 	src/brawler_level.go \
 	src/brawler_library.go \
 	src/brawler_hud.go \

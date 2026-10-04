@@ -14,14 +14,15 @@ package main
 // enemies of any loaded type can fight at the same time, each with its own palette, life and AI.
 //
 // Files:
-//   brawler.go          mode state, round setup, spawning, waves, camera
-//   brawler_level.go    level file format and parser
-//   brawler_library.go  enemy library (NPCs) and campaigns
-//   brawler_control.go  lane and facing buttons, lane movement
-//   brawler_ai.go       enemy behavior profiles and AI
-//   brawler_hud.go      lifebars
-//   brawler_intro.go    character introduction title cards
-//   brawler_join.go     drop-in, rejoin and continue, arcade style
+//   brawler.go           mode state, round setup, spawning, waves, camera
+//   brawler_level.go     level file format and parser
+//   brawler_library.go   enemy library (NPCs) and campaigns
+//   brawler_control.go   lane and facing buttons, lane movement
+//   brawler_ai.go        enemy behavior profiles and AI
+//   brawler_director.go  team-wide balance: pressure, targets, attack turns, waiting ring
+//   brawler_hud.go       lifebars
+//   brawler_intro.go     character introduction title cards
+//   brawler_join.go      drop-in, rejoin and continue, arcade style
 
 import "math"
 
@@ -108,6 +109,7 @@ type Brawler struct {
 	stageEdit  *brawlerStageEdit // Stage values changed by the level, to restore when the level is unloaded
 	goTime     int32             // Frames left to show the "GO" sign after a wave
 	downTime   int32             // Frames all players have been down. The level is lost when the continue time runs out
+	director   brawlerDirector   // Pressure, targets, attack turns and waiting spots, see brawler_director.go
 	introOn    bool              // A character introduction is shown and the game is frozen
 	introID    int32             // Player ID of the introduced enemy
 	introEntry int               // Its enemy entry
@@ -291,6 +293,7 @@ func (b *Brawler) roundInit() {
 	b.complete = false
 	b.goTime = 0
 	b.downTime = 0
+	b.director = brawlerDirector{}
 	b.introOn = false
 	b.introShown = nil
 	brawlerFinishJoinLoads()
@@ -495,7 +498,11 @@ func (b *Brawler) step() {
 	b.updateEnemies()
 	b.spaceEnemies()
 	b.bowlBodies()
-	b.assignTokens()
+	if b.directorOn() {
+		b.directorStep()
+	} else {
+		b.assignTokens()
+	}
 	b.trackHudTargets()
 
 	if sys.roundState() != 2 || b.complete {
@@ -583,7 +590,7 @@ func (b *Brawler) stepWave() {
 		return
 	}
 	if b.queueDelay > 0 {
-		b.queueDelay--
+		b.queueDelay -= b.spawnPace()
 		return
 	}
 	if b.aliveEnemies() >= b.maxAlive(w) {
@@ -626,8 +633,16 @@ func (b *Brawler) endWave() {
 // still in the fight
 func (b *Brawler) maxAlive(w BrawlerWave) int32 {
 	n := w.maxAlive
+	players := int32(Max(1, len(b.players(true))))
+	if b.directorOn() {
+		// The wave's limit is for one player. Every other player adds [Brawler] ExtraPlayerEnemies percent
+		n = brawlerPlayerScale(n, players, sys.cfg.Brawler.ExtraPlayerEnemies)
+	}
 	if per := sys.cfg.Brawler.MaxEnemiesPerPlayer; per > 0 {
-		n = Min(n, per*int32(Max(1, len(b.players(true)))))
+		n = Min(n, per*players)
+	}
+	if b.directorOn() {
+		n = brawlerDirectorCap(n, b.director.tension)
 	}
 	return n
 }

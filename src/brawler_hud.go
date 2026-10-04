@@ -228,6 +228,7 @@ func (b *Brawler) drawHUD(layerno int16) {
 	b.drawBossBars(txt)
 	b.drawGoSign(txt)
 	b.drawContinue(txt)
+	b.drawDirectorDebug(txt)
 }
 
 // Blinking "GO" arrow at the right edge after a locked wave is cleared
@@ -421,12 +422,16 @@ func (b *Brawler) drawSpawnMarkers(txt brawlerHudText) {
 
 // HUD position of a point dy world units above a character's feet, following the camera and depth
 func brawlerHudPos(c *Char, dy float32) (x, y float32) {
+	return brawlerHudWorldPos(c.pos[0]*c.localscl, c.pos[1]*c.localscl+dy, c.pos[2]*c.localscl, c.zScale)
+}
+
+// HUD position of a world position (x, y, z), drawn with depth scale zscale
+func brawlerHudWorldPos(wx, wy, wz, zscale float32) (x, y float32) {
 	cam := &sys.cam
-	wx := c.pos[0] * c.localscl
-	wy := (c.pos[1]*c.localscl + dy) * c.zScale
+	wy *= zscale
 	if sys.zEnabled() {
-		wx = (wx-cam.Pos[0])*c.zScale + cam.Pos[0]
-		wy += sys.posZtoYoffset(c.pos[2], c.localscl)
+		wx = (wx-cam.Pos[0])*zscale + cam.Pos[0]
+		wy += sys.posZtoYoffset(wz, 1)
 	}
 	// World to game screen pixels, then to HUD units (inverse of brawlerHudRect without the window scale)
 	gx := (wx - cam.ScreenPos[0]) * cam.Scale
@@ -518,4 +523,32 @@ func (b *Brawler) drawContinue(txt brawlerHudText) {
 	brawlerHudFill(100, y-22, 120, 34, 0x000000, 160)
 	txt.drawScaled(160, y-8, "CONTINUE?", 0, 1.6)
 	txt.drawScaled(160, y+9, fmt.Sprintf("%v", left), 0, 1.6)
+}
+
+// Director state in the debug display (Ctrl+D): team tension, enemies alive and allowed, and per player
+// the pressure, attack turns and enemies assigned. Waiting spots are marked on the field
+func (b *Brawler) drawDirectorDebug(txt brawlerHudText) {
+	if !sys.debugDisplay || !b.directorOn() {
+		return
+	}
+	d := &b.director
+	limit := int32(0)
+	if b.waveActive && b.wave < len(b.level.waves) {
+		limit = b.maxAlive(b.level.waves[b.wave])
+	}
+	y := brawlerHudHeight() * 0.3
+	txt.draw(4, y, fmt.Sprintf("DIRECTOR tension %.2f  alive %v/%v", d.tension, b.aliveEnemies(), limit), 1)
+	for _, p := range b.players(true) {
+		y += 9
+		txt.draw(4, y, fmt.Sprintf("%vP pressure %.2f  turns %v  enemies %v", b.charSeat(p)+1,
+			d.pressure[p.playerNo], d.slots[p.playerNo], d.enemies[p.playerNo]), 1)
+	}
+	for _, e := range b.instances() {
+		ai := &e.bw.ai
+		if !e.alive() || !ai.hasAnchor {
+			continue
+		}
+		x, y := brawlerHudWorldPos(ai.anchorX, 0, ai.anchorZ, sys.updateZScale(ai.anchorZ, 1))
+		brawlerHudFill(x-2, y-2, 4, 4, 0xffd23a, 200)
+	}
 }

@@ -21,6 +21,15 @@ import (
 	"strings"
 )
 
+type BrawlerWait int32
+
+// How enemies without an attack turn wait
+const (
+	BW_Surround BrawlerWait = iota // On the director's ring around the target: they circle it
+	BW_Lane                        // In a lane away from the target
+	BW_Hover                       // At hover distance, in front of the target
+)
+
 type BrawlerTactic int32
 
 const (
@@ -71,9 +80,9 @@ type BrawlerBehavior struct {
 	retreat    [2]int32 // Frames spent backing off after attacking (hit and run, jump over)
 	jumpDist   float32  // Distance at which a jump over starts
 	jump       []brawlerStep
-	jumpAttack int32   // Frames into a jump at the player before an air attack. 0 = no air attack
-	waitLane   bool    // Without an attack turn, wait in a lane away from the target
-	taunt      float32 // Chance to taunt each time tauntDelay runs out while waiting
+	jumpAttack int32       // Frames into a jump at the player before an air attack. 0 = no air attack
+	wait       BrawlerWait // How the enemy waits without an attack turn
+	taunt      float32     // Chance to taunt each time tauntDelay runs out while waiting
 	tauntDelay [2]int32
 	tauntInput []brawlerStep
 }
@@ -95,7 +104,7 @@ func newBrawlerBehavior(name string) *BrawlerBehavior {
 		laneDelay:  [2]int32{10, 45},
 		retreat:    [2]int32{40, 80},
 		jumpDist:   75,
-		waitLane:   true,
+		wait:       BW_Surround,
 		taunt:      0.3,
 		tauntDelay: [2]int32{90, 240},
 	}
@@ -264,8 +273,23 @@ func (b *BrawlerBehavior) set(key, val string) error {
 		var v float32
 		v, err = num(0)
 		b.jumpAttack = int32(v)
+	case "wait":
+		switch strings.ToLower(val) {
+		case "surround", "circle":
+			b.wait = BW_Surround
+		case "lane":
+			b.wait = BW_Lane
+		case "hover", "distance":
+			b.wait = BW_Hover
+		default:
+			return fmt.Errorf("unknown wait '%v' (surround, lane, hover)", val)
+		}
 	case "wait.lane":
-		b.waitLane = brawlerParseB(val)
+		// Older form of wait: 1 = lane, 0 = hover
+		b.wait = BW_Hover
+		if brawlerParseB(val) {
+			b.wait = BW_Lane
+		}
 	case "taunt":
 		b.taunt, err = num(0)
 	case "taunt.delay":
@@ -411,6 +435,12 @@ type brawlerAI struct {
 	runWait      int32   // Frames before another run may be started
 	stalkTime    int32   // Frames until the hover distance changes
 	waitLane     int32   // Lane to wait in without an attack turn. -1 if none
+	anchorX      float32 // Waiting spot the director picked
+	anchorZ      float32
+	hasAnchor    bool
+	ringIndex    int32   // Spot on the director's ring, -1 if none
+	ringPN       int     // Player whose ring the spot is on
+	hadToken     bool    // Had an attack turn last frame
 	tauntTime    int32   // Frames until the next taunt chance
 	faceDir      float32 // Facing the AI wants instead of facing the target. 0 = face the target
 	patrolLane   int32   // Patrol: current lane. -1 = pick one
@@ -431,6 +461,7 @@ func (ai *brawlerAI) init(beh *BrawlerBehavior) {
 		flankLane:  -1,
 		cheat:      -1,
 		waitLane:   -1,
+		ringIndex:  -1,
 		patrolLane: -1,
 		patrolStep: 1,
 		tauntTime:  brawlerRand(beh.tauntDelay),
@@ -567,6 +598,7 @@ type brawlerAIFrame struct {
 	ai           *brawlerAI
 	beh          *BrawlerBehavior
 	myX, tX      float32
+	myZ, tZ      float32
 	adx          float32 // Horizontal distance to the target
 	toward       float32 // Screen direction to the target
 	reach        float32 // Attack distance
@@ -579,9 +611,9 @@ type brawlerAIFrame struct {
 // What the tactic wants this frame
 type brawlerAIGoal struct {
 	x         float32 // Position to move to
-	lane      int32
+	z         float32 // Depth to move to (the lane closest to it while depth is split into lanes)
 	canAttack bool
-	waiting   bool // No attack turn: wait in another lane
+	waiting   bool // No attack turn: waiting spot
 }
 
 // Generate enemy inputs from its behavior profile
@@ -614,7 +646,8 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 		f.toward = c.facing
 	}
 	f.reach = c.size.standbox[2]*c.localscl + f.beh.reach
-	f.sameLane = !st.laneJump && !f.tst.laneJump && st.targetLane == f.tst.targetLane
+	f.myZ, f.tZ = brawlerZ(c), brawlerZ(t)
+	f.sameLane = b.sameDepth(c, t)
 	f.grounded = c.ss.stateType != ST_A
 	f.facingTarget = c.facing == f.toward
 
@@ -643,7 +676,7 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 	if b.aiJumpOver(f) {
 		return f.in
 	}
-	b.aiLane(f, g.lane, g.waiting)
+	b.aiDepth(f, g.z, g.waiting)
 	if g.canAttack && b.aiAttack(f) {
 		return f.in
 	}
@@ -655,7 +688,13 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 }
 
 // Keep the current target for a while, then switch to the nearest player
+// With the director, the target it assigned
 func (b *Brawler) aiTarget(c *Char, ai *brawlerAI) *Char {
+	if b.directorOn() {
+		if t := b.root(ai.target); t != nil && t.alive() && !t.scf(SCF_disabled) {
+			return t
+		}
+	}
 	if ai.retarget > 0 {
 		ai.retarget--
 	}
@@ -712,28 +751,28 @@ func (b *Brawler) aiGuard(f *brawlerAIFrame) bool {
 // Position, lane and attack permission according to the tactic
 func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
 	ai, beh := f.ai, f.beh
-	g := brawlerAIGoal{x: f.tX - f.toward*f.reach*0.75, lane: f.tst.targetLane, canAttack: ai.hasToken}
+	g := brawlerAIGoal{x: f.tX - f.toward*f.reach*0.75, z: f.tZ, canAttack: ai.hasToken}
 	switch beh.tactic {
 	case BT_Flank:
 		if ai.phase == bpApproach {
-			// Pick a side lane and the target's back
+			// Pick a side lane and a side of the target: its back, or with the director the less crowded side
 			if ai.flankLane < 0 || ai.flankLane == f.tst.targetLane {
 				ai.flankLane = b.sideLane(f.tst.targetLane)
-				ai.side = -f.t.facing
+				ai.side = b.flankSide(f.t)
 			}
-			g.lane = ai.flankLane
+			g.z = b.flankDepth(f)
 			g.x = f.tX + ai.side*f.reach*0.9
 			g.canAttack = false
-			inPlace := f.st.targetLane == ai.flankLane && !f.st.laneJump && Abs(f.myX-g.x) < 15
+			inPlace := b.atDepth(f, g.z) && Abs(f.myX-g.x) < 15
 			if inPlace || ai.phaseTime > 360 {
 				ai.setPhase(bpEngage, 0)
 			}
-		} else {
-			// Jump into the target's lane from its side, then fight there
-			g.x = f.tX + ai.side*f.reach*0.75
+			return g
 		}
-		return g
+		// Jump into the target's lane from its side, then fight there. Without a turn, wait like the others
+		g.x = f.tX + ai.side*f.reach*0.75
 	case BT_JumpOver:
+		engaged := ai.phase == bpEngage
 		switch ai.phase {
 		case bpApproach, bpAirborne:
 			g.x = f.tX
@@ -744,7 +783,7 @@ func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
 				ai.cooldown = 0
 			}
 		case bpEngage:
-			g.canAttack = ai.hasToken
+			// Fight behind the target. Without a turn, wait like the others (below)
 			if ai.phaseTime > ai.phaseLen {
 				ai.setPhase(bpRetreat, brawlerRand(beh.retreat))
 			}
@@ -755,7 +794,9 @@ func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
 				ai.setPhase(bpApproach, 0)
 			}
 		}
-		return g
+		if !engaged {
+			return g
+		}
 	case BT_HitRun:
 		if ai.phase == bpRetreat {
 			g.x = f.tX - f.toward*ai.hover*1.5
@@ -766,11 +807,16 @@ func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
 			return g
 		}
 	}
-	// Enemies waiting for their turn keep their distance, in another lane if the profile says so
+	// Enemies waiting for their turn keep their distance: on the director's ring, in another lane, or in
+	// front of the target, as the profile says. Without the director, surround waits in another lane
 	if !g.canAttack {
 		g.x = f.tX - f.toward*ai.hover
-		if beh.waitLane && len(b.lanesZ) > 1 && !ai.hasToken {
-			g.lane = b.aiWaitLane(f)
+		switch {
+		case ai.hasToken:
+		case beh.wait == BW_Surround && ai.hasAnchor:
+			g.x, g.z, g.waiting = ai.anchorX, ai.anchorZ, true
+		case beh.wait != BW_Hover && len(b.lanesZ) > 1:
+			g.z = b.laneDepth(b.aiWaitLane(f))
 			g.waiting = true
 		}
 	}
@@ -822,7 +868,7 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 		return false
 	}
 	// Hard limit: never more than AttackersPerPlayer enemies attacking the same player at once
-	if b.attackersOn(f.t, c) >= b.attackersPerPlayer() {
+	if b.attackersOn(f.t, c) >= b.attackLimit(f.t) {
 		return false
 	}
 	if brawlerChance(beh.special) {
@@ -831,7 +877,8 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 		ai.start(prog, true)
 		ai.comboLeft = brawlerRand(beh.combo)
 	}
-	ai.cooldown = int32(float32(brawlerRand(beh.cooldown)) * brawlerCooldownScale(brawlerSkill(c)))
+	// Harder AI levels attack more often, a player under pressure gets more time between attacks
+	ai.cooldown = int32(float32(brawlerRand(beh.cooldown)) * brawlerCooldownScale(brawlerSkill(c)) * brawlerPressureCooldown(b.pressureOn(f.t)))
 	switch {
 	case beh.tactic == BT_HitRun:
 		ai.setPhase(bpRetreat, brawlerRand(beh.retreat))
@@ -983,7 +1030,7 @@ func (b *Brawler) aiTaunt(f *brawlerAIFrame, g brawlerAIGoal) bool {
 		return false
 	}
 	ai.tauntTime = brawlerRand(beh.tauntDelay)
-	if !f.grounded || f.st.laneJump || !c.ctrl() || c.ss.no == 100 || f.st.targetLane != g.lane ||
+	if !f.grounded || f.st.laneJump || !c.ctrl() || c.ss.no == 100 || !b.atDepth(f, g.z) ||
 		Abs(g.x-f.myX) > 25 || !f.facingTarget || len(beh.tauntInput) == 0 || !brawlerChance(beh.taunt) {
 		return false
 	}
@@ -1089,7 +1136,7 @@ func (b *Brawler) aiPatrolLeap(f *brawlerAIFrame) bool {
 	if ahead <= 10 || ahead > f.beh.jumpDist {
 		return false
 	}
-	if f.t.ss.moveType == MT_H || f.t.ss.stateType == ST_L || b.attackersOn(f.t, c) >= b.attackersPerPlayer() {
+	if f.t.ss.moveType == MT_H || f.t.ss.stateType == ST_L || b.attackersOn(f.t, c) >= b.attackLimit(f.t) {
 		return false
 	}
 	switch d := f.tst.targetLane - st.targetLane; {

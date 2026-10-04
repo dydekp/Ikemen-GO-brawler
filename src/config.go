@@ -233,6 +233,8 @@ type Config struct {
 		LaneSnapSpeed       float32 `ini:"LaneSnapSpeed" sync:"host"`
 		Behaviors           string  `ini:"Behaviors" sync:"host"`
 		AttackersPerPlayer  int32   `ini:"AttackersPerPlayer" sync:"host"`
+		Director            bool    `ini:"Director" sync:"host"`
+		ExtraPlayerEnemies  float32 `ini:"ExtraPlayerEnemies" sync:"host"`
 		DespawnTime         int32   `ini:"DespawnTime" sync:"host"`
 		BowlDamage          float32 `ini:"BowlDamage" sync:"host"`
 		BowlSlowdown        float32 `ini:"BowlSlowdown" sync:"host"`
