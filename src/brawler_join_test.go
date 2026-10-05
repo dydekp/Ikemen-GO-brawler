@@ -37,7 +37,7 @@ const (
 	inA, inStart                  = 4, 10
 )
 
-func TestJoinStartOpensQuickSelect(t *testing.T) {
+func TestBrawlerJoinStartOpensQuickSelect(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestJoin(t)
@@ -67,7 +67,7 @@ func TestJoinStartOpensQuickSelect(t *testing.T) {
 }
 
 // Not while the level isn't being fought, during an introduction, or without characters to offer
-func TestJoinOnlyDuringTheFight(t *testing.T) {
+func TestBrawlerJoinOnlyDuringTheFight(t *testing.T) {
 	for name, setup := range map[string]func(b *Brawler){
 		"intro":       func(b *Brawler) { sys.intro = 30 },
 		"level done":  func(b *Brawler) { b.complete = true },
@@ -86,7 +86,7 @@ func TestJoinOnlyDuringTheFight(t *testing.T) {
 }
 
 // A KO'd player can rejoin after a moment, starting on the character and color it had
-func TestJoinRejoinAfterKO(t *testing.T) {
+func TestBrawlerJoinRejoinAfterKO(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestJoin(t)
@@ -112,7 +112,7 @@ func TestJoinRejoinAfterKO(t *testing.T) {
 	}
 }
 
-func TestJoinQuickSelectInput(t *testing.T) {
+func TestBrawlerJoinQuickSelectInput(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestJoin(t)
@@ -171,7 +171,7 @@ func TestJoinQuickSelectInput(t *testing.T) {
 }
 
 // The quick select closes when the level ends
-func TestJoinQuickSelectClosesWithTheLevel(t *testing.T) {
+func TestBrawlerJoinQuickSelectClosesWithTheLevel(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestJoin(t)
@@ -184,7 +184,7 @@ func TestJoinQuickSelectClosesWithTheLevel(t *testing.T) {
 }
 
 // Confirming with every player slot taken loads nothing
-func TestJoinNoFreeSlot(t *testing.T) {
+func TestBrawlerJoinNoFreeSlot(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestJoin(t)
@@ -199,7 +199,7 @@ func TestJoinNoFreeSlot(t *testing.T) {
 	}
 }
 
-func TestJoinContinueCountdown(t *testing.T) {
+func TestBrawlerJoinContinueCountdown(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestJoin(t)
@@ -230,7 +230,7 @@ func TestJoinContinueCountdown(t *testing.T) {
 	}
 }
 
-func TestJoinSpawnTimers(t *testing.T) {
+func TestBrawlerJoinSpawnTimers(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 0)
@@ -251,7 +251,7 @@ func TestJoinSpawnTimers(t *testing.T) {
 }
 
 // The team for the next level: player slots in order, each with its character, color, inputs and life
-func TestJoinParty(t *testing.T) {
+func TestBrawlerJoinParty(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestJoin(t)
@@ -277,7 +277,7 @@ func TestJoinParty(t *testing.T) {
 }
 
 // Seats and slots: a slot's player is the one recorded at the level start or at drop-in
-func TestJoinDropLoaded(t *testing.T) {
+func TestBrawlerJoinDropLoaded(t *testing.T) {
 	brawlerTestChars(t)
 	loaded := &Char{}
 	other := &Char{}

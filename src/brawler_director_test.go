@@ -43,7 +43,7 @@ func directorFight(t *testing.T, playerX map[int]float32, enemyX []float32, lane
 	return &Brawler{lanesZ: lanes}, enemies
 }
 
-func TestDirectorPressure(t *testing.T) {
+func TestBrawlerDirectorPressure(t *testing.T) {
 	var d brawlerDirector
 	d.observe(0, 1000, 1000, true)
 	if d.pressure[0] != 0 {
@@ -81,7 +81,7 @@ func TestDirectorPressure(t *testing.T) {
 	}
 }
 
-func TestDirectorScaling(t *testing.T) {
+func TestBrawlerDirectorScaling(t *testing.T) {
 	for _, c := range []struct {
 		n       int32
 		tension float32
@@ -105,7 +105,7 @@ func TestDirectorScaling(t *testing.T) {
 	}
 }
 
-func TestDirectorAssignTargets(t *testing.T) {
+func TestBrawlerDirectorAssignTargets(t *testing.T) {
 	players := []brawlerDirPlayer{{pn: 0, x: 0}, {pn: 2, x: 300}}
 	// Four enemies around P1: the load spreads them over both players
 	units := []brawlerDirUnit{{x: 20, target: -1}, {x: -20, target: -1}, {x: 40, target: -1}, {x: 60, target: -1}}
@@ -144,7 +144,7 @@ func angleDiff(a, b float32) float32 {
 	return float32(math.Abs(math.Remainder(float64(a-b), 2*math.Pi)))
 }
 
-func TestDirectorRing(t *testing.T) {
+func TestBrawlerDirectorRing(t *testing.T) {
 	// Spots keep the enemies' order around the player, and the least walking: four enemies close to the
 	// spots at 0, pi/2, pi, -pi/2 get those
 	idx := brawlerRingAssign([]float32{1.4, 0.1, -1.7, 3.0}, 0)
@@ -186,7 +186,7 @@ func TestDirectorRing(t *testing.T) {
 }
 
 // Depth works with any number of lanes, and without lanes (free depth movement)
-func TestDirectorDepth(t *testing.T) {
+func TestBrawlerDirectorDepth(t *testing.T) {
 	for _, lanes := range [][]float32{{0}, {-20, 20}, {-30, 0, 30}, {-40, -20, 0, 20, 40}} {
 		b := &Brawler{lanesZ: lanes}
 		if b.freeDepth() {
@@ -243,7 +243,7 @@ func TestDirectorDepth(t *testing.T) {
 
 // The director spreads the enemies over the players, gives each player its attack turns and puts the
 // others on its ring
-func TestDirectorStep(t *testing.T) {
+func TestBrawlerDirectorStep(t *testing.T) {
 	b, enemies := directorFight(t, map[int]float32{0: 0, 2: 400}, []float32{50, 60, 70, -50, 80, 90}, []float32{-30, 0, 30})
 	b.directorStep()
 	perPlayer := map[int][]*Char{}
@@ -292,7 +292,7 @@ func TestDirectorStep(t *testing.T) {
 
 // A player taking a beating gets fewer attackers and enemies; the team's tension lowers the number of
 // enemies alive, and everything goes back to normal once the damage wears off
-func TestDirectorPressureOverTime(t *testing.T) {
+func TestBrawlerDirectorPressureOverTime(t *testing.T) {
 	b, enemies := directorFight(t, map[int]float32{0: 0, 2: 300}, []float32{20, 30, 40, 280, 290, 310}, []float32{0})
 	sys.cfg.Brawler.MaxEnemiesPerPlayer = 4
 	p1 := b.root(0)
@@ -330,7 +330,7 @@ func TestDirectorPressureOverTime(t *testing.T) {
 	}
 }
 
-func TestDirectorPacingAndLimits(t *testing.T) {
+func TestBrawlerDirectorPacingAndLimits(t *testing.T) {
 	b, enemies := directorFight(t, map[int]float32{0: 0, 2: 100}, []float32{50}, []float32{0})
 	b.enabled = true
 	b.level = &BrawlerLevel{}
@@ -370,7 +370,7 @@ func TestDirectorPacingAndLimits(t *testing.T) {
 	}
 }
 
-func TestDirectorWaitParam(t *testing.T) {
+func TestBrawlerDirectorWaitParam(t *testing.T) {
 	lv := &BrawlerLevel{behaviors: map[string]*BrawlerBehavior{"default": newBrawlerBehavior("default")}}
 	b := lv.behavior("w", true)
 	for val, want := range map[string]BrawlerWait{"surround": BW_Surround, "lane": BW_Lane, "hover": BW_Hover} {
@@ -387,7 +387,7 @@ func TestDirectorWaitParam(t *testing.T) {
 	}
 }
 
-func TestDirectorShares(t *testing.T) {
+func TestBrawlerDirectorShares(t *testing.T) {
 	two := []brawlerDirPlayer{{pn: 0}, {pn: 2}}
 	for n, want := range map[int][2]int{0: {0, 0}, 1: {1, 1}, 4: {2, 2}, 5: {3, 3}} {
 		if s := brawlerTargetShares(n, two); s[0] != want[0] || s[1] != want[1] {
@@ -457,7 +457,7 @@ func simulateDirector(t *testing.T, lanes []float32, enemies int, frames int) (b
 }
 
 // With free depth movement, the waiting enemies spread out on the ring and circle the player
-func TestDirectorCirclingFreeDepth(t *testing.T) {
+func TestBrawlerDirectorCirclingFreeDepth(t *testing.T) {
 	b, list, track := simulateDirector(t, nil, 4, 900)
 	pz := brawlerZ(b.root(0))
 	var waiting []*Char
@@ -519,7 +519,7 @@ func TestDirectorCirclingFreeDepth(t *testing.T) {
 }
 
 // With lanes, waiting enemies use the lanes around the player and keep moving between them
-func TestDirectorCirclingLanes(t *testing.T) {
+func TestBrawlerDirectorCirclingLanes(t *testing.T) {
 	for _, lanes := range [][]float32{{-30, 0, 30}, {-20, 20}, {-40, -20, 0, 20, 40}} {
 		_, list, track := simulateDirector(t, lanes, 4, 900)
 		for i, e := range list {
@@ -548,7 +548,7 @@ func TestDirectorCirclingLanes(t *testing.T) {
 
 // With a single lane there is no depth to circle in, and the enemies can't get past the player: the
 // waiting ones line up in rows on their side, one row apart, and never cross the player
-func TestDirectorSingleLane(t *testing.T) {
+func TestBrawlerDirectorSingleLane(t *testing.T) {
 	b, list := directorFight(t, map[int]float32{0: 0}, []float32{40, -60, 55, 70, -80}, []float32{0})
 	sys.cfg.Brawler.AttackersPerPlayer = 1
 	for f := 0; f < 300; f++ {
@@ -589,7 +589,7 @@ func TestDirectorSingleLane(t *testing.T) {
 }
 
 // An attack turn stays with its enemy unless another one gets clearly closer
-func TestDirectorStickyTurns(t *testing.T) {
+func TestBrawlerDirectorStickyTurns(t *testing.T) {
 	b, list := directorFight(t, map[int]float32{0: 0}, []float32{50, 60}, []float32{0})
 	sys.cfg.Brawler.AttackersPerPlayer = 1
 	b.directorStep()
@@ -613,7 +613,7 @@ func TestDirectorStickyTurns(t *testing.T) {
 }
 
 // A ring spot right in front of the player in its own lane moves to another lane
-func TestDirectorCrossingGuard(t *testing.T) {
+func TestBrawlerDirectorCrossingGuard(t *testing.T) {
 	lanes := []float32{-30, 0, 30}
 	b, list := directorFight(t, map[int]float32{0: 0}, []float32{50}, lanes)
 	p := b.root(0)
@@ -635,7 +635,7 @@ func TestDirectorCrossingGuard(t *testing.T) {
 
 // How the profiles' tactics and the director fit together: tactics own their approach and retreat
 // phases, the director's waiting spot applies to every enemy without an attack turn otherwise
-func TestDirectorGoalHarmony(t *testing.T) {
+func TestBrawlerDirectorGoalHarmony(t *testing.T) {
 	oldCfg := sys.cfg.Brawler
 	defer func() { sys.cfg.Brawler = oldCfg }()
 	sys.cfg.Brawler.Director = true
@@ -695,7 +695,7 @@ func TestDirectorGoalHarmony(t *testing.T) {
 	}
 }
 
-func TestDirectorPlayerScale(t *testing.T) {
+func TestBrawlerDirectorPlayerScale(t *testing.T) {
 	for _, c := range []struct {
 		n, players int32
 		pct        float32
@@ -722,7 +722,7 @@ func TestDirectorPlayerScale(t *testing.T) {
 
 // A player at the screen edge: a spot behind it gets pulled onto the screen, next to the player. It
 // must not end up in the player's lane
-func TestDirectorEdgeGuard(t *testing.T) {
+func TestBrawlerDirectorEdgeGuard(t *testing.T) {
 	lanes := []float32{-30, 0, 30}
 	b, list := directorFight(t, map[int]float32{0: -950}, []float32{-900}, lanes)
 	sys.xmin, sys.xmax = -1000, -680 // A 320 wide screen, the player 50 from its left edge

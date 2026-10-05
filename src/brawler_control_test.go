@@ -25,7 +25,7 @@ func brawlerTestInput(names ...string) (in [14]bool) {
 	return
 }
 
-func TestControlButtonsConsumed(t *testing.T) {
+func TestBrawlerControlButtonsConsumed(t *testing.T) {
 	b := brawlerTestMode(t, -30, 0, 30)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 1)
@@ -41,7 +41,7 @@ func TestControlButtonsConsumed(t *testing.T) {
 	}
 }
 
-func TestControlLaneButtonBuffer(t *testing.T) {
+func TestBrawlerControlLaneButtonBuffer(t *testing.T) {
 	b := brawlerTestMode(t, -30, 0, 30)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 1)
@@ -58,7 +58,7 @@ func TestControlLaneButtonBuffer(t *testing.T) {
 	}
 }
 
-func TestControlLaneJumpTarget(t *testing.T) {
+func TestBrawlerControlLaneJumpTarget(t *testing.T) {
 	b := brawlerTestMode(t, -30, 0, 30)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 1)
@@ -112,7 +112,7 @@ func TestControlLaneJumpTarget(t *testing.T) {
 }
 
 // Pressing the lane button again during the jump picks the next lane, within the select window
-func TestControlLaneRetarget(t *testing.T) {
+func TestBrawlerControlLaneRetarget(t *testing.T) {
 	b := brawlerTestMode(t, -30, 0, 30)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 1)
@@ -135,7 +135,7 @@ func TestControlLaneRetarget(t *testing.T) {
 	}
 }
 
-func TestControlFacingToggle(t *testing.T) {
+func TestBrawlerControlFacingToggle(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	sys.cfg.Brawler.FacingMode = "toggle"
@@ -162,7 +162,7 @@ func TestControlFacingToggle(t *testing.T) {
 }
 
 // AI controlled characters keep the engine's facing rules
-func TestControlFacingOnlyForPlayers(t *testing.T) {
+func TestBrawlerControlFacingOnlyForPlayers(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 0)
@@ -175,7 +175,7 @@ func TestControlFacingOnlyForPlayers(t *testing.T) {
 	}
 }
 
-func TestControlLaneGlide(t *testing.T) {
+func TestBrawlerControlLaneGlide(t *testing.T) {
 	b := brawlerTestMode(t, -30, 0, 30)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 1)
@@ -200,7 +200,7 @@ func TestControlLaneGlide(t *testing.T) {
 	}
 }
 
-func TestControlLaneJumpFlight(t *testing.T) {
+func TestBrawlerControlLaneJumpFlight(t *testing.T) {
 	b := brawlerTestMode(t, -30, 0, 30)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 1)
@@ -234,7 +234,7 @@ func TestControlLaneJumpFlight(t *testing.T) {
 	}
 }
 
-func TestControlAirTicks(t *testing.T) {
+func TestBrawlerControlAirTicks(t *testing.T) {
 	brawlerTestChars(t)
 	c := &Char{playerNo: 0, localscl: 1, localcoord: 320}
 	sys.cgi[0].movement.yaccel = 0.5

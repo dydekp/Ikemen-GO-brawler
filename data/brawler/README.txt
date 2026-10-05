@@ -38,6 +38,7 @@ CONTENTS
  10. HUD
  11. Config
  12. Content packs: content outside the engine
+ 13. Tests
 
 
 1. QUICK START: YOUR OWN CAMPAIGN
@@ -75,9 +76,10 @@ CONTENTS
 5. Start the game: BRAWLER > MY CAMPAIGN.
 
 Errors in these files are shown when the level starts (or, for broken
-campaign files, logged and the campaign is left out of the menu). The unit
-tests load every shipped file, so "go test -run Brawler ./src" is a quick
-check after editing them.
+campaign files, logged and the campaign is left out of the menu). Unknown keys and
+sections are errors too, so typos don't go unnoticed. The tests load every
+shipped file, so running them (see TESTS at the end) is a quick check after
+editing them.
 
 
 2. MENU: CAMPAIGNS AND FREE PLAY
@@ -570,3 +572,35 @@ campaigns are listed in the BRAWLER menu after the engine's.
 The pack's levels can still use the shared library (data/brawler/
 enemies.def) and the shared profiles (behaviors.def); its own enemies.def
 adds to them and replaces ids it redefines.
+
+
+13. TESTS
+---------
+The mode comes with automated tests (src/brawler_*_test.go). Run them after
+changing the mode or its data, so that features that worked before don't
+break unnoticed:
+
+  make test-brawler
+  (or: go test -vet=off -run Brawler ./src)
+
+All brawler tests are named TestBrawler..., so -run Brawler runs exactly
+them. They run without a window, graphics or sound, in a few seconds:
+- Data: every shipped level, campaign, the enemy library and behaviors
+  load; level files reject unknown keys and sections.
+- Controls: lane and facing buttons, lane jumps and retargeting, facing
+  lock/toggle, gliding back onto a lane.
+- Enemy AI, end to end at the input level: approaching and attacking,
+  combos, cooldowns, guarding, running, jump over, hit and run, lane
+  following, patrol, taunts.
+- Director: pressure, enemy numbers, targets, attack turns, the waiting
+  ring (simulated for 2, 3 and 5 lanes, a single lane and free depth).
+- Mode core: waves from start to level end, camera, flying bodies, enemy
+  removal, stage overrides, lanes.
+- Drop-in: quick select, rejoin, continue countdown, the team carried to
+  the next level.
+- HUD layout and introductions.
+- Lua: every script under external/script parses, and brawler.lua plays a
+  campaign with stand-ins for the engine (level order, losing, errors,
+  team carried between levels).
+Things that need the engine running (drawing, loading characters, the
+characters' own states) are checked by playing.

@@ -28,7 +28,7 @@ type bowlHit struct {
 	damage int32
 }
 
-func TestCoreBowling(t *testing.T) {
+func TestBrawlerCoreBowling(t *testing.T) {
 	b := brawlerTestMode(t, -30, 0, 30)
 	brawlerTestChars(t)
 	body := brawlerTestEnemy(b, 1, 0, 1)
@@ -92,7 +92,7 @@ func TestCoreBowling(t *testing.T) {
 }
 
 // Enemies push each other like opponents do, unless the character itself sets other push rules
-func TestCoreSpacing(t *testing.T) {
+func TestBrawlerCoreSpacing(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	e := brawlerTestEnemy(b, 1, 0, 0)
@@ -105,7 +105,7 @@ func TestCoreSpacing(t *testing.T) {
 	}
 }
 
-func TestCoreCamera(t *testing.T) {
+func TestBrawlerCoreCamera(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	oldCam := sys.cam
@@ -145,7 +145,7 @@ func TestCoreCamera(t *testing.T) {
 }
 
 // Who keeps the camera and the screen edges: players do, enemies walking in and KO'd players don't
-func TestCoreScreenRules(t *testing.T) {
+func TestBrawlerCoreScreenRules(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 0)
@@ -171,7 +171,7 @@ func TestCoreScreenRules(t *testing.T) {
 	}
 }
 
-func TestCorePlayersAndTargets(t *testing.T) {
+func TestBrawlerCorePlayersAndTargets(t *testing.T) {
 	b := brawlerTestMode(t, -30, 0, 30)
 	brawlerTestChars(t)
 	p1 := brawlerTestPlayer(b, 0, 100, 1)
@@ -200,7 +200,7 @@ func TestCorePlayersAndTargets(t *testing.T) {
 	}
 }
 
-func TestCoreWaves(t *testing.T) {
+func TestBrawlerCoreWaves(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	b.level.waves = []BrawlerWave{
@@ -231,7 +231,7 @@ func TestCoreWaves(t *testing.T) {
 }
 
 // A wave ends when its spawning is done and every enemy is down; kill and time limits stop endless lines
-func TestCoreWaveEnd(t *testing.T) {
+func TestBrawlerCoreWaveEnd(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestPlayer(b, 0, 0, 0)
@@ -267,7 +267,7 @@ func TestCoreWaveEnd(t *testing.T) {
 	}
 }
 
-func TestCorePickEnemy(t *testing.T) {
+func TestBrawlerCorePickEnemy(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	b.level.enemies = []BrawlerEnemy{{alias: "a"}, {alias: "b"}, {alias: "c"}}
 	seen := map[int]bool{}
@@ -291,7 +291,7 @@ func TestCorePickEnemy(t *testing.T) {
 }
 
 // Defeated enemies count for the wave once and disappear after DespawnTime on the ground
-func TestCoreEnemyLifecycle(t *testing.T) {
+func TestBrawlerCoreEnemyLifecycle(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	b.level.enemies = []BrawlerEnemy{{alias: "a"}}
@@ -326,7 +326,7 @@ func TestCoreEnemyLifecycle(t *testing.T) {
 	}
 }
 
-func TestCoreStageOverrides(t *testing.T) {
+func TestBrawlerCoreStageOverrides(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	stg := &Stage{leftbound: -300, rightbound: 300, topbound: 0, botbound: 0}
 	b.level.hasPBound = true
@@ -352,7 +352,7 @@ func TestCoreStageOverrides(t *testing.T) {
 }
 
 // Lanes from the level: evenly spread over the depth, explicit positions, depth and scale overrides
-func TestCoreLaneSetup(t *testing.T) {
+func TestBrawlerCoreLaneSetup(t *testing.T) {
 	b := brawlerTestMode(t)
 	oldStage := sys.stage
 	t.Cleanup(func() { sys.stage = oldStage })
@@ -413,7 +413,7 @@ func TestCoreLaneSetup(t *testing.T) {
 // A level from start to end through the per frame step: waves start as the players advance, locked waves
 // hold the camera until they're cleared, GO points ahead, and the level is complete after the last wave
 // once a player reaches endx
-func TestCoreLevelProgression(t *testing.T) {
+func TestBrawlerCoreLevelProgression(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestJoin(t)
@@ -467,7 +467,7 @@ func TestCoreLevelProgression(t *testing.T) {
 }
 
 // HUD bookkeeping: which enemy each player is hitting, enemy names, bosses
-func TestCoreHudTargets(t *testing.T) {
+func TestBrawlerCoreHudTargets(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	p := brawlerTestPlayer(b, 0, 0, 0)
@@ -493,7 +493,7 @@ func TestCoreHudTargets(t *testing.T) {
 	}
 }
 
-func TestCoreCharacterRoles(t *testing.T) {
+func TestBrawlerCoreCharacterRoles(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	b.level.types = []string{"kfm", "kfm720"}

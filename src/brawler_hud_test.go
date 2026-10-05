@@ -4,7 +4,7 @@ import "testing"
 
 // HUD and introductions: layout, values and timing. Drawing itself needs the renderer and isn't tested
 
-func TestHudLayout(t *testing.T) {
+func TestBrawlerHudLayout(t *testing.T) {
 	for n := 1; n <= 4; n++ {
 		var prevRight float32
 		for i := 0; i < n; i++ {
@@ -35,7 +35,7 @@ func TestHudLayout(t *testing.T) {
 	}
 }
 
-func TestHudValues(t *testing.T) {
+func TestBrawlerHudValues(t *testing.T) {
 	c := &Char{life: 250, redLife: 500, lifeMax: 1000}
 	if life, red := brawlerLifeRatio(c); life != 0.25 || red != 0.5 {
 		t.Errorf("life ratio: %v %v", life, red)
@@ -54,7 +54,7 @@ func TestHudValues(t *testing.T) {
 }
 
 // Columns: P1 and P2 always, a 3rd and 4th once those players are in
-func TestHudColumns(t *testing.T) {
+func TestBrawlerHudColumns(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	brawlerTestJoin(t)
@@ -80,7 +80,7 @@ func TestHudColumns(t *testing.T) {
 }
 
 // World positions follow the camera into HUD units
-func TestHudWorldPosition(t *testing.T) {
+func TestBrawlerHudWorldPosition(t *testing.T) {
 	oldCam, oldW, oldH, oldFs := sys.cam, sys.gameWidth, sys.gameHeight, sys.fightScreen
 	t.Cleanup(func() { sys.cam, sys.gameWidth, sys.gameHeight, sys.fightScreen = oldCam, oldW, oldH, oldFs })
 	sys.gameWidth, sys.gameHeight = 320, 240
@@ -99,7 +99,7 @@ func TestHudWorldPosition(t *testing.T) {
 	}
 }
 
-func TestIntroTiming(t *testing.T) {
+func TestBrawlerIntroTiming(t *testing.T) {
 	b := brawlerTestMode(t, 0)
 	brawlerTestChars(t)
 	e := brawlerTestEnemy(b, 7, 0, 0)
@@ -137,7 +137,7 @@ func TestIntroTiming(t *testing.T) {
 	}
 }
 
-func TestIntroEase(t *testing.T) {
+func TestBrawlerIntroEase(t *testing.T) {
 	if brawlerIntroEase(0, 10, 20) != 0 || brawlerIntroEase(40, 10, 20) != 1 {
 		t.Error("ease range")
 	}

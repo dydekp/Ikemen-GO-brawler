@@ -183,7 +183,7 @@ func (s *aiSim) startBusy(e *Char, st StateType, vx float32, frames int) {
 	s.busy[e] = frames
 }
 
-func TestAIApproachAndAttack(t *testing.T) {
+func TestBrawlerAIApproachAndAttack(t *testing.T) {
 	s := newAISim(t, []float32{0}, 0, 0)
 	beh := newBrawlerBehavior("kicker")
 	beh.moves, _ = parseBrawlerMoves("a")
@@ -212,7 +212,7 @@ func f32reach(e *Char, beh *BrawlerBehavior) float32 {
 }
 
 // An enemy doesn't attack a player who is down or being hit, and not from another lane
-func TestAIAttackConditions(t *testing.T) {
+func TestBrawlerAIAttackConditions(t *testing.T) {
 	for name, setup := range map[string]func(s *aiSim){
 		"player lying down": func(s *aiSim) { s.player.ss.stateType = ST_L },
 		"player being hit":  func(s *aiSim) { s.player.ss.moveType = MT_H },
@@ -230,7 +230,7 @@ func TestAIAttackConditions(t *testing.T) {
 	}
 }
 
-func TestAIComboFollowUps(t *testing.T) {
+func TestBrawlerAIComboFollowUps(t *testing.T) {
 	s := newAISim(t, []float32{0}, 0, 0)
 	beh := newBrawlerBehavior("combo")
 	beh.moves, _ = parseBrawlerMoves("x")
@@ -244,7 +244,7 @@ func TestAIComboFollowUps(t *testing.T) {
 	}
 }
 
-func TestAIRunsWhenFar(t *testing.T) {
+func TestBrawlerAIRunsWhenFar(t *testing.T) {
 	s := newAISim(t, []float32{0}, 0, 0)
 	runner := newBrawlerBehavior("runner")
 	runner.run, runner.runDist = true, 100
@@ -263,7 +263,7 @@ func TestAIRunsWhenFar(t *testing.T) {
 }
 
 // The jump over tactic leaps over the player when close and attacks from the other side
-func TestAIJumpOver(t *testing.T) {
+func TestBrawlerAIJumpOver(t *testing.T) {
 	s := newAISim(t, []float32{0}, 0, 0)
 	beh := newBrawlerBehavior("jumper")
 	beh.tactic = BT_JumpOver
@@ -288,7 +288,7 @@ func TestAIJumpOver(t *testing.T) {
 }
 
 // Hit and run backs off after attacking
-func TestAIHitAndRun(t *testing.T) {
+func TestBrawlerAIHitAndRun(t *testing.T) {
 	s := newAISim(t, []float32{0}, 0, 0)
 	beh := newBrawlerBehavior("hitrun")
 	beh.tactic = BT_HitRun
@@ -314,7 +314,7 @@ func TestAIHitAndRun(t *testing.T) {
 }
 
 // Enemies follow their target to its lane, and the flanker goes for another lane first
-func TestAILaneFollowing(t *testing.T) {
+func TestBrawlerAILaneFollowing(t *testing.T) {
 	s := newAISim(t, []float32{-30, 0, 30}, 0, 0)
 	beh := newBrawlerBehavior("follower")
 	beh.laneDelay = [2]int32{5, 5}
@@ -340,7 +340,7 @@ func TestAILaneFollowing(t *testing.T) {
 }
 
 // Enemies guard now and then when the player attacks
-func TestAIGuards(t *testing.T) {
+func TestBrawlerAIGuards(t *testing.T) {
 	s := newAISim(t, []float32{0}, 0, 0)
 	beh := newBrawlerBehavior("guard")
 	beh.guard = 1 // Always
@@ -357,7 +357,7 @@ func TestAIGuards(t *testing.T) {
 
 // Patrol: starts on a lane the player isn't on, runs it end to end, switches lanes at the screen edges
 // (going through all lanes), and leaps at the player when crossing its path
-func TestAIPatrol(t *testing.T) {
+func TestBrawlerAIPatrol(t *testing.T) {
 	s := newAISim(t, []float32{-30, 0, 30}, 0, 1)
 	sys.xmin, sys.xmax = -300, 300
 	beh := newBrawlerBehavior("patrol")
@@ -413,7 +413,7 @@ func TestAIPatrol(t *testing.T) {
 }
 
 // Enemies without an attack turn taunt now and then at their waiting spot; the one fighting doesn't
-func TestAITaunts(t *testing.T) {
+func TestBrawlerAITaunts(t *testing.T) {
 	s := newAISim(t, []float32{0}, 0, 0)
 	sys.cfg.Brawler.AttackersPerPlayer = 1
 	fighter := newBrawlerBehavior("fighter")

@@ -14,7 +14,7 @@ import (
 // stand-ins for the engine functions it calls
 
 // Every script of external/script parses
-func TestLuaScriptsParse(t *testing.T) {
+func TestBrawlerLuaScriptsParse(t *testing.T) {
 	files, _ := filepath.Glob("../external/script/*.lua")
 	if len(files) == 0 {
 		t.Fatal("no scripts found")
@@ -93,7 +93,7 @@ func hasCall(calls []string, prefix string) bool {
 	return false
 }
 
-func TestLuaBrawlerCampaign(t *testing.T) {
+func TestBrawlerLuaBrawlerCampaign(t *testing.T) {
 	l := runBrawlerLua(t, `
 main.brawlerLevels = {"one.def", "two.def"}
 levels = {
@@ -132,7 +132,7 @@ assert(p.t_selCmd[2].cmd == 2 and p.t_selCmd[2].player == 2, "inputs of member 2
 }
 
 // Losing a level ends the mode there
-func TestLuaBrawlerLost(t *testing.T) {
+func TestBrawlerLuaBrawlerLost(t *testing.T) {
 	l := runBrawlerLua(t, `
 main.brawlerLevels = {"one.def", "two.def"}
 levels = {["one.def"] = {types = {"kfm"}, stage = "", music = ""}, ["two.def"] = {types = {"kfm"}, stage = "", music = ""}}
@@ -151,7 +151,7 @@ results = {false}
 	}
 }
 
-func TestLuaBrawlerErrors(t *testing.T) {
+func TestBrawlerLuaBrawlerErrors(t *testing.T) {
 	for name, c := range map[string]struct{ setup, msg string }{
 		"no levels":     {`main.brawlerLevels = {}`, "No brawler levels"},
 		"broken level":  {`main.brawlerLevels = {"x.def"}; levels = {["x.def"] = "bad key"}`, "Unable to load brawler level: x.def"},
