@@ -616,7 +616,8 @@ type brawlerAIGoal struct {
 	x         float32 // Position to move to
 	z         float32 // Depth to move to (the lane closest to it while depth is split into lanes)
 	canAttack bool
-	waiting   bool // No attack turn: waiting spot
+	waiting   bool // No attack turn: at a waiting spot, may taunt
+	forceZ    bool // Go to z even if the profile doesn't follow its target through the lanes
 }
 
 // Generate enemy inputs from its behavior profile
@@ -676,7 +677,7 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 	if b.aiJumpOver(f) {
 		return f.in
 	}
-	b.aiDepth(f, g.z, g.waiting)
+	b.aiDepth(f, g.z, g.forceZ)
 	if g.canAttack && b.aiAttack(f) {
 		return f.in
 	}
@@ -832,9 +833,12 @@ func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
 		switch {
 		case ai.hasToken:
 		case beh.wait == BW_Surround && ai.hasAnchor:
-			g.x, g.z, g.waiting = ai.anchorX, ai.anchorZ, true
+			g.x, g.z, g.waiting, g.forceZ = ai.anchorX, ai.anchorZ, true, true
 		case beh.wait != BW_Hover && len(b.lanesZ) > 1:
 			g.z = b.laneDepth(b.aiWaitLane(f))
+			g.waiting, g.forceZ = true, true
+		default:
+			// In front of the target, where the profile's lane following takes it
 			g.waiting = true
 		}
 	}

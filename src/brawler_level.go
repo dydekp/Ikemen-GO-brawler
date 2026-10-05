@@ -224,6 +224,9 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 				p.lv.intros = map[string]*BrawlerIntro{}
 			}
 			p.lv.intros[name] = p.intro
+		case "level", "enemies":
+		default:
+			return fmt.Errorf("unknown section [%v] (Level, Enemies, Wave, Behavior, Intro)", l.section)
 		}
 		return nil
 	}
@@ -238,6 +241,8 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 		return p.lv.setBehavior(p.beh, l.key, l.val)
 	case "intro":
 		return p.intro.set(l.key, l.val)
+	case "":
+		return fmt.Errorf("parameter '%v' outside a section", l.key)
 	}
 	return nil
 }
@@ -332,6 +337,9 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 			return fmt.Errorf("invalid endx: %v", l.val)
 		}
 		lv.hasEndX = true
+	default:
+		return fmt.Errorf("unknown level parameter '%v' (name, stage, music, library, lanes, lanepos, topbound, botbound, "+
+			"boundleft, boundright, leftbound, rightbound, zscale, attackers, backtrack, endx)", l.key)
 	}
 	return nil
 }
@@ -354,6 +362,8 @@ func (p *brawlerLevelParser) enemiesKey(l brawlerIniLine) error {
 		}
 	case "enemy":
 		return p.enemy(l.val)
+	default:
+		return fmt.Errorf("unknown enemies parameter '%v' (enemy, boss, behavior)", l.key)
 	}
 	return nil
 }
@@ -446,6 +456,8 @@ func (p *brawlerLevelParser) waveKey(l brawlerIniLine) error {
 		}
 	case "spawn":
 		return p.spawn(l.args)
+	default:
+		return fmt.Errorf("unknown wave parameter '%v' (trigger, lock, maxalive, kills, time, attackers, spawn)", l.key)
 	}
 	return nil
 }

@@ -409,3 +409,109 @@ func TestCoreLaneSetup(t *testing.T) {
 		t.Errorf("not restored: %+v, topbound %v", stg.stageCamera, stg.topbound)
 	}
 }
+
+// A level from start to end through the per frame step: waves start as the players advance, locked waves
+// hold the camera until they're cleared, GO points ahead, and the level is complete after the last wave
+// once a player reaches endx
+func TestCoreLevelProgression(t *testing.T) {
+	b := brawlerTestMode(t, 0)
+	brawlerTestChars(t)
+	brawlerTestJoin(t)
+	oldCam := sys.cam
+	t.Cleanup(func() { sys.cam = oldCam })
+	sys.cam.Pos[0] = 0
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	brawlerJoin.slotSeat[0] = 0
+	b.level.waves = []BrawlerWave{{trigger: 100, lock: true, maxAlive: 4}, {trigger: 300, maxAlive: 4}}
+	b.level.endX, b.level.hasEndX = 500, true
+
+	b.step()
+	if b.waveActive || b.wave != 0 {
+		t.Fatal("wave started before its trigger")
+	}
+	p.pos[0] = 120
+	b.step() // Starts wave 1; nothing to spawn, no enemy left: cleared
+	b.step()
+	if b.wave != 1 || b.goTime == 0 {
+		t.Fatalf("wave 1: wave %v, GO %v", b.wave, b.goTime)
+	}
+	e := brawlerTestEnemy(b, 1, 200, 0)
+	p.pos[0] = 320
+	b.step()
+	if !b.waveActive {
+		t.Fatal("wave 2 didn't start")
+	}
+	b.step()
+	if !b.waveActive {
+		t.Fatal("wave 2 cleared with an enemy standing")
+	}
+	e.setSCF(SCF_ko)
+	e.bw.koForced = true
+	b.step()
+	if b.waveActive || b.complete {
+		t.Fatalf("after wave 2: active %v complete %v", b.waveActive, b.complete)
+	}
+	// Last wave cleared, but endx not reached yet
+	b.step()
+	if b.complete {
+		t.Fatal("complete before endx")
+	}
+	p.pos[0] = 510
+	b.step()
+	if !b.complete {
+		t.Error("not complete at endx")
+	}
+	if ko := b.roundKO(); !ko[1] || ko[0] {
+		t.Errorf("round result: %v", ko)
+	}
+}
+
+// HUD bookkeeping: which enemy each player is hitting, enemy names, bosses
+func TestCoreHudTargets(t *testing.T) {
+	b := brawlerTestMode(t, 0)
+	brawlerTestChars(t)
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	e := brawlerTestEnemy(b, 9, 30, 0)
+	b.level.enemies = []BrawlerEnemy{{name: "Thug"}, {boss: true}}
+	sys.cgi[1].lifebarname = "Kung Fu Man"
+	p.targets = []int32{9}
+	b.trackHudTargets()
+	if p.bw.hudTarget != 9 || p.bw.hudTime != brawlerHudTargetTime {
+		t.Errorf("target: %v for %v", p.bw.hudTarget, p.bw.hudTime)
+	}
+	p.targets = nil
+	b.trackHudTargets()
+	if p.bw.hudTime != brawlerHudTargetTime-1 {
+		t.Error("target time doesn't run out")
+	}
+	if b.enemyName(e) != "Thug" || b.isBoss(e) {
+		t.Errorf("entry 0: %v %v", b.enemyName(e), b.isBoss(e))
+	}
+	e.bw.entry = 1
+	if b.enemyName(e) != "Kung Fu Man" || !b.isBoss(e) {
+		t.Errorf("entry 1: %v %v", b.enemyName(e), b.isBoss(e))
+	}
+}
+
+func TestCoreCharacterRoles(t *testing.T) {
+	b := brawlerTestMode(t, 0)
+	brawlerTestChars(t)
+	b.level.types = []string{"kfm", "kfm720"}
+	b.typeDefs = []string{"chars/kfm/kfm.def", "chars/kfm720/kfm720.def"}
+	e := brawlerTestEnemy(b, 1, 0, 0)
+	if !b.isInstance(e) {
+		t.Error("enemy instance")
+	}
+	tmpl := &Char{playerNo: brawlerTypeSlot(1)}
+	if !b.isTemplate(tmpl) || b.isInstance(tmpl) {
+		t.Error("type template")
+	}
+	// The second type is loaded into the first attached char slot
+	if b.attachedDef(0) != "chars/kfm720/kfm720.def" || b.attachedDef(1) != "" {
+		t.Errorf("attached defs: %q %q", b.attachedDef(0), b.attachedDef(1))
+	}
+	sys.gameMode = "arcade"
+	if b.attachedDef(0) != "" || b.isInstance(e) {
+		t.Error("brawler roles outside the mode")
+	}
+}

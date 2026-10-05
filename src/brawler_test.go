@@ -969,3 +969,30 @@ func TestBrawlerHoverDrift(t *testing.T) {
 		t.Error("hover never changes")
 	}
 }
+
+// Typos in level files are errors, not silently ignored settings
+func TestBrawlerLevelTypos(t *testing.T) {
+	base := "[Level]\nstage = s\n[Enemies]\nenemy = a, kfm\n[Wave 1]\nspawn = a\n"
+	for name, text := range map[string]string{
+		"level key":      "[Level]\nstage = s\nlanez = 3\n",
+		"enemies key":    "[Level]\nstage = s\n[Enemies]\nenemy = a, kfm\nbos = a\n",
+		"wave key":       base + "maxalvie = 2\n",
+		"section":        base + "[Wav 2]\nspawn = a\n",
+		"no section":     "stage = s\n[Level]\n",
+		"behavior key":   base + "[Behavior x]\ncooldwn = 1\n",
+		"intro key":      base + "[Intro a]\nnmae = x\n",
+		"wave attackers": base + "attackers = 0\n",
+	} {
+		if _, err := loadBrawlerLevel(writeBrawlerLevel(t, text)); err == nil {
+			t.Errorf("%v: accepted", name)
+		}
+	}
+	// Every valid key still works
+	if _, err := loadBrawlerLevel(writeBrawlerLevel(t, "[Level]\nname = n\nstage = s\nmusic = m.mp3\nlanes = 3\n"+
+		"lanepos = -10, 0, 10\ntopbound = -10\nbotbound = 10\nboundleft = -100\nboundright = 100\nleftbound = -200\n"+
+		"rightbound = 200\nzscale = 0.9, 1\nattackers = 1\nbacktrack = 1\nendx = 50\n"+
+		"[Enemies]\nenemy = a, kfm\nboss = a\nbehavior = a, default\n"+
+		"[Wave 1]\ntrigger = 0\nlock = 0\nmaxalive = 2\nkills = 3\ntime = 100\nattackers = 2\nspawn = a\n")); err != nil {
+		t.Error(err)
+	}
+}

@@ -17,6 +17,7 @@ type aiSim struct {
 	jumps     map[*Char]int
 	laneJumps map[*Char]int
 	runFrames map[*Char]int
+	taunts    map[*Char]int
 	busy      map[*Char]int // Frames left in an attack or jump
 	lastFwd   map[*Char]int // Frame forward was last released
 	prev      map[*Char][14]bool
@@ -33,7 +34,7 @@ func newAISim(t *testing.T, lanes []float32, playerX float32, playerLane int32) 
 	}
 	sys.xmin, sys.xmax = -500, 500
 	s := &aiSim{t: t, b: b, attacks: map[*Char][]int{}, jumps: map[*Char]int{}, laneJumps: map[*Char]int{},
-		runFrames: map[*Char]int{}, busy: map[*Char]int{}, lastFwd: map[*Char]int{}, prev: map[*Char][14]bool{}}
+		runFrames: map[*Char]int{}, taunts: map[*Char]int{}, busy: map[*Char]int{}, lastFwd: map[*Char]int{}, prev: map[*Char][14]bool{}}
 	s.player = brawlerTestPlayer(b, 0, playerX, playerLane)
 	return s
 }
@@ -117,6 +118,12 @@ func (s *aiSim) apply(e *Char, in [14]bool) {
 		b.startLaneJump(&e.bw, lane)
 		s.laneJumps[e]++
 		s.startBusy(e, ST_A, 0, 20)
+		return
+	}
+	// Start is the taunt of most characters
+	if in[10] && !prev[10] {
+		s.taunts[e]++
+		s.startBusy(e, ST_S, 0, 30)
 		return
 	}
 	for i := 4; i < 14; i++ {
@@ -402,5 +409,40 @@ func TestAIPatrol(t *testing.T) {
 	}
 	if len(s.attacks[e]) == 0 {
 		t.Error("no attack after crossing the player's path")
+	}
+}
+
+// Enemies without an attack turn taunt now and then at their waiting spot; the one fighting doesn't
+func TestAITaunts(t *testing.T) {
+	s := newAISim(t, []float32{0}, 0, 0)
+	sys.cfg.Brawler.AttackersPerPlayer = 1
+	fighter := newBrawlerBehavior("fighter")
+	fighter.taunt = 1
+	fighter.tauntDelay = [2]int32{20, 20}
+	fighter.priority = true // Always has the turn
+	waiter := newBrawlerBehavior("waiter")
+	waiter.taunt = 1
+	waiter.tauntDelay = [2]int32{20, 20}
+	waiter.wait = BW_Hover
+	waiter.hover = [2]float32{90, 90}
+	f := s.enemy(fighter, 40, 0)
+	w := s.enemy(waiter, 90, 0)
+	s.run(300)
+	if s.taunts[w] == 0 {
+		t.Error("waiting enemy never taunted")
+	}
+	if s.taunts[f] != 0 {
+		t.Error("enemy with the attack turn taunted")
+	}
+	noTaunt := newBrawlerBehavior("quiet")
+	noTaunt.taunt = 0
+	noTaunt.wait = BW_Hover
+	s2 := newAISim(t, []float32{0}, 0, 0)
+	sys.cfg.Brawler.AttackersPerPlayer = 1
+	s2.enemy(fighter, 40, 0)
+	q := s2.enemy(noTaunt, 90, 0)
+	s2.run(300)
+	if s2.taunts[q] != 0 {
+		t.Error("taunt = 0 taunted")
 	}
 }

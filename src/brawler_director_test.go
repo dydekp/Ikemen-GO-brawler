@@ -683,14 +683,14 @@ func TestDirectorGoalHarmony(t *testing.T) {
 	lane := tactic(BT_Direct)
 	lane.wait = BW_Lane
 	// Lane: a lane next to the target's (the target stands on lane 0, at depth -30)
-	if g := b.aiGoal(frame(lane, bpApproach, false)); g.x == 200 || !g.waiting || g.z == b.laneDepth(0) {
+	if g := b.aiGoal(frame(lane, bpApproach, false)); g.x == 200 || !g.waiting || !g.forceZ || g.z == b.laneDepth(0) {
 		t.Errorf("lane waiter: %+v", g)
 	}
 	hover := tactic(BT_Direct)
 	hover.wait = BW_Hover
 	// Hover: at its hover distance in front of the target, at the target's depth
 	f := frame(hover, bpApproach, false)
-	if g := b.aiGoal(f); g.waiting || g.x != f.ai.hover || g.z != 0 {
+	if g := b.aiGoal(f); !g.waiting || g.forceZ || g.x != f.ai.hover || g.z != 0 {
 		t.Errorf("hover waiter: %+v", g)
 	}
 }
