@@ -260,12 +260,11 @@ func TestBrawlerDirectorStep(t *testing.T) {
 				turns++
 			} else if e.bw.ai.hasAnchor {
 				ring++
-				// Spots are at the enemy's hover distance from the player, inside the depth range
+				// Spots are on the ring at the enemy's hover distance (in x: the guards only move them to
+				// another depth), inside the depth range
 				p := b.root(pn)
-				dx := e.bw.ai.anchorX - brawlerX(p)
-				dz := e.bw.ai.anchorZ - brawlerZ(p)
-				if dist := float32(math.Hypot(float64(dx), float64(dz/30*e.bw.ai.hover))); Abs(dist-e.bw.ai.hover) > 1 {
-					t.Errorf("P%v ring distance %v, hover %v", pn/2+1, dist, e.bw.ai.hover)
+				if dx := Abs(e.bw.ai.anchorX - brawlerX(p)); dx > e.bw.ai.hover+1 {
+					t.Errorf("P%v spot %v away, hover %v", pn/2+1, dx, e.bw.ai.hover)
 				}
 				if e.bw.ai.anchorZ < -30 || e.bw.ai.anchorZ > 30 {
 					t.Errorf("spot outside the lanes: %v", e.bw.ai.anchorZ)
@@ -624,7 +623,7 @@ func TestBrawlerDirectorCrossingGuard(t *testing.T) {
 	// Spot straight "above" the player on the ring: in depth -30-30, clamped back to the player's lane
 	b.director.ringDir[0] = 1
 	b.director.ringPhase[0] = -math.Pi/2 - brawlerRingSpeed
-	b.placeRing(brawlerDirPlayer{pn: 0, x: 0, z: -30}, []*Char{e})
+	b.placeRing(brawlerDirPlayer{pn: 0, x: 0, z: -30}, []*Char{e}, nil)
 	if !e.bw.ai.hasAnchor || Abs(e.bw.ai.anchorX) > 1 {
 		t.Fatalf("spot %v %v", e.bw.ai.anchorX, e.bw.ai.anchorZ)
 	}
@@ -730,11 +729,27 @@ func TestBrawlerDirectorEdgeGuard(t *testing.T) {
 	e.bw.ai.hover = 100
 	b.director.ringDir[0] = 1
 	b.director.ringPhase[0] = math.Pi - brawlerRingSpeed // Spot straight behind the player (left)
-	b.placeRing(brawlerDirPlayer{pn: 0, x: -950, z: 0}, []*Char{e})
+	b.placeRing(brawlerDirPlayer{pn: 0, x: -950, z: 0}, []*Char{e}, nil)
 	if e.bw.ai.anchorX < sys.xmin {
 		t.Errorf("spot off the screen: %v", e.bw.ai.anchorX)
 	}
 	if b.depthLane(e.bw.ai.anchorZ) == 1 {
 		t.Errorf("spot pulled next to the player in its lane: %v,%v", e.bw.ai.anchorX, e.bw.ai.anchorZ)
+	}
+}
+
+// A waiting spot on top of an enemy fighting the player moves to another lane
+func TestBrawlerDirectorClearOfFighters(t *testing.T) {
+	lanes := []float32{-22, 0}
+	b, list := directorFight(t, map[int]float32{0: 0}, []float32{120, 160}, lanes)
+	fighter, waiter := list[0], list[1]
+	fighter.pos[0], fighter.pos[2] = 120, 0
+	waiter.bw.ai.hover = 120
+	// Spot straight in front of the player on its lane, where the fighter stands
+	b.director.ringDir[0] = 1
+	b.director.ringPhase[0] = -brawlerRingSpeed
+	b.placeRing(brawlerDirPlayer{pn: 0, x: 0, z: 0}, []*Char{waiter}, []*Char{fighter})
+	if b.depthLane(waiter.bw.ai.anchorZ) == 1 && Abs(waiter.bw.ai.anchorX-120) < brawlerFighterClear {
+		t.Errorf("spot on the fighter: %v,%v", waiter.bw.ai.anchorX, waiter.bw.ai.anchorZ)
 	}
 }

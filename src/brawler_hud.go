@@ -542,12 +542,13 @@ func (b *Brawler) drawDirectorDebug(txt brawlerHudText) {
 	if b.waveActive && b.wave < len(b.level.waves) {
 		limit = b.maxAlive(b.level.waves[b.wave])
 	}
-	y := brawlerHudHeight() * 0.3
-	txt.draw(4, y, fmt.Sprintf("DIRECTOR tension %.2f  alive %v/%v", d.tension, b.aliveEnemies(), limit), 1)
+	// Right half of the screen, clear of the engine's own debug text on the left
+	y := brawlerHudHeight() * 0.45
+	txt.draw(316, y, fmt.Sprintf("DIRECTOR tension %.2f  alive %v/%v", d.tension, b.aliveEnemies(), limit), -1)
 	for _, p := range b.players(true) {
 		y += 9
-		txt.draw(4, y, fmt.Sprintf("%vP pressure %.2f  turns %v  enemies %v", b.charSeat(p)+1,
-			d.pressure[p.playerNo], d.slots[p.playerNo], d.enemies[p.playerNo]), 1)
+		txt.draw(316, y, fmt.Sprintf("%vP pressure %.2f  turns %v  enemies %v", b.charSeat(p)+1,
+			d.pressure[p.playerNo], d.slots[p.playerNo], d.enemies[p.playerNo]), -1)
 	}
 	for _, e := range b.instances() {
 		ai := &e.bw.ai

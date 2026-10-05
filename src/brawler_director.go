@@ -39,6 +39,7 @@ const (
 	brawlerRingSpeed      = 0.008 // Radians per frame the waiting ring turns: about 13 seconds per turn
 	brawlerLineSpacing    = 35    // Distance between rows of waiting enemies on a single lane
 	brawlerTokenStick     = 25    // Distance bonus for keeping an attack turn (avoids flip-flopping)
+	brawlerFighterClear   = 45    // Distance waiting spots keep from a fighting enemy in its lane
 	brawlerRefillPace     = 3     // Spawn delay countdown speed while there are fewer enemies than players
 )
 
@@ -279,16 +280,17 @@ func (b *Brawler) directorStep() {
 			// Closest first. Enemies that had a turn keep it unless another one is clearly closer
 			return b.dirDist(list[i], t)-brawlerTokenBonus(list[i]) < b.dirDist(list[j], t)-brawlerTokenBonus(list[j])
 		})
-		var waiting []*Char
+		var waiting, fighting []*Char
 		for i, c := range list {
 			if int32(i) < d.slots[p.pn] {
 				c.bw.ai.hasToken = true
 				c.bw.ai.ringIndex = -1
+				fighting = append(fighting, c)
 			} else if c.bw.ai.beh == nil || c.bw.ai.beh.wait == BW_Surround {
 				waiting = append(waiting, c)
 			}
 		}
-		b.placeRing(p, waiting)
+		b.placeRing(p, waiting, fighting)
 	}
 	for _, c := range enemies {
 		c.bw.ai.hadToken = c.bw.ai.hasToken
@@ -298,8 +300,8 @@ func (b *Brawler) directorStep() {
 // Spread the waiting enemies of a player around it. With depth to move in (several lanes, or free depth
 // movement) they take evenly spread spots on a ring that keeps turning, so the crowd circles the player.
 // Every enemy keeps its spot until the group changes. On a single lane, where they can't get past the
-// player, they wait in rows on the side they are on instead
-func (b *Brawler) placeRing(p brawlerDirPlayer, waiting []*Char) {
+// player, they wait in rows on the side they are on instead. Spots stay clear of the fighting enemies
+func (b *Brawler) placeRing(p brawlerDirPlayer, waiting, fighting []*Char) {
 	d := &b.director
 	n := len(waiting)
 	if n == 0 {
@@ -370,6 +372,15 @@ func (b *Brawler) placeRing(p brawlerDirPlayer, waiting []*Char) {
 		// Checked after keeping the spot on the screen, which can pull it next to a player at the edge
 		if depthR > 0 && Abs(x-p.x) < ai.hover*0.7 && b.sameDepthAt(z, p.z) {
 			z = b.otherDepth(p.z)
+		}
+		// Not on top of an enemy that is fighting the player either: the waiting one would stand in its back
+		if depthR > 0 {
+			for _, f := range fighting {
+				if Abs(x-brawlerX(f)) < brawlerFighterClear && b.sameDepthAt(z, brawlerZ(f)) {
+					z = b.otherDepth(brawlerZ(f))
+					break
+				}
+			}
 		}
 		ai.anchorX, ai.anchorZ, ai.hasAnchor = x, z, true
 	}
