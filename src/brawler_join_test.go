@@ -340,3 +340,45 @@ func TestBrawlerJoinSpawnLaneOrder(t *testing.T) {
 		t.Errorf("1 lane: %v", lane)
 	}
 }
+
+// The fight screen skips a slot whose character is loading (crash when rejoining with another character:
+// the lifebar portrait read the sprites of the character still loading)
+func TestBrawlerJoinSlotLoading(t *testing.T) {
+	b := brawlerTestMode(t, 0)
+	brawlerTestJoin(t)
+	if b.slotLoading(2) {
+		t.Fatal("loading without a load")
+	}
+	brawlerJoin.seats[0] = brawlerSeat{phase: bsLoading, slot: 2}
+	if !b.slotLoading(2) || b.slotLoading(0) {
+		t.Error("loading slot")
+	}
+	brawlerJoin.seats[0].phase = bsIdle
+	if b.slotLoading(2) {
+		t.Error("still loading after the load")
+	}
+}
+
+// When the countdown runs out the level is lost, and stays lost while the round ends (bug: the countdown
+// reset itself when the round-over sequence started, so the level was never lost and it ran again)
+func TestBrawlerJoinContinueRunsOut(t *testing.T) {
+	b := brawlerTestMode(t, 0)
+	brawlerTestChars(t)
+	brawlerTestJoin(t)
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	p.setSCF(SCF_ko)
+	for i := 0; i <= brawlerContinueTime; i++ {
+		b.stepContinue()
+	}
+	if ko := b.roundKO(); !ko[0] {
+		t.Fatal("not lost when the countdown ran out")
+	}
+	// The engine starts the round-over sequence
+	sys.intro, sys.finishType = -1, FT_KO
+	for i := 0; i < 120; i++ {
+		b.stepContinue()
+		if ko := b.roundKO(); !ko[0] {
+			t.Fatalf("loss taken back %v frames into the round end", i)
+		}
+	}
+}

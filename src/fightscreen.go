@@ -5553,6 +5553,10 @@ func (fs *FightScreen) step() {
 	for ti := range sys.tmode {
 		layout := fs.curLayout[ti]
 		for i, charpn := range fs.teamOrder[ti] {
+			// A beat 'em up drop-in character still loading in the background has nothing to show yet
+			if sys.brawler.slotLoading(charpn) {
+				continue
+			}
 			index := i*2 + ti
 			// LifeBar
 			fs.lifeBars[layout][index].step(charpn, fs.lifeBars[layout][charpn])

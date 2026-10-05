@@ -198,9 +198,13 @@ func (b *Brawler) stepSeat(k int, held [14]int32) {
 	}
 }
 
-// Continue countdown while every player is down
+// Continue countdown while every player is down. Only runs during the fight: once the countdown ran out
+// the round is over, and it must keep its value or the level would no longer count as lost
 func (b *Brawler) stepContinue() {
-	if len(b.players(true)) == 0 && sys.roundState() == 2 && !b.complete && !b.joinBusy() {
+	if sys.roundState() != 2 {
+		return
+	}
+	if len(b.players(true)) == 0 && !b.complete && !b.joinBusy() {
 		b.downTime++
 	} else {
 		b.downTime = 0
@@ -586,4 +590,15 @@ func (b *Brawler) spawnSpot(c *Char) (x float32, lane int32, facing float32) {
 		}
 	}
 	return x, lane, facing
+}
+
+// A player slot whose character is being loaded in the background. Its character and its global info
+// (sprites, palettes) aren't ready, and the loader writes them while the fight goes on
+func (b *Brawler) slotLoading(pn int) bool {
+	for k := range brawlerJoin.seats {
+		if s := &brawlerJoin.seats[k]; s.phase == bsLoading && s.slot == pn {
+			return true
+		}
+	}
+	return false
 }
