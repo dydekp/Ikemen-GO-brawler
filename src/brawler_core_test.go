@@ -350,3 +350,62 @@ func TestCoreStageOverrides(t *testing.T) {
 		t.Errorf("double edit: %v", stg.leftbound)
 	}
 }
+
+// Lanes from the level: evenly spread over the depth, explicit positions, depth and scale overrides
+func TestCoreLaneSetup(t *testing.T) {
+	b := brawlerTestMode(t)
+	oldStage := sys.stage
+	t.Cleanup(func() { sys.stage = oldStage })
+	newStage := func(top, bot float32) *Stage {
+		s := &Stage{localscl: 1, topbound: top, botbound: bot}
+		s.stageCamera.topz, s.stageCamera.botz = 0, 50
+		s.stageCamera.ztopscale, s.stageCamera.zbotscale = 1, 1.2
+		return s
+	}
+	for _, c := range []struct {
+		name     string
+		level    BrawlerLevel
+		top, bot float32
+		want     []float32
+	}{
+		{"3 lanes over the stage's depth", BrawlerLevel{lanes: 3}, -30, 30, []float32{-30, 0, 30}},
+		{"2 lanes", BrawlerLevel{lanes: 2}, -30, 30, []float32{-30, 30}},
+		{"1 lane in the middle", BrawlerLevel{lanes: 1}, -30, 30, []float32{0}},
+		{"flat stage", BrawlerLevel{lanes: 3}, 0, 0, []float32{0}},
+		{"level depth", BrawlerLevel{lanes: 3, topbound: -60, botbound: 0, hasBounds: true}, 0, 0, []float32{-60, -30, 0}},
+		{"lane positions", BrawlerLevel{lanes: 3, lanePos: []float32{-10, 5, 40}}, 0, 0, []float32{-10, 5, 40}},
+	} {
+		lv := c.level
+		b.level = &lv
+		sys.stage = newStage(c.top, c.bot)
+		b.setupLanes()
+		if len(b.lanesZ) != len(c.want) {
+			t.Errorf("%v: lanes %v, want %v", c.name, b.lanesZ, c.want)
+			continue
+		}
+		for i := range c.want {
+			if Abs(b.lanesZ[i]-c.want[i]) > 0.001 {
+				t.Errorf("%v: lanes %v, want %v", c.name, b.lanesZ, c.want)
+				break
+			}
+		}
+		// The depth bounds cover the lanes
+		if sys.zmin > b.lanesZ[0] || sys.zmax < b.lanesZ[len(b.lanesZ)-1] {
+			t.Errorf("%v: depth %v..%v doesn't cover the lanes", c.name, sys.zmin, sys.zmax)
+		}
+		b.restoreStage()
+	}
+	// zscale replaces the stage's depth scale for the lanes, and is restored with the stage
+	lv := BrawlerLevel{lanes: 2, topbound: -40, botbound: 0, hasBounds: true, zScale: [2]float32{0.9, 1}, hasZScale: true}
+	b.level = &lv
+	stg := newStage(0, 0)
+	sys.stage = stg
+	b.setupLanes()
+	if stg.stageCamera.topz != -40 || stg.stageCamera.botz != 0 || stg.stageCamera.ztopscale != 0.9 || stg.stageCamera.zbotscale != 1 {
+		t.Errorf("zscale: %+v", stg.stageCamera)
+	}
+	b.restoreStage()
+	if stg.stageCamera.topz != 0 || stg.stageCamera.botz != 50 || stg.stageCamera.ztopscale != 1 || stg.topbound != 0 {
+		t.Errorf("not restored: %+v, topbound %v", stg.stageCamera, stg.topbound)
+	}
+}
