@@ -6,6 +6,9 @@
 ;
 ; Moves of Kung Fu Man: x = light punch, y = strong punch, a = light kick,
 ; b = strong kick. Named commands (cmd:name) come from the character's .cmd.
+;
+; Without an attack turn, enemies circle their player (wait = surround, the
+; default with the director). wait = lane or wait = hover change that.
 
 ; Only uses light kicks, but attacks often
 [Behavior kicker]
@@ -54,6 +57,8 @@ combo    = 0
 cooldown = 40, 80
 retreat  = 40, 90
 hover    = 90, 130
+; Keeps its distance in front of the player while waiting instead of circling
+wait     = hover
 
 ; Heavy hitter with special moves
 [Behavior brute]
