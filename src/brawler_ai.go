@@ -416,6 +416,7 @@ type brawlerAI struct {
 	retarget     int32
 	hasToken     bool
 	hover        float32
+	hoverGoal    float32 // Distance hover drifts to
 	cooldown     int32
 	prog         []brawlerStep // Input sequence being performed
 	progStep     int
@@ -457,6 +458,7 @@ func (ai *brawlerAI) init(beh *BrawlerBehavior) {
 		target: -1,
 		// RandF32 excludes max+1, so this stays within the configured range
 		hover:      RandF32(beh.hover[0], Max(beh.hover[0], beh.hover[1]-1)),
+		hoverGoal:  -1,
 		cooldown:   Rand(0, 20),
 		flankLane:  -1,
 		cheat:      -1,
@@ -658,13 +660,7 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 		ai.laneCooldown--
 	}
 	ai.phaseTime++
-	// Waiting enemies keep changing their distance instead of standing still
-	if ai.stalkTime > 0 {
-		ai.stalkTime--
-	} else {
-		ai.hover = RandF32(ai.beh.hover[0], Max(ai.beh.hover[0], ai.beh.hover[1]-1))
-		ai.stalkTime = Rand(40, 100)
-	}
+	ai.stalk()
 
 	if b.aiContinue(f) || b.aiGuard(f) {
 		return f.in
@@ -686,6 +682,22 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 	b.aiMove(f, g.x)
 	return f.in
 }
+
+// Waiting enemies keep changing their distance instead of standing still. The distance drifts to a new
+// one now and then, so they don't jump in and out
+func (ai *brawlerAI) stalk() {
+	if ai.stalkTime > 0 {
+		ai.stalkTime--
+	} else {
+		ai.hoverGoal = RandF32(ai.beh.hover[0], Max(ai.beh.hover[0], ai.beh.hover[1]-1))
+		ai.stalkTime = Rand(40, 100)
+	}
+	if ai.hoverGoal >= 0 {
+		ai.hover += Clamp(ai.hoverGoal-ai.hover, -brawlerHoverDrift, brawlerHoverDrift)
+	}
+}
+
+const brawlerHoverDrift = 1 // Units per frame the waiting distance changes
 
 // Keep the current target for a while, then switch to the nearest player
 // With the director, the target it assigned
@@ -867,7 +879,7 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 	if f.t.ss.moveType == MT_H || f.t.ss.stateType == ST_L {
 		return false
 	}
-	// Hard limit: never more than AttackersPerPlayer enemies attacking the same player at once
+	// Hard limit: never more enemies attacking the same player at once than it has attack turns
 	if b.attackersOn(f.t, c) >= b.attackLimit(f.t) {
 		return false
 	}

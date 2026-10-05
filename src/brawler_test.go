@@ -945,3 +945,27 @@ func TestBrawlerNoSpawnWhileDown(t *testing.T) {
 		t.Errorf("queue changed while everyone is down: %+v", b.queue)
 	}
 }
+
+// The waiting distance drifts to a new one instead of jumping
+func TestBrawlerHoverDrift(t *testing.T) {
+	beh := newBrawlerBehavior("h")
+	beh.hover = [2]float32{60, 120}
+	var ai brawlerAI
+	ai.init(beh)
+	prev := ai.hover
+	changed := false
+	for i := 0; i < 1000; i++ {
+		ai.stalk()
+		if d := Abs(ai.hover - prev); d > brawlerHoverDrift+0.001 {
+			t.Fatalf("hover jumped by %v", d)
+		}
+		changed = changed || ai.hover != prev
+		if ai.hover < 60 || ai.hover > 120 {
+			t.Fatalf("hover out of range: %v", ai.hover)
+		}
+		prev = ai.hover
+	}
+	if !changed {
+		t.Error("hover never changes")
+	}
+}

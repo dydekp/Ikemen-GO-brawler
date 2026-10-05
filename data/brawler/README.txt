@@ -495,13 +495,14 @@ DROP-IN, REJOIN AND CONTINUE (arcade style, without coins)
   column: left/right picks the character, up/down the color, an attack
   button or start confirms (it also confirms by itself after 10 seconds).
   The character loads in the background while the fight goes on and
-  appears next to the team with a blinking "1P"/"2P"... marker, safe from
-  hits for a moment. The quick select offers the characters of the select
-  screen.
+  appears next to the team with a blinking "1P"/"2P"... marker. It can't be
+  hit for a moment and flickers while it's protected. The quick select
+  offers the characters of the select screen.
   A KO'd player rejoins the same way after a moment: picking the same
   character revives it right away, another one replaces it.
   When all players are down, a CONTINUE countdown gives everyone 10
   seconds to drop back in before the level is lost.
+  No new enemies spawn while everyone is down.
   Players who dropped in stay in the team for the following levels.
 
 
