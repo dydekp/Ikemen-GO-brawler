@@ -355,10 +355,6 @@ func (b *Brawler) placeRing(p brawlerDirPlayer, waiting []*Char) {
 		if depthR > 0 {
 			x, z = brawlerRingPoint(p.x, p.z, brawlerRingSlotAngle(int(ai.ringIndex), n, d.ringPhase[p.pn]), ai.hover, depthR)
 			z = b.clampDepth(z)
-			// Never right in front of the player in its own lane or depth: that spot would push through it
-			if Abs(x-p.x) < ai.hover*0.7 && b.sameDepthAt(z, p.z) {
-				z = b.otherDepth(p.z)
-			}
 		} else {
 			side := float32(1)
 			if brawlerX(c) < p.x {
@@ -366,8 +362,14 @@ func (b *Brawler) placeRing(p brawlerDirPlayer, waiting []*Char) {
 			}
 			x, z = p.x+side*(rowBase+float32(ai.ringIndex)*brawlerLineSpacing), p.z
 		}
+		// On the screen
 		if sys.xmax > sys.xmin {
 			x = Clamp(x, sys.xmin+margin, sys.xmax-margin)
+		}
+		// Never right in front of the player in its own lane or depth: that spot would push through it.
+		// Checked after keeping the spot on the screen, which can pull it next to a player at the edge
+		if depthR > 0 && Abs(x-p.x) < ai.hover*0.7 && b.sameDepthAt(z, p.z) {
+			z = b.otherDepth(p.z)
 		}
 		ai.anchorX, ai.anchorZ, ai.hasAnchor = x, z, true
 	}

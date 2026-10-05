@@ -719,3 +719,22 @@ func TestDirectorPlayerScale(t *testing.T) {
 		t.Errorf("without the director: %v", n)
 	}
 }
+
+// A player at the screen edge: a spot behind it gets pulled onto the screen, next to the player. It
+// must not end up in the player's lane
+func TestDirectorEdgeGuard(t *testing.T) {
+	lanes := []float32{-30, 0, 30}
+	b, list := directorFight(t, map[int]float32{0: -950}, []float32{-900}, lanes)
+	sys.xmin, sys.xmax = -1000, -680 // A 320 wide screen, the player 50 from its left edge
+	e := list[0]
+	e.bw.ai.hover = 100
+	b.director.ringDir[0] = 1
+	b.director.ringPhase[0] = math.Pi - brawlerRingSpeed // Spot straight behind the player (left)
+	b.placeRing(brawlerDirPlayer{pn: 0, x: -950, z: 0}, []*Char{e})
+	if e.bw.ai.anchorX < sys.xmin {
+		t.Errorf("spot off the screen: %v", e.bw.ai.anchorX)
+	}
+	if b.depthLane(e.bw.ai.anchorZ) == 1 {
+		t.Errorf("spot pulled next to the player in its lane: %v,%v", e.bw.ai.anchorX, e.bw.ai.anchorZ)
+	}
+}
