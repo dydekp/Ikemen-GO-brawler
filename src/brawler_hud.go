@@ -324,9 +324,8 @@ func (b *Brawler) drawBossBars(txt brawlerHudText) {
 	}
 }
 
-// One panel per seat (P1, P2, ...): the player's character, the quick select, a loading panel, or an
-// invitation to press start. Seats beyond the second only get a column once their player is in
-func (b *Brawler) drawSeats(txt brawlerHudText) {
+// HUD columns: two (P1 and P2), more once a 3rd or 4th player is in, never more than the seats
+func (b *Brawler) hudColumns() int {
 	n := b.seatCount()
 	cols := Min(2, n)
 	for k := 0; k < n; k++ {
@@ -334,6 +333,13 @@ func (b *Brawler) drawSeats(txt brawlerHudText) {
 			cols = Max(cols, k+1)
 		}
 	}
+	return cols
+}
+
+// One panel per seat (P1, P2, ...): the player's character, the quick select, a loading panel, or an
+// invitation to press start. Seats beyond the second only get a column once their player is in
+func (b *Brawler) drawSeats(txt brawlerHudText) {
+	cols := b.hudColumns()
 	for k := 0; k < cols; k++ {
 		l := brawlerHudLayout(k, cols)
 		phase, ref, pal, timer, _, errText := b.seatHud(k)

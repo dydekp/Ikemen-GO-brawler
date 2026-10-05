@@ -745,38 +745,43 @@ func (b *Brawler) spaceEnemies() {
 func (b *Brawler) bowlBodies() {
 	enemies := b.instances()
 	for _, c := range enemies {
-		st := &c.bw
-		flying := c.ss.moveType == MT_H && c.ghv.fallflag && c.bindTime == 0 && !c.isTargetBound()
-		if !flying {
-			st.bowledN = 0
+		b.bowlBody(c, enemies, b.knockDown)
+	}
+}
+
+// Let one flying body hit the enemies in its way: every hit enemy is passed to hit with the body's direction,
+// its speed and the damage, the body slows down with every hit and stops hitting when too slow
+func (b *Brawler) bowlBody(c *Char, enemies []*Char, hit func(e *Char, dir, speed float32, damage int32)) {
+	st := &c.bw
+	flying := c.ss.moveType == MT_H && c.ghv.fallflag && c.bindTime == 0 && !c.isTargetBound()
+	if !flying {
+		st.bowledN = 0
+		return
+	}
+	vx := c.vel[0] * c.facing * c.localscl // World units per frame
+	speed := Abs(vx)
+	// Bodies high in the air fly over the others
+	if speed < brawlerBowlMinSpeed || c.pos[1]*c.localscl < -brawlerBowlHeight {
+		return
+	}
+	for _, e := range enemies {
+		if e == c || !e.alive() || st.hasBowled(e.id) || e.ss.moveType == MT_H && e.ghv.fallflag {
 			continue
 		}
-		vx := c.vel[0] * c.facing * c.localscl // World units per frame
-		speed := Abs(vx)
-		// Bodies high in the air fly over the others
-		if speed < brawlerBowlMinSpeed || c.pos[1]*c.localscl < -brawlerBowlHeight {
+		if Abs(e.pos[2]*e.localscl-c.pos[2]*c.localscl) > brawlerBowlDepth {
 			continue
 		}
-		for _, e := range enemies {
-			if e == c || !e.alive() || st.hasBowled(e.id) || e.ss.moveType == MT_H && e.ghv.fallflag {
-				continue
-			}
-			if Abs(e.pos[2]*e.localscl-c.pos[2]*c.localscl) > brawlerBowlDepth {
-				continue
-			}
-			dx := brawlerX(e) - brawlerX(c)
-			reach := c.size.standbox[2]*c.localscl + e.size.standbox[2]*e.localscl + speed
-			if Abs(dx) > reach || dx != 0 && Sign(dx) != Sign(vx) {
-				continue
-			}
-			damage := int32(speed * sys.cfg.Brawler.BowlDamage)
-			b.knockDown(e, Sign(vx), speed, damage)
-			st.addBowled(e.id)
-			c.vel[0] *= sys.cfg.Brawler.BowlSlowdown
-			speed *= sys.cfg.Brawler.BowlSlowdown
-			if speed < brawlerBowlMinSpeed {
-				break
-			}
+		dx := brawlerX(e) - brawlerX(c)
+		reach := c.size.standbox[2]*c.localscl + e.size.standbox[2]*e.localscl + speed
+		if Abs(dx) > reach || dx != 0 && Sign(dx) != Sign(vx) {
+			continue
+		}
+		hit(e, Sign(vx), speed, int32(speed*sys.cfg.Brawler.BowlDamage))
+		st.addBowled(e.id)
+		c.vel[0] *= sys.cfg.Brawler.BowlSlowdown
+		speed *= sys.cfg.Brawler.BowlSlowdown
+		if speed < brawlerBowlMinSpeed {
+			break
 		}
 	}
 }

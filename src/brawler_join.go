@@ -165,37 +165,49 @@ func brawlerJoinRepeatFire(held int32) bool {
 // Drop-in and rejoin handling, every frame of a level
 func (b *Brawler) stepJoin() {
 	for k := 0; k < b.seatCount(); k++ {
-		s := &brawlerJoin.seats[k]
-		held := s.poll(k)
-		if s.errTime > 0 {
-			s.errTime--
+		b.stepSeat(k, brawlerJoin.seats[k].poll(k))
+	}
+	b.stepContinue()
+	b.stepSpawnTimers()
+}
+
+// One seat: held are the frames each input has been held (1 = pressed this frame)
+func (b *Brawler) stepSeat(k int, held [14]int32) {
+	s := &brawlerJoin.seats[k]
+	if s.errTime > 0 {
+		s.errTime--
+	}
+	switch s.phase {
+	case bsLoading:
+		b.pollLoad(k)
+	case bsSelect:
+		b.stepSelect(k, held)
+	default:
+		c := b.seatChar(k)
+		if c != nil && c.alive() {
+			s.koTime = 0
+			return
 		}
-		switch s.phase {
-		case bsLoading:
-			b.pollLoad(k)
-		case bsSelect:
-			b.stepSelect(k, held)
-		default:
-			c := b.seatChar(k)
-			if c != nil && c.alive() {
-				s.koTime = 0
-				continue
-			}
-			if c != nil {
-				s.koTime++
-			}
-			if held[10] == 1 && b.canJoin() && (c == nil || s.koTime >= brawlerJoinRejoinWait) {
-				b.openSelect(k, c)
-			}
+		if c != nil {
+			s.koTime++
+		}
+		if held[10] == 1 && b.canJoin() && (c == nil || s.koTime >= brawlerJoinRejoinWait) {
+			b.openSelect(k, c)
 		}
 	}
-	// Continue countdown while every player is down
+}
+
+// Continue countdown while every player is down
+func (b *Brawler) stepContinue() {
 	if len(b.players(true)) == 0 && sys.roundState() == 2 && !b.complete && !b.joinBusy() {
 		b.downTime++
 	} else {
 		b.downTime = 0
 	}
-	// Spawn markers and protection
+}
+
+// Player markers and spawn protection run out
+func (b *Brawler) stepSpawnTimers() {
 	for _, c := range b.players(false) {
 		if sys.roundState() == 2 && c.bw.spawnTime > 0 {
 			c.bw.spawnTime--

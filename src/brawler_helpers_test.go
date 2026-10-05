@@ -12,11 +12,13 @@ func brawlerTestMode(t *testing.T, lanes ...float32) *Brawler {
 	oldIntro, oldPost, oldFinish := sys.intro, sys.postMatchFlg, sys.finishType
 	oldXmin, oldXmax, oldZmin, oldZmax := sys.xmin, sys.xmax, sys.zmin, sys.zmax
 	oldRound := sys.fightScreen.round
+	oldStage := sys.stage
 	t.Cleanup(func() {
 		sys.gameMode, sys.cfg.Brawler = oldMode, oldCfg
 		sys.intro, sys.postMatchFlg, sys.finishType = oldIntro, oldPost, oldFinish
 		sys.xmin, sys.xmax, sys.zmin, sys.zmax = oldXmin, oldXmax, oldZmin, oldZmax
 		sys.fightScreen.round = oldRound
+		sys.stage = oldStage
 	})
 	sys.gameMode = "brawler"
 	sys.cfg.Brawler.LaneButton, sys.cfg.Brawler.FacingButton = "d", "w"
@@ -32,6 +34,9 @@ func brawlerTestMode(t *testing.T, lanes ...float32) *Brawler {
 	if sys.fightScreen.round == nil {
 		sys.fightScreen.round = &FightScreenRound{}
 	}
+	if sys.stage == nil {
+		sys.stage = &Stage{localscl: 1}
+	}
 	sys.intro, sys.postMatchFlg, sys.finishType = 0, false, FT_NotYet
 	sys.xmin, sys.xmax = -160, 160
 	sys.zmin, sys.zmax = 0, 0
@@ -44,10 +49,10 @@ func brawlerTestMode(t *testing.T, lanes ...float32) *Brawler {
 // Replace the player and enemy slots for a test
 func brawlerTestChars(t *testing.T) {
 	t.Helper()
-	oldChars, oldList, oldCgi := sys.chars, sys.charList.runOrder, sys.cgi
-	t.Cleanup(func() { sys.chars, sys.charList.runOrder, sys.cgi = oldChars, oldList, oldCgi })
+	oldChars, oldList, oldCgi := sys.chars, sys.charList, sys.cgi
+	t.Cleanup(func() { sys.chars, sys.charList, sys.cgi = oldChars, oldList, oldCgi })
 	sys.chars = [len(sys.chars)][]*Char{}
-	sys.charList.runOrder = nil
+	sys.charList = CharList{idMap: map[int32]*Char{}}
 }
 
 // A player character in slot pn, standing at x on a lane
