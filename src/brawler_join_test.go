@@ -292,3 +292,51 @@ func TestBrawlerJoinDropLoaded(t *testing.T) {
 		t.Error("loaded character kept")
 	}
 }
+
+// Where a player drops in or revives
+func TestBrawlerJoinSpawnSpot(t *testing.T) {
+	b := brawlerTestMode(t, -30, 0, 30)
+	brawlerTestChars(t)
+	sys.xmin, sys.xmax = -150, 150
+	c := &Char{playerNo: 2, localscl: 1}
+
+	// Nobody around: the middle lane, at the left
+	if x, lane, _ := b.spawnSpot(c); lane != 1 || x > -100 {
+		t.Errorf("empty: x %v lane %v", x, lane)
+	}
+	// A teammate standing: right behind it, on its lane
+	p := brawlerTestPlayer(b, 0, 40, 2)
+	if x, lane, _ := b.spawnSpot(c); x != -10 || lane != 2 {
+		t.Errorf("behind the teammate: x %v lane %v", x, lane)
+	}
+	// Nobody standing, enemies crowding the left: the right side, facing them
+	p.setSCF(SCF_ko)
+	for i, x := range []float32{-140, -120, -100} {
+		brawlerTestEnemy(b, int32(10+i), x, 1)
+	}
+	x, _, facing := b.spawnSpot(c)
+	if x < 100 || facing != -1 {
+		t.Errorf("away from the crowd: x %v facing %v", x, facing)
+	}
+	// Enemies everywhere on the middle lane: another lane
+	for i, x := range []float32{0, 130} {
+		brawlerTestEnemy(b, int32(20+i), x, 1)
+	}
+	if _, lane, _ := b.spawnSpot(c); lane == 1 {
+		t.Error("revived on the crowded lane")
+	}
+}
+
+// The order lanes are tried in: the middle one first, then outwards
+func TestBrawlerJoinSpawnLaneOrder(t *testing.T) {
+	b := brawlerTestMode(t, -40, -20, 0, 20, 40)
+	brawlerTestChars(t)
+	c := &Char{playerNo: 2, localscl: 1}
+	if _, lane, _ := b.spawnSpot(c); lane != 2 {
+		t.Errorf("5 lanes, nobody around: lane %v, want the middle (2)", lane)
+	}
+	one := brawlerTestMode(t, 0)
+	if _, lane, _ := one.spawnSpot(c); lane != 0 {
+		t.Errorf("1 lane: %v", lane)
+	}
+}

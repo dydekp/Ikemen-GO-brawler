@@ -17,6 +17,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -432,33 +433,17 @@ func (b *Brawler) revive(c *Char, pal int32) {
 	c.unsetSCF(SCF_ko | SCF_over_ko | SCF_over_alive | SCF_disabled | SCF_standby)
 	c.ghv.fallflag = false
 
-	// Where the team is: behind the rearmost alive player, on the lane of the nearest one
-	x := sys.xmin + (sys.xmax-sys.xmin)*0.12
-	lane := int32(len(b.lanesZ) / 2)
-	best := float32(-1)
-	for _, p := range b.players(true) {
-		if p == c {
-			continue
-		}
-		if d := brawlerX(p) - sys.xmin; best < 0 || d < best {
-			best = d
-			x = Max(sys.xmin+24, brawlerX(p)-50)
-			lane = p.bw.targetLane
-		}
-	}
-	if len(b.lanesZ) == 0 {
-		lane = 0
-	}
+	x, lane, facing := b.spawnSpot(c)
 	c.setPosX(x/c.localscl, true)
 	c.setPosY(0, true)
 	if int(lane) < len(b.lanesZ) {
 		c.setPosZ(b.lanesZ[lane]/c.localscl, true)
 	}
 	c.vel = [3]float32{}
-	c.setFacing(1)
+	c.setFacing(facing)
 	c.selfState(0, -1, -1, 1, "")
 	c.setCtrl(true)
-	c.bw = brawlerChar{initialized: true, aiLane: -1, lane: lane, targetLane: lane, desiredFace: 1,
+	c.bw = brawlerChar{initialized: true, aiLane: -1, lane: lane, targetLane: lane, desiredFace: facing,
 		spawnTime: brawlerSpawnBlink, invulTime: brawlerSpawnInvul}
 }
 
@@ -550,4 +535,55 @@ func (b *Brawler) joinBusy() bool {
 // A character that just dropped in flickers while it can't be hit, like in arcade games
 func (b *Brawler) spawnFlicker(c *Char) bool {
 	return b.active() && c.bw.invulTime > 0 && (c.bw.invulTime/3)%2 == 1
+}
+
+// Where a character drops in or revives: behind the rearmost player that is still standing, on its
+// lane. With nobody standing, the spot on the screen farthest from the enemies (left, middle or right on
+// any lane), facing the closest enemy
+func (b *Brawler) spawnSpot(c *Char) (x float32, lane int32, facing float32) {
+	facing = 1
+	best := float32(-1)
+	for _, p := range b.players(true) {
+		if p == c {
+			continue
+		}
+		if d := brawlerX(p) - sys.xmin; best < 0 || d < best {
+			best = d
+			x = Max(sys.xmin+24, brawlerX(p)-50)
+			lane = p.bw.targetLane
+		}
+	}
+	if best >= 0 {
+		return x, lane, facing
+	}
+	// Lanes from the middle outwards, so that ties (no enemies around) pick the middle lane
+	n := Max(1, int32(len(b.lanesZ)))
+	var lanes []int32
+	for i := int32(0); i < n; i++ {
+		lanes = append(lanes, (n/2+(i+1)/2*(1-2*(i%2))+n)%n)
+	}
+	bestScore := float32(-1)
+	for _, frac := range []float32{0.12, 0.5, 0.88} {
+		cx := sys.xmin + (sys.xmax-sys.xmin)*frac
+		for _, l := range lanes {
+			// Distance to the closest standing enemy; a lane apart counts like brawlerDist
+			score, dir := float32(math.MaxFloat32), float32(1)
+			for _, e := range b.instances() {
+				if !e.alive() {
+					continue
+				}
+				d := Abs(brawlerX(e)-cx) + float32(Abs(e.bw.targetLane-l))*brawlerLaneWeight
+				if d < score {
+					score, dir = d, Sign(brawlerX(e)-cx)
+				}
+			}
+			if score > bestScore {
+				bestScore, x, lane, facing = score, cx, l, dir
+				if facing == 0 {
+					facing = 1
+				}
+			}
+		}
+	}
+	return x, lane, facing
 }
