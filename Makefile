@@ -68,6 +68,11 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/video_ffmpeg.go
 	
 
+# Brawler mode tests (go vet is off: it reports issues in upstream files)
+test-brawler:
+	GOEXPERIMENT=arenas go test -vet=off -run Brawler ./src
+.PHONY: test-brawler
+
 # Windows 64-bit target
 Ikemen_GO.exe: ${srcFiles}
 	bash ./build/build.sh Win64
