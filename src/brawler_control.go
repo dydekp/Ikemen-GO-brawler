@@ -183,15 +183,28 @@ func (b *Brawler) sideLane(lane int32) int32 {
 
 // Start a lane switching jump if one was requested. Called with the hardcoded keys while the char has control
 func (b *Brawler) tryLaneJump(c *Char) bool {
-	if !b.lanesActive() {
+	target, ok := b.laneJumpTarget(c)
+	if !ok {
 		return false
+	}
+	b.startLaneJump(&c.bw, target)
+	c.changeState(40, -1, -1, "")
+	return true
+}
+
+// Lane a requested lane jump goes to: the player's lane button (one lane up, see laneCandidate) or the
+// AI's lane. The request is used up even when the jump can't go anywhere
+func (b *Brawler) laneJumpTarget(c *Char) (int32, bool) {
+	if !b.lanesActive() {
+		return 0, false
 	}
 	st := b.charState(c)
 	if st == nil || st.laneJump || (st.laneBuffer <= 0 && st.aiLane < 0) {
-		return false
+		return 0, false
 	}
+	// Only from standing or crouching, like a normal jump
 	if c.asf(ASF_nojump) || (c.ss.stateType != ST_S && c.ss.stateType != ST_C) || sys.roundState() != 2 {
-		return false
+		return 0, false
 	}
 	target := b.laneCandidate(st.lane, 1)
 	if st.aiLane >= 0 {
@@ -199,17 +212,18 @@ func (b *Brawler) tryLaneJump(c *Char) bool {
 	}
 	st.laneBuffer = 0
 	st.aiLane = -1
-	if target == st.lane {
-		return false
-	}
+	return target, target != st.lane
+}
+
+// Lane jump state at the start of the jump. Further lane button presses can change the target lane
+// for LaneSelectWindow frames
+func (b *Brawler) startLaneJump(st *brawlerChar, target int32) {
 	st.laneJump = true
 	st.airborne = false
 	st.startup = 0
 	st.lanePresses = 1
 	st.targetLane = target
 	st.laneWindow = sys.cfg.Brawler.LaneSelectWindow
-	c.changeState(40, -1, -1, "")
-	return true
 }
 
 // Move a character in depth towards its lane. Called right after the position update

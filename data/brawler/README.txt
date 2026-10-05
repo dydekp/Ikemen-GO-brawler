@@ -462,6 +462,10 @@ assist, so holding one of them never breaks a character's combos.
 LaneButton (default "d": LB on gamepads, Q / [ on the default P1 / P2
 keyboard layouts. The menu button "m" (Select/Back) can't be used with the
 default screenpacks, which open the pause menu with it)
+Keyboards: the default P2 keys for the lane and facing buttons are [ and ],
+which only exist as plain keys on US layouts. On other layouts (German
+QWERTZ: [ is AltGr+8) bind other keys in [Keys_P2] d and w of the config,
+for example o and p.
   The depth of the stage is split into lanes, like in Guardian Heroes.
   Pressing the button makes the character jump to another lane. The jump
   itself is the character's normal jump, so it may go forward, backward or

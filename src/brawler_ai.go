@@ -430,6 +430,7 @@ type brawlerAI struct {
 	phase        int32
 	phaseTime    int32
 	phaseLen     int32   // Duration of timed phases, rolled when the phase starts
+	freeTime     int32   // Frames of the current phase the enemy could move (had control, wasn't attacking)
 	side         float32 // Flank side relative to the target: -1 left, 1 right
 	flankLane    int32
 	cheat        int32   // Command index to perform this frame, -1 if none
@@ -471,7 +472,7 @@ func (ai *brawlerAI) init(beh *BrawlerBehavior) {
 }
 
 func (ai *brawlerAI) setPhase(phase, length int32) {
-	ai.phase, ai.phaseTime, ai.phaseLen = phase, 0, length
+	ai.phase, ai.phaseTime, ai.phaseLen, ai.freeTime = phase, 0, length, 0
 }
 
 func brawlerRand(r [2]int32) int32 {
@@ -660,6 +661,9 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 		ai.laneCooldown--
 	}
 	ai.phaseTime++
+	if c.ctrl() && c.ss.moveType != MT_A {
+		ai.freeTime++
+	}
 	ai.stalk()
 
 	if b.aiContinue(f) || b.aiGuard(f) {
@@ -802,7 +806,8 @@ func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
 		case bpRetreat:
 			g.x = f.tX - f.toward*Max(beh.jumpDist+60, 150)
 			g.canAttack = false
-			if ai.phaseTime > ai.phaseLen || f.adx > beh.jumpDist+50 {
+			// Retreat time counts frames the enemy can move, not the end of its attack
+			if ai.freeTime > ai.phaseLen || f.adx > beh.jumpDist+50 {
 				ai.setPhase(bpApproach, 0)
 			}
 		}
@@ -813,7 +818,8 @@ func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
 		if ai.phase == bpRetreat {
 			g.x = f.tX - f.toward*ai.hover*1.5
 			g.canAttack = false
-			if ai.phaseTime > ai.phaseLen {
+			// Retreat time counts frames the enemy can move, not the end of its attack and combo
+			if ai.freeTime > ai.phaseLen {
 				ai.setPhase(bpApproach, 0)
 			}
 			return g
