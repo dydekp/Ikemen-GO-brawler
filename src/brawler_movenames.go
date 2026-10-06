@@ -22,6 +22,7 @@ package main
 // press gives.
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -38,11 +39,18 @@ type brawlerMoveNames struct {
 	states   map[int32]string               // State number -> move name
 	commands map[string][]brawlerNamedState // Command -> moves started with it
 	buttons  map[byte]string                // Button -> name of its single button command
+	inputs   map[string]string              // Command -> its input (first definition)
+	unnamed  map[int32][]string             // State started by a block without a name -> its commands
+}
+
+func newBrawlerMoveNames() *brawlerMoveNames {
+	return &brawlerMoveNames{states: map[int32]string{}, commands: map[string][]brawlerNamedState{}, buttons: map[byte]string{},
+		inputs: map[string]string{}, unnamed: map[int32][]string{}}
 }
 
 // Move names of a character, from its .def file
 func loadBrawlerMoveNames(def string) *brawlerMoveNames {
-	n := &brawlerMoveNames{states: map[int32]string{}, commands: map[string][]brawlerNamedState{}, buttons: map[byte]string{}}
+	n := newBrawlerMoveNames()
 	text, err := LoadText(def)
 	if err != nil {
 		return n
@@ -109,16 +117,26 @@ func (n *brawlerMoveNames) parse(text string) {
 		}
 		switch cur.kind {
 		case "command":
+			if _, ok := n.inputs[cur.cmdName]; !ok && cur.cmdName != "" {
+				n.inputs[cur.cmdName] = cur.cmdDef
+			}
 			if b := brawlerSingleButton(cur.cmdDef); b != 0 && cur.cmdName != "" {
 				if _, ok := n.buttons[b]; !ok {
 					n.buttons[b] = cur.cmdName
 				}
 			}
 		case "state-1":
-			if !cur.changeState || cur.label == "" {
+			if !cur.changeState {
 				break
 			}
 			v, err := strconv.Atoi(cur.value)
+			if cur.label == "" {
+				// No name: the input that starts it can describe it
+				if _, ok := n.unnamed[int32(v)]; err == nil && !ok && len(cur.commands) > 0 {
+					n.unnamed[int32(v)] = cur.commands
+				}
+				break
+			}
 			if err != nil {
 				v = -1 // Computed state number: the name still belongs to the command
 			} else if _, ok := n.states[int32(v)]; !ok {
@@ -255,4 +273,42 @@ func (n *brawlerMoveNames) button(b byte) string {
 		return moves[0].name
 	}
 	return ""
+}
+
+// Name of a state for showing what happened: its name, else the input of the unnamed block that starts it
+// ("State 1220 (z x6)" for a move started by mashing z), else just its number
+func (n *brawlerMoveNames) describe(no int32) string {
+	if name := n.state(no); name != "" {
+		return name
+	}
+	if n != nil {
+		if cmds := n.unnamed[no]; len(cmds) > 0 {
+			// The first command by its input, conditions like holdfwd by name
+			input := n.inputs[cmds[0]]
+			if input == "" {
+				input = cmds[0]
+			}
+			parts := append([]string{brawlerInputText(input)}, cmds[1:]...)
+			return fmt.Sprintf("State %v (%v)", no, strings.Join(parts, " + "))
+		}
+	}
+	return fmt.Sprintf("State %v", no)
+}
+
+// A command's input in short: the same button repeated becomes "z x6"
+func brawlerInputText(def string) string {
+	parts := strings.Split(def, ",")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	if len(parts) > 1 {
+		same := true
+		for _, p := range parts[1:] {
+			same = same && p == parts[0]
+		}
+		if same {
+			return fmt.Sprintf("%v x%v", parts[0], len(parts))
+		}
+	}
+	return strings.Join(parts, " ")
 }

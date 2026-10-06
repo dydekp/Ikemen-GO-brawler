@@ -528,7 +528,11 @@ CONTROLS SCREEN AND BUTTON LAYOUTS
     changeState). A button whose single press starts no named move
     shows "-".
   - The character performs whatever is pressed. The move it goes to is
-    shown at the bottom and replaces the button's entry in the table.
+    shown at the bottom. The table keeps what a single press does; only
+    a "-" entry is filled in with the move the button started. Moves
+    without a name in the character's files show their state number and
+    input, e.g. "State 1220 (z x5)" for a move started by mashing z, or
+    "State 830 (z + holdfwd)".
   - START switches to editing: up/down picks a button, a or x confirms,
     and the next button pressed gives that button from then on (START
     cancels). The button that gave it so far takes over what the pressed

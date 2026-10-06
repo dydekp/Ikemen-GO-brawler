@@ -127,7 +127,7 @@ func TestBrawlerButtonsParseErrors(t *testing.T) {
 }
 
 func TestBrawlerMoveNamesCNS(t *testing.T) {
-	n := &brawlerMoveNames{states: map[int32]string{}, commands: map[string][]brawlerNamedState{}, buttons: map[byte]string{}}
+	n := newBrawlerMoveNames()
 	n.parse(`
 [Command]
 name = "x"
@@ -179,7 +179,7 @@ trigger1 = command = "x"
 }
 
 func TestBrawlerMoveNamesZSS(t *testing.T) {
-	n := &brawlerMoveNames{states: map[int32]string{}, commands: map[string][]brawlerNamedState{}, buttons: map[byte]string{}}
+	n := newBrawlerMoveNames()
 	n.buttons['a'] = "a"
 	n.parseZSS(`
 [StateDef 200; type: S;]
@@ -527,5 +527,83 @@ func TestBrawlerControlsBottomLine(t *testing.T) {
 	s.msgTime, s.mode, s.cursor = 0, bcWait, 0
 	if !strings.Contains(s.bottomLine(), "button for a") {
 		t.Fatalf("wait hint: %q", s.bottomLine())
+	}
+}
+
+// Moves without a name are described by their input (Dulton's rush: z mashed six times)
+func TestBrawlerMoveNamesUnnamed(t *testing.T) {
+	n := newBrawlerMoveNames()
+	n.parse(`
+[Command]
+name = "opz"
+command = z, z, z, z, z, z
+[Command]
+name = "qcf"
+command = ~D, DF, F, x
+
+[State -1, ]
+type = ChangeState
+value = 1220
+triggerall = command = "opz"
+trigger1 = var(1)
+
+[State -1, ]
+type = ChangeState
+value = 830
+triggerall = command = "z"
+trigger1 = command = "holdfwd"
+
+[State -1]
+type = ChangeState
+value = 1000
+trigger1 = command = "qcf"
+`)
+	if got := n.describe(1220); got != "State 1220 (z x6)" {
+		t.Errorf("mash move: %q", got)
+	}
+	if got := n.describe(1000); got != "State 1000 (~D DF F x)" {
+		t.Errorf("motion move: %q", got)
+	}
+	if got := n.describe(830); got != "State 830 (z + holdfwd)" {
+		t.Errorf("move with a condition: %q", got)
+	}
+	if got := n.describe(5); got != "State 5" || n.state(1220) != "" {
+		t.Errorf("unknown state: %q", got)
+	}
+	var none *brawlerMoveNames
+	if none.describe(7) != "State 7" {
+		t.Errorf("no names: %q", none.describe(7))
+	}
+}
+
+// The table keeps a button's single press move; other moves it starts only show at the bottom
+func TestBrawlerControlsTableKeepsSinglePress(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	old := brawlerControls
+	t.Cleanup(func() { brawlerControls = old })
+	c := brawlerTestPlayer(b, 0, 0, 0)
+	s := &brawlerControls
+	*s = brawlerControlsState{open: true, watchBtn: -1, layout: brawlerIdentityMap()}
+	s.names = newBrawlerMoveNames()
+	s.names.parse("[Command]\nname = \"z\"\ncommand = z\n[State -1, Light Kick]\ntype = ChangeState\nvalue = 220\ntrigger1 = command = \"z\"\n")
+	zi := strings.IndexByte(brawlerLayoutButtons, 'z')
+	ci := strings.IndexByte(brawlerLayoutButtons, 'c')
+	var held [14]int32
+	held[brawlerTestBtn('z')] = 1
+	s.watch(0)
+	b.controlsInput(c, held)
+	s.watch(1220)
+	if s.action != "State 1220" || s.buttonAction(zi) != "Light Kick" {
+		t.Fatalf("mash: bottom %q, table %q", s.action, s.buttonAction(zi))
+	}
+	// A button without a known move learns what it did
+	held = [14]int32{}
+	held[brawlerTestBtn('c')] = 1
+	s.watch(0)
+	b.controlsInput(c, held)
+	s.watch(240)
+	if s.buttonAction(ci) != "State 240" {
+		t.Fatalf("unknown button: table %q", s.buttonAction(ci))
 	}
 }

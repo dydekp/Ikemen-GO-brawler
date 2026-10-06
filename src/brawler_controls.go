@@ -266,7 +266,8 @@ func (b *Brawler) saveLayout(msg string) {
 	s.message, s.msgTime = msg, brawlerControlsShow
 }
 
-// After a press, the state the character goes to names the move. Runs every frame with the character's state
+// After a press, the state the character goes to names the move (shown at the bottom). Runs every frame
+// with the character's state
 func (s *brawlerControlsState) watch(state int32) {
 	s.lastState = state
 	if s.watchBtn < 0 {
@@ -276,10 +277,14 @@ func (s *brawlerControlsState) watch(state int32) {
 	// Unnamed basic states (standing, walking, ...) aren't moves
 	name := s.names.state(state)
 	if name == "" && state >= brawlerFirstAttackState {
-		name = fmt.Sprintf("State %v", state)
+		name = s.names.describe(state)
 	}
 	if state != s.watchFrom && name != "" {
-		s.learned[s.watchBtn] = name
+		// The table shows what a single press does. Only buttons without a known move learn it here: a
+		// mashed or directional variant would replace it back and forth
+		if s.names.button(brawlerLayoutButtons[s.watchBtn]) == "" {
+			s.learned[s.watchBtn] = name
+		}
 		s.action, s.actionTime = name, brawlerControlsShow
 		s.watchBtn = -1
 		return
