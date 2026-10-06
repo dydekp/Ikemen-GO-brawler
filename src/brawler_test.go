@@ -996,3 +996,22 @@ func TestBrawlerLevelTypos(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// Between waves there's no P2. tag.zss turned auto turning off for every player whose P2 check came out true,
+// and with no P2 its redirects are undefined (0), which passed the Tag run order fix: players couldn't turn
+// until the next wave. Its checks must only apply to a Tag team P2
+func TestBrawlerTagStatesNeedTagP2(t *testing.T) {
+	src, err := os.ReadFile("../data/tag.zss")
+	if err != nil {
+		t.Skip(err)
+	}
+	text := strings.ReplaceAll(string(src), "\r", "")
+	i := strings.Index(text, "assertSpecial{flag: noAutoTurn; flag2: noFaceP2}")
+	if i < 0 {
+		t.Fatal("tag.zss: noAutoTurn assertion not found")
+	}
+	cond := text[strings.LastIndex(text[:i], "\tif "):i]
+	if !strings.Contains(cond, "if p2, teamMode = Tag && (") {
+		t.Fatalf("tag.zss: the noAutoTurn condition must require a Tag team P2 first:\n%s", cond)
+	}
+}
