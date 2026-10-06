@@ -495,6 +495,12 @@ FacingButton (default "w")
 
 Enemies always face the nearest player.
 
+Some characters only start a move when the opponent is far enough away
+(for example "p2bodydist X > 20" on a far kick). In a fight there's
+always an opponent; in brawler mode there may be none (between waves).
+A player without an opponent counts as having one far ahead, so those
+moves still work instead of doing nothing.
+
 DROP-IN, REJOIN AND CONTINUE (arcade style, without coins)
   Every player up to [Config] Players (max. 4) can join while a level is
   being fought: press start. A quick select opens in the player's HUD
@@ -524,10 +530,17 @@ CONTROLS SCREEN AND BUTTON LAYOUTS
   - The character performs whatever is pressed. The move it goes to is
     shown at the bottom and replaces the button's entry in the table.
   - START switches to editing: up/down picks a button, a or x confirms,
-    and the next button pressed gives that button from then on. The
-    button that gave it so far takes over what the pressed one gave, so
-    no button gets lost. "Default layout" undoes all changes, "Done" (or
-    START) goes back to trying the buttons.
+    and the next button pressed gives that button from then on (START
+    cancels). The button that gave it so far takes over what the pressed
+    one gave, so no button gets lost. "Default layout" undoes all
+    changes, "Done" (or START) goes back to trying the buttons.
+  - The screen's own buttons (START, up/down, a / x, pause) are the
+    controller's, whatever the layout, and Start itself can't be moved,
+    so no layout can lock you out. Layouts saved with a moved Start get
+    it back when loaded.
+  - The character is alone on this screen: frozen enemies nearby don't
+    change what its buttons do (moves that depend on the distance to the
+    opponent act as if it were far away).
   - The pause button closes the screen. The character goes back to where
     it stood, and the fight goes on.
   Layouts are kept per character and per controller: a gamepad model (two

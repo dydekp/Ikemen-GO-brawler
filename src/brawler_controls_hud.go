@@ -108,7 +108,7 @@ func (s *brawlerControlsState) bottomLine() string {
 	case s.mode == bcEdit:
 		return "UP/DOWN: choose   a / x: rebind   START: back"
 	}
-	return fmt.Sprintf("Press the button that should give %v", brawlerButtonLabel(s.cursor))
+	return fmt.Sprintf("Press the button for %v   START: cancel", brawlerButtonLabel(s.cursor))
 }
 
 // Cut a text to n characters

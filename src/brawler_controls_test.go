@@ -317,8 +317,8 @@ func TestBrawlerControlsModes(t *testing.T) {
 	}
 }
 
-// The character's start button opens edit mode, wherever the layout puts it
-func TestBrawlerControlsStartFollowsLayout(t *testing.T) {
+// START is the controller's own start, whatever the layout: no layout can lock the screen
+func TestBrawlerControlsStartFixed(t *testing.T) {
 	b := brawlerTestMode(t)
 	brawlerTestChars(t)
 	brawlerTestLayouts(t)
@@ -327,18 +327,102 @@ func TestBrawlerControlsStartFollowsLayout(t *testing.T) {
 	c := brawlerTestPlayer(b, 0, 0, 0)
 	s := &brawlerControls
 	*s = brawlerControlsState{open: true, watchBtn: -1, layout: brawlerIdentityMap()}
-	s.layout.rebind(strings.IndexByte(brawlerLayoutButtons, 's'), strings.IndexByte(brawlerLayoutButtons, 'c'))
-	var held [14]int32
-	held[10] = 1 // Raw start now gives c
-	b.controlsInput(c, held)
-	if s.mode != bcPlay {
-		t.Fatalf("raw start opened edit mode although it gives c")
+	press := func(idx int) {
+		var held [14]int32
+		held[idx] = 1
+		b.controlsInput(c, held)
 	}
-	held = [14]int32{}
-	held[brawlerTestBtn('c')] = 1
-	b.controlsInput(c, held)
+	press(brawlerRawStart)
 	if s.mode != bcEdit {
-		t.Fatalf("the button giving start didn't open edit mode")
+		t.Fatalf("start didn't open edit mode")
+	}
+	// The cursor skips the Start row both ways
+	s.cursor = brawlerLayoutStart - 1
+	press(1)
+	if s.cursor != brawlerLayoutStart+1 {
+		t.Fatalf("down from the row above start: cursor %v", s.cursor)
+	}
+	press(0)
+	if s.cursor != brawlerLayoutStart-1 {
+		t.Fatalf("up from the row below start: cursor %v", s.cursor)
+	}
+	// Start can't be bound to another button: it cancels the wait
+	press(4)
+	if s.mode != bcWait {
+		t.Fatalf("confirm: mode %v", s.mode)
+	}
+	press(brawlerRawStart)
+	if s.mode != bcEdit || !s.layout.isIdentity() {
+		t.Fatalf("start while waiting: mode %v layout %v", s.mode, s.layout)
+	}
+	// Even a layout that moved start opens edit mode with the controller's start
+	s.mode = bcPlay
+	s.layout = brawlerIdentityMap()
+	s.layout.rebind(brawlerLayoutStart, 2)
+	press(brawlerRawStart)
+	if s.mode != bcEdit {
+		t.Fatalf("moved start locked the screen")
+	}
+}
+
+// Layouts that moved start (older versions, hand edits) get it back when loaded
+func TestBrawlerButtonsKeepStart(t *testing.T) {
+	var l brawlerLayouts
+	if err := l.parse("[kfm.def | pad:1]\ns = c\nc = s\nx = a\na = x\n"); err != nil {
+		t.Fatal(err)
+	}
+	m := l.maps[brawlerLayoutKey("kfm.def", "pad:1")]
+	if m[brawlerLayoutStart] != brawlerLayoutStart || m.source(brawlerLayoutStart) != brawlerLayoutStart {
+		t.Fatalf("start not repaired: %v", m)
+	}
+	if m[3] != 0 || m[0] != 3 {
+		t.Fatalf("other buttons changed: %v", m)
+	}
+	if err := l.parse("[kfm.def | pad:1]\ns = c\nc = s\n"); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := l.maps[brawlerLayoutKey("kfm.def", "pad:1")]; ok {
+		t.Fatalf("a layout that only moved start must become the default one")
+	}
+}
+
+// Moves gated on the distance to P2 work without an opponent (between waves, controls screen)
+func TestBrawlerControlsNoOpponent(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	old, oldBrawler := brawlerControls, sys.brawler
+	t.Cleanup(func() { brawlerControls, sys.brawler = old, oldBrawler })
+	sys.brawler = *b
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	e := &Char{teamside: 1}
+	if v := b.p2Dist(p, 0, BytecodeUndefined()); v.ToF() != brawlerNoOpponentDist {
+		t.Fatalf("no P2: X distance %v", v.ToF())
+	}
+	if v := b.p2Dist(p, 2, BytecodeUndefined()); v.ToF() != 0 {
+		t.Fatalf("no P2: Z distance %v", v.ToF())
+	}
+	if v := b.p2Dist(p, 0, BytecodeFloat(12)); v.ToF() != 12 {
+		t.Fatalf("a real distance must stay: %v", v.ToF())
+	}
+	if v := b.p2Dist(e, 0, BytecodeUndefined()); !v.IsUndefined() {
+		t.Fatalf("enemies keep MUGEN's undefined P2 distance")
+	}
+	// The controls screen's character is alone, others aren't
+	p.teamside = 0
+	sys.charList.add(p)
+	enemy := brawlerTestEnemy(b, 21, 50, 0)
+	enemy.teamside, enemy.helperType = 1, 2
+	sys.charList.enemyNearChanged = true
+	if sys.charList.enemyNear(p, 0, true) != enemy {
+		t.Fatalf("enemy not found before the screen opens")
+	}
+	sys.charList.enemyNearChanged = true
+	brawlerControls = brawlerControlsState{open: true, pn: 0}
+	if !sys.brawler.alone(p) || sys.brawler.alone(&Char{playerNo: 2}) {
+		t.Fatalf("alone: controls character %v", sys.brawler.alone(p))
+	}
+	if sys.charList.enemyNear(p, 0, true) != nil {
+		t.Fatalf("the controls character found an enemy")
 	}
 }
 
@@ -366,6 +450,15 @@ func TestBrawlerControlsLayoutInput(t *testing.T) {
 	if in := brawlerTestRaw(brawlerTestBtn('x')); b.layoutInput(h, in) != in {
 		t.Fatalf("layout applied to a helper")
 	}
+	// START goes to the controls screen, not its character
+	oldControls, oldBrawler := brawlerControls, sys.brawler
+	t.Cleanup(func() { brawlerControls, sys.brawler = oldControls, oldBrawler })
+	sys.brawler = *b
+	brawlerControls = brawlerControlsState{open: true, pn: 0}
+	if out := b.layoutInput(c, brawlerTestRaw(brawlerRawStart)); out[brawlerRawStart] {
+		t.Fatalf("the controls screen's character got start")
+	}
+	brawlerControls.open = false
 	sys.gameMode = ""
 	if in := brawlerTestRaw(brawlerTestBtn('x')); b.layoutInput(c, in) != in {
 		t.Fatalf("layout applied outside brawler mode")
@@ -432,7 +525,7 @@ func TestBrawlerControlsBottomLine(t *testing.T) {
 		t.Fatalf("message first: %q", s.bottomLine())
 	}
 	s.msgTime, s.mode, s.cursor = 0, bcWait, 0
-	if !strings.HasSuffix(s.bottomLine(), "give a") {
+	if !strings.Contains(s.bottomLine(), "button for a") {
 		t.Fatalf("wait hint: %q", s.bottomLine())
 	}
 }

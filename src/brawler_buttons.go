@@ -25,6 +25,11 @@ import (
 // Buttons a layout can swap, in the order of the [14]bool input arrays from index 4
 const brawlerLayoutButtons = "abcxyzsdw"
 
+const (
+	brawlerLayoutStart = 6  // Start in brawlerLayoutButtons
+	brawlerRawStart    = 10 // Start in the [14]bool inputs
+)
+
 // For every controller button (index into brawlerLayoutButtons), the button the character gets
 type brawlerButtonMap [len(brawlerLayoutButtons)]int8
 
@@ -70,6 +75,12 @@ func (m *brawlerButtonMap) rebind(slot, pressed int) {
 	m[k], m[pressed] = m[pressed], m[k]
 }
 
+// Start stays on the controller's start button: the controls screen uses it to change the layout, so
+// moving it could lock a player out. Layouts that moved it (written by hand, or by older versions) get it back
+func (m *brawlerButtonMap) keepStart() {
+	m.rebind(brawlerLayoutStart, brawlerLayoutStart)
+}
+
 func brawlerLayoutIndex(name string) int {
 	return strings.Index(brawlerLayoutButtons, strings.ToLower(strings.TrimSpace(name)))
 }
@@ -107,6 +118,7 @@ func (l *brawlerLayouts) parse(text string) error {
 	key := ""
 	var m brawlerButtonMap
 	store := func() {
+		m.keepStart()
 		if key != "" && !m.isIdentity() {
 			l.maps[key] = m
 		}
@@ -216,5 +228,9 @@ func (b *Brawler) layoutInput(c *Char, in [14]bool) [14]bool {
 		return in
 	}
 	id, _ := brawlerSeatController(k)
-	return brawlerButtonLayouts.get(c.gi().def, id).apply(in)
+	out := brawlerButtonLayouts.get(c.gi().def, id).apply(in)
+	if b.alone(c) {
+		out[brawlerRawStart] = false // START belongs to the controls screen
+	}
+	return out
 }

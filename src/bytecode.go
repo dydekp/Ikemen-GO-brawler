@@ -2984,17 +2984,17 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	opc := be[*i-1]
 	switch opc {
 	case OC_ex_p2dist_x:
-		sys.bcStack.Push(c.rdDistX(c.p2(), oc))
+		sys.bcStack.Push(sys.brawler.p2Dist(c, 0, c.rdDistX(c.p2(), oc)))
 	case OC_ex_p2dist_y:
-		sys.bcStack.Push(c.rdDistY(c.p2(), oc))
+		sys.bcStack.Push(sys.brawler.p2Dist(c, 1, c.rdDistY(c.p2(), oc)))
 	case OC_ex_p2dist_z:
-		sys.bcStack.Push(c.rdDistZ(c.p2(), oc))
+		sys.bcStack.Push(sys.brawler.p2Dist(c, 2, c.rdDistZ(c.p2(), oc)))
 	case OC_ex_p2bodydist_x:
-		sys.bcStack.Push(c.p2BodyDistX(oc))
+		sys.bcStack.Push(sys.brawler.p2Dist(c, 0, c.p2BodyDistX(oc)))
 	case OC_ex_p2bodydist_y:
-		sys.bcStack.Push(c.p2BodyDistY(oc))
+		sys.bcStack.Push(sys.brawler.p2Dist(c, 1, c.p2BodyDistY(oc)))
 	case OC_ex_p2bodydist_z:
-		sys.bcStack.Push(c.p2BodyDistZ(oc))
+		sys.bcStack.Push(sys.brawler.p2Dist(c, 2, c.p2BodyDistZ(oc)))
 	case OC_ex_parentdist_x:
 		sys.bcStack.Push(c.rdDistX(c.parent(true), oc))
 	case OC_ex_parentdist_y:

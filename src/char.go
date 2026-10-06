@@ -14738,8 +14738,8 @@ func (cl *CharList) cueDraw() {
 // The current approach makes the distance calculation loops only be done when necessary, using cached enemies the rest of the time
 // In Mugen the P2 enemy reference seems to only refresh at the start of each frame instead
 func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
-	// Invalid index
-	if n < 0 {
+	// Invalid index, or nobody to find (brawler controls screen)
+	if n < 0 || sys.brawler.alone(c) {
 		return nil
 	}
 

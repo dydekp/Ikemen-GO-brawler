@@ -192,32 +192,30 @@ func (s *brawlerControlsState) arm(in [14]bool) bool {
 	return false
 }
 
-// Handle the screen's own buttons. held are the raw controller inputs (before the layout)
+// Handle the screen's own buttons. held are the raw controller inputs (before the layout): the screen
+// follows the controller's own buttons, so no layout can lock it. START switches modes and can't be rebound
 func (b *Brawler) controlsInput(c *Char, held [14]int32) {
 	s := &brawlerControls
 	pressed := func(i int) bool { return held[i] == 1 }
 	switch s.mode {
 	case bcPlay:
+		if pressed(brawlerRawStart) {
+			s.mode, s.cursor = bcEdit, 0
+			return
+		}
 		for i, to := range s.layout {
-			if !pressed(4 + i) {
-				continue
-			}
-			if brawlerLayoutButtons[to] == 's' {
-				// The character's start button switches to edit mode
-				s.mode, s.cursor = bcEdit, 0
-				return
-			}
 			// Watch what the character's button does
-			s.watchBtn, s.watchTime, s.watchFrom = int(to), 0, s.lastState
+			if pressed(4+i) && brawlerLayoutButtons[to] != 's' {
+				s.watchBtn, s.watchTime, s.watchFrom = int(to), 0, s.lastState
+			}
 		}
 	case bcEdit:
-		n := bcEntryDone + 1
 		if brawlerJoinRepeatFire(held[0]) {
-			s.cursor = (s.cursor - 1 + n) % n
+			s.cursor = brawlerControlsEntry(s.cursor, -1)
 		} else if brawlerJoinRepeatFire(held[1]) {
-			s.cursor = (s.cursor + 1) % n
+			s.cursor = brawlerControlsEntry(s.cursor, 1)
 		}
-		if pressed(10) {
+		if pressed(brawlerRawStart) {
 			s.mode = bcPlay
 			return
 		}
@@ -233,8 +231,13 @@ func (b *Brawler) controlsInput(c *Char, held [14]int32) {
 			}
 		}
 	case bcWait:
+		if pressed(brawlerRawStart) {
+			s.mode = bcEdit
+			s.message, s.msgTime = "Not changed", brawlerControlsShow
+			return
+		}
 		for i := range s.layout {
-			if pressed(4 + i) {
+			if pressed(4+i) && i != brawlerLayoutStart {
 				s.layout.rebind(s.cursor, i)
 				b.saveLayout(fmt.Sprintf("%v bound", brawlerButtonLabel(s.cursor)))
 				s.mode = bcEdit
@@ -242,6 +245,16 @@ func (b *Brawler) controlsInput(c *Char, held [14]int32) {
 			}
 		}
 	}
+}
+
+// The edit list entry dir (+1 / -1) steps from from, wrapping around. Start isn't an entry
+func brawlerControlsEntry(from, dir int) int {
+	n := bcEntryDone + 1
+	to := (from + dir + n) % n
+	if to == brawlerLayoutStart {
+		to = (to + dir + n) % n
+	}
+	return to
 }
 
 func (b *Brawler) saveLayout(msg string) {
@@ -300,7 +313,7 @@ func (s *brawlerControlsState) buttonAction(i int) string {
 	case 'w':
 		return "Keep facing"
 	case 's':
-		return "Taunt / edit"
+		return "Edit buttons (fixed)"
 	}
 	if name := s.names.button(brawlerLayoutButtons[i]); name != "" {
 		return name

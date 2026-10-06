@@ -30,16 +30,17 @@ package main
 import "math"
 
 const (
-	brawlerEnterTimeout = 240 // Frames an entering enemy may ignore screen bounds
-	brawlerSpawnMargin  = 30  // Distance outside the screen where enemies spawn (world units)
-	brawlerMaxTypes     = 1 + MaxAttachedChar
-	brawlerMaxAlive     = 6    // Default limit of enemies alive at the same time in a wave
-	brawlerLaneWeight   = 60   // Distance a lane difference counts as, when comparing distances
-	brawlerGoTime       = 240  // Frames the "GO" sign is shown after a locked wave is cleared
-	brawlerBowlMinSpeed = 2.5  // Speed (world units per frame) a flying body needs to knock others down
-	brawlerBowlHeight   = 70   // Bodies higher than this fly over other enemies
-	brawlerBowlDepth    = 12   // Depth distance within which bodies hit others
-	brawlerCamFollow    = 0.12 // Fraction of the distance to the players the camera moves per frame
+	brawlerEnterTimeout   = 240 // Frames an entering enemy may ignore screen bounds
+	brawlerSpawnMargin    = 30  // Distance outside the screen where enemies spawn (world units)
+	brawlerMaxTypes       = 1 + MaxAttachedChar
+	brawlerNoOpponentDist = 9999 // P2 distance of a player without opponents, see p2Dist
+	brawlerMaxAlive       = 6    // Default limit of enemies alive at the same time in a wave
+	brawlerLaneWeight     = 60   // Distance a lane difference counts as, when comparing distances
+	brawlerGoTime         = 240  // Frames the "GO" sign is shown after a locked wave is cleared
+	brawlerBowlMinSpeed   = 2.5  // Speed (world units per frame) a flying body needs to knock others down
+	brawlerBowlHeight     = 70   // Bodies higher than this fly over other enemies
+	brawlerBowlDepth      = 12   // Depth distance within which bodies hit others
+	brawlerCamFollow      = 0.12 // Fraction of the distance to the players the camera moves per frame
 )
 
 // Per character state, stored in Char.bw. Players are roots, enemies are helpers
@@ -891,4 +892,23 @@ func (b *Brawler) restoreStage() {
 // AI) see them. Without this, NumEnemy is 0 for players and such checks never pass
 func (b *Brawler) helperEnemies(c *Char) bool {
 	return b.active() && c.teamside == 0
+}
+
+// The controls screen's character (and its helpers) has no opponents: frozen enemies nearby don't change
+// what its buttons do
+func (b *Brawler) alone(c *Char) bool {
+	return b.controlsOpen() && c.playerNo == brawlerControls.pn
+}
+
+// Distance to P2 (P2Dist, P2BodyDist; axis 0 = X) of a player without an opponent: between waves or alone
+// in the controls screen. Characters gate moves on P2 distance ("p2bodydist X > 20" for a far kick), and
+// without P2 the trigger is undefined and the move never starts. Nobody there counts as far ahead, level
+func (b *Brawler) p2Dist(c *Char, axis int, v BytecodeValue) BytecodeValue {
+	if !v.IsUndefined() || !b.helperEnemies(c) {
+		return v
+	}
+	if axis == 0 {
+		return BytecodeFloat(brawlerNoOpponentDist)
+	}
+	return BytecodeFloat(0)
 }
