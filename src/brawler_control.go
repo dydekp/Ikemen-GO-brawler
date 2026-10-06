@@ -301,6 +301,10 @@ func brawlerAirTicks(c *Char) float32 {
 // Characters switching lanes can't be hit, so a lane switch is a reliable escape.
 // Attacking during the lane jump ends the protection, so it can't be used for invincible jump attacks
 func (b *Brawler) dodging(c *Char) bool {
+	// Nobody gets hit while the controls screen is open: its character tries moves next to frozen enemies
+	if b.controlsOpen() {
+		return true
+	}
 	if b.active() && c.bw.invulTime > 0 {
 		return true
 	}

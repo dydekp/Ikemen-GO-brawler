@@ -23,6 +23,9 @@ package main
 //   brawler_hud.go       lifebars
 //   brawler_intro.go     character introduction title cards
 //   brawler_join.go      drop-in, rejoin and continue, arcade style
+//   brawler_buttons.go   button layouts per character and controller
+//   brawler_movenames.go move names read from the character's files
+//   brawler_controls.go  controls screen: try the buttons and rebind them
 
 import "math"
 
@@ -298,6 +301,7 @@ func (b *Brawler) roundInit() {
 	b.introShown = nil
 	brawlerFinishJoinLoads()
 	brawlerInitSeats()
+	brawlerControls.open = false
 
 	// Players start on the lane closest to their stage start position
 	for _, c := range b.players(false) {
@@ -491,6 +495,11 @@ func (b *Brawler) step() {
 		return
 	}
 	b.keepTemplatesHidden()
+	// The controls screen stops the level: nothing but its own character moves
+	if b.controlsOpen() {
+		b.stepControls()
+		return
+	}
 	b.stepJoin()
 	if b.goTime > 0 {
 		b.goTime--
@@ -676,6 +685,10 @@ func (b *Brawler) roundKO() (ko [2]bool) {
 func (b *Brawler) cameraX(x, scl float32) float32 {
 	if !b.active() {
 		return x
+	}
+	// The controls screen places its character on the screen: the camera stays
+	if b.controlsOpen() {
+		return sys.cam.Pos[0]
 	}
 	var sum float32
 	var n int

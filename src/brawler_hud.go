@@ -209,12 +209,20 @@ func (b *Brawler) drawHUD(layerno int16) {
 	if !b.active() {
 		return
 	}
-	// Character introductions cover everything else
+	// Character introductions and the controls screen cover everything else
 	if layerno == 2 {
-		b.drawIntro(b.hudFont(2))
+		if b.controlsOpen() {
+			b.drawControls(b.hudFont(2))
+		} else {
+			b.drawIntro(b.hudFont(2))
+		}
 		return
 	}
 	if layerno != brawlerHudLayer {
+		return
+	}
+	if b.controlsOpen() {
+		b.drawControlsMask()
 		return
 	}
 	// During an introduction, the mask replaces the HUD

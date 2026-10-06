@@ -6250,6 +6250,19 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(tbl)
 		return 1
 	})
+	luaRegister(l, "brawlerControlsOpen", func(*lua.LState) int {
+		/*Open the beat 'em up controls screen for the player who opened the pause menu.
+		@function brawlerControlsOpen
+		@treturn boolean opened `false` outside brawler mode or without an alive character to show.*/
+		ok := false
+		if sys.brawler.active() {
+			if k := sys.brawler.controlsSeat(); k >= 0 {
+				ok = sys.brawler.openControls(k)
+			}
+		}
+		l.Push(lua.LBool(ok))
+		return 1
+	})
 	luaRegister(l, "brawlerClearLevel", func(*lua.LState) int {
 		/*Unload the current beat 'em up level.
 		@function brawlerClearLevel*/

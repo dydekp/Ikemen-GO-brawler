@@ -3426,6 +3426,16 @@ func (me *MotifMenu) init(m *Motif) {
 	}
 	openPressed := sys.esc || sys.uiRawInput(pm.Menu.Cancel.Key, -1)
 
+	// Beat 'em up controls screen: the pause button closes it instead of opening the menu over it
+	if sys.brawler.controlsOpen() {
+		if openPressed {
+			sys.esc = false
+			sys.brawler.closeControls()
+			me.reopenLock = true
+		}
+		return
+	}
+
 	if !sys.sel.gameParams.PauseMenu {
 		if openPressed {
 			sys.esc = true

@@ -16,6 +16,10 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/brawler_hud.go \
 	src/brawler_intro.go \
 	src/brawler_join.go \
+	src/brawler_buttons.go \
+	src/brawler_movenames.go \
+	src/brawler_controls.go \
+	src/brawler_controls_hud.go \
 	src/bytecode.go \
 	src/camera.go \
 	src/char.go \

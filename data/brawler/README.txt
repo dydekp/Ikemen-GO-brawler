@@ -511,6 +511,38 @@ DROP-IN, REJOIN AND CONTINUE (arcade style, without coins)
   No new enemies spawn while everyone is down.
   Players who dropped in stay in the team for the following levels.
 
+CONTROLS SCREEN AND BUTTON LAYOUTS
+  Pause menu > Controls opens the controls screen for the player whose
+  controller opened the pause menu. Everything else stands still, and the
+  player's character stands in the screen's right part:
+  - A drawing of the controller lights up the buttons while they're held.
+  - The table lists every button: the key / pad button that gives it, and
+    the move it does. Move names come from the character's files (the
+    names of the [State -1, ...] blocks, or the comment above a ZSS
+    changeState). A button whose single press starts no named move
+    shows "-".
+  - The character performs whatever is pressed. The move it goes to is
+    shown at the bottom and replaces the button's entry in the table.
+  - START switches to editing: up/down picks a button, a or x confirms,
+    and the next button pressed gives that button from then on. The
+    button that gave it so far takes over what the pressed one gave, so
+    no button gets lost. "Default layout" undoes all changes, "Done" (or
+    START) goes back to trying the buttons.
+  - The pause button closes the screen. The character goes back to where
+    it stood, and the fight goes on.
+  Layouts are kept per character and per controller: a gamepad model (two
+  pads of the same model share them) or a player's keyboard keys. They
+  are saved in save/brawler_buttons.ini when changed, and only apply in
+  brawler mode:
+
+    [chars/kfm/kfm.def | keyboard:1]
+    x = a     ; the controller's x button gives the character a
+    a = x
+
+  Only buttons that differ from the controller's own configuration are
+  written. The file can be edited by hand; a section that loses a button
+  (two buttons giving the same one) is ignored and logged.
+
 
 10. HUD
 -------

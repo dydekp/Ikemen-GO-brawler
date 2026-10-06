@@ -139,7 +139,7 @@ func (b *Brawler) freeSlot() int {
 
 // Players can join while a level is being fought
 func (b *Brawler) canJoin() bool {
-	return b.active() && sys.roundState() == 2 && !b.complete && !b.introActive() && len(brawlerJoin.roster) > 0
+	return b.active() && sys.roundState() == 2 && !b.complete && !b.introActive() && !b.controlsOpen() && len(brawlerJoin.roster) > 0
 }
 
 // Read the seat's inputs. Returns the frames each input has been held (1 = pressed this frame)

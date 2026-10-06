@@ -2817,9 +2817,9 @@ func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
 			s, d, w, m = output[10], output[11], output[12], output[13]
 		}
 
-		// Beat 'em up mode: consume the lane and facing buttons
+		// Beat 'em up mode: the character's button layout for this controller, then the lane and facing buttons
 		if sys.brawler.active() {
-			in := sys.brawler.processInput(char, [14]bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m})
+			in := sys.brawler.processInput(char, sys.brawler.layoutInput(char, [14]bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m}))
 			U, D, L, R = in[0], in[1], in[2], in[3]
 			a, b, c, x, y, z = in[4], in[5], in[6], in[7], in[8], in[9]
 			s, d, w, m = in[10], in[11], in[12], in[13]

@@ -230,6 +230,17 @@ menu.t_itemname = {
 		end
 		return true
 	end,
+	--Controls screen (brawler mode): see the buttons and change them for the current character
+	['brawlercontrols'] = function(t, item, cursorPosY, moveTxt, sec)
+		if getInput(-1, sec.menu.done.key) then
+			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
+			if brawlerControlsOpen() then
+				main.pauseMenuActive = false
+				return false
+			end
+		end
+		return true
+	end,
 	--Command List
 	['commandlist'] = function(t, item, cursorPosY, moveTxt, sec)
 		if getInput(-1, sec.menu.done.key) then
@@ -415,8 +426,20 @@ local function f_indexPauseMenus()
 	end
 end
 
+-- Brawler (beat 'em up) pause menu: the regular one with a Controls entry, unless the screenpack defines
+-- its own [Brawler Pause Menu]
+local function f_brawlerPauseMenu()
+	if motif.pause_menu == nil or motif.pause_menu.pause_menu == nil or motif.pause_menu.brawler_pause_menu ~= nil then
+		return
+	end
+	local sec = main.f_tableCopy(motif.pause_menu.pause_menu)
+	main.f_appendItemname(sec.menu, '', 'brawlercontrols', 'Controls', 'commandlist')
+	motif.pause_menu.brawler_pause_menu = sec
+end
+
 -- Dynamically generates all menus and submenus
 function menu.f_start()
+	f_brawlerPauseMenu()
 	if motif.pause_menu ~= nil then
 		for k, sec in pairs(motif.pause_menu) do
 			local id = f_pauseMenuIdFromKey(k)

@@ -5929,14 +5929,14 @@ func (fs *FightScreen) draw(layerno int16) {
 
 		// Combo
 		for i := 0; i < len(fs.combos); i++ {
-			if !sys.chars[i][0].asf(ASF_nocombodisplay) && !sys.brawler.introActive() {
+			if !sys.chars[i][0].asf(ASF_nocombodisplay) && !sys.brawler.coversScreen() {
 				fs.combos[i].draw(layerno, fs.fnt, i)
 			}
 		}
 
 		// Action
 		for i := 0; i < len(fs.actions); i++ {
-			if !sys.chars[i][0].asf(ASF_nolifebaraction) && !sys.brawler.introActive() {
+			if !sys.chars[i][0].asf(ASF_nolifebaraction) && !sys.brawler.coversScreen() {
 				fs.actions[i].draw(layerno, fs.fnt, i)
 			}
 		}
