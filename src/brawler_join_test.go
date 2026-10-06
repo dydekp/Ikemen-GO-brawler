@@ -382,3 +382,20 @@ func TestBrawlerJoinContinueRunsOut(t *testing.T) {
 		}
 	}
 }
+
+// A revived or freshly loaded character stands with an animation (bug: a character that was just loaded
+// had none and stayed invisible until it attacked)
+func TestBrawlerJoinStandAnim(t *testing.T) {
+	anims := NewAnimationTable()
+	if a := brawlerStandAnim(anims); a != -1 {
+		t.Errorf("no animations: %v", a)
+	}
+	anims.anims[20], anims.anims[5] = &Animation{}, &Animation{}
+	if a := brawlerStandAnim(anims); a != 5 {
+		t.Errorf("without animation 0: %v, want the lowest (5)", a)
+	}
+	anims.anims[0] = &Animation{}
+	if a := brawlerStandAnim(anims); a != 0 {
+		t.Errorf("with animation 0: %v", a)
+	}
+}

@@ -62,6 +62,7 @@ func brawlerTestPlayer(b *Brawler, pn int, x float32, lane int32) *Char {
 	p.ss.stateType = ST_S
 	p.setSCF(SCF_ctrl)
 	p.bw = brawlerChar{initialized: true, aiLane: -1, lane: lane, targetLane: lane, desiredFace: 1}
+	p.ss.sb = &StateBytecode{playerNo: pn}
 	if int(lane) < len(b.lanesZ) {
 		p.pos[2] = b.lanesZ[lane]
 	}

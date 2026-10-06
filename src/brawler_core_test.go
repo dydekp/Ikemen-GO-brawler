@@ -15,6 +15,7 @@ func brawlerTestEnemy(b *Brawler, id int32, x float32, lane int32) *Char {
 	e.pos[0] = x
 	e.bw.lane, e.bw.targetLane = lane, lane
 	e.size.standbox = [4]float32{-12, -60, 12, 0} // Body width like a real character
+	e.ss.sb = &StateBytecode{playerNo: 0}         // State owner: any loaded root works for the distance math
 	if int(lane) < len(b.lanesZ) {
 		e.pos[2] = b.lanesZ[lane]
 	}
@@ -513,5 +514,58 @@ func TestBrawlerCoreCharacterRoles(t *testing.T) {
 	sys.gameMode = "arcade"
 	if b.attachedDef(0) != "" || b.isInstance(e) {
 		t.Error("brawler roles outside the mode")
+	}
+}
+
+// Players see the spawned enemies through Enemy, NumEnemy, EnemyNear and P2, like opponents in a fight.
+// Characters use these for their own juggle limits and combo counters (Ken stopped hitting after his first
+// hit: his juggle counter only resets when NumEnemy finds the opponent)
+func TestBrawlerCoreEnemyTriggers(t *testing.T) {
+	b := brawlerTestMode(t, 0)
+	brawlerTestChars(t)
+	oldBrawler := sys.brawler
+	t.Cleanup(func() { sys.brawler = oldBrawler })
+	sys.brawler = *b
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	p.teamside = 0
+	sys.charList.add(p)
+	far := brawlerTestEnemy(b, 20, 200, 0)
+	near := brawlerTestEnemy(b, 21, 50, 0)
+	for _, e := range []*Char{far, near} {
+		e.teamside, e.helperType = 1, 2
+	}
+	// A hidden type template is not an opponent
+	tmpl := &Char{id: 30, playerNo: 1, teamside: 1, localscl: 1}
+	tmpl.setSCF(SCF_standby)
+	sys.chars[1] = []*Char{tmpl}
+	sys.charList.add(tmpl)
+	sys.charList.enemyNearChanged = true
+
+	if n := p.numEnemy(); n != 2 {
+		t.Errorf("NumEnemy %v, want 2", n)
+	}
+	if e := p.enemyNearTrigger(0); e != near {
+		t.Errorf("EnemyNear(0): %v", e)
+	}
+	if e := p.enemy(1); e != far {
+		t.Errorf("Enemy(1): %v", e)
+	}
+	if e := p.p2(); e != near {
+		t.Errorf("P2: %v", e)
+	}
+	// Defeated enemies still count for Enemy/NumEnemy (like a KO'd opponent), not for P2
+	near.setSCF(SCF_ko | SCF_over_ko)
+	sys.charList.enemyNearChanged = true
+	if n := p.numEnemy(); n != 2 {
+		t.Errorf("NumEnemy with a KO'd enemy: %v", n)
+	}
+	if e := p.p2(); e != far {
+		t.Errorf("P2 skips the KO'd enemy: %v", e)
+	}
+	// Outside the mode the engine's rules apply: helpers aren't enemies
+	sys.gameMode = "arcade"
+	sys.charList.enemyNearChanged = true
+	if n := p.numEnemy(); n != 0 {
+		t.Errorf("outside the mode: %v", n)
 	}
 }

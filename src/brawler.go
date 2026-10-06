@@ -872,3 +872,10 @@ func (b *Brawler) restoreStage() {
 	e.stage.stageCamera.ztopscale, e.stage.stageCamera.zbotscale = e.ztop, e.zbot
 	b.stageEdit = nil
 }
+
+// A player's opponents are the spawned enemy instances, which are helpers: Enemy, NumEnemy and EnemyNear
+// count them like root players, so that characters checking their opponent (juggle limits, combo counters,
+// AI) see them. Without this, NumEnemy is 0 for players and such checks never pass
+func (b *Brawler) helperEnemies(c *Char) bool {
+	return b.active() && c.teamside == 0
+}

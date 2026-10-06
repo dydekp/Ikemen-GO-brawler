@@ -445,7 +445,9 @@ func (b *Brawler) revive(c *Char, pal int32) {
 	}
 	c.vel = [3]float32{}
 	c.setFacing(facing)
-	c.selfState(0, -1, -1, 1, "")
+	// Standing, with its standing animation: a character that was just loaded has no animation yet and
+	// wouldn't be drawn until it changed one (an attack)
+	c.selfState(0, brawlerStandAnim(c.gi().animTable), -1, 1, "")
 	c.setCtrl(true)
 	c.bw = brawlerChar{initialized: true, aiLane: -1, lane: lane, targetLane: lane, desiredFace: facing,
 		spawnTime: brawlerSpawnBlink, invulTime: brawlerSpawnInvul}
@@ -601,4 +603,18 @@ func (b *Brawler) slotLoading(pn int) bool {
 		}
 	}
 	return false
+}
+
+// Animation a character stands with: 0, or the lowest one if it has no animation 0 (like the round start)
+func brawlerStandAnim(anims AnimationTable) int32 {
+	if anims.anims[0] != nil {
+		return 0
+	}
+	first, found := int32(-1), false
+	for k := range anims.anims {
+		if !found || k < first {
+			first, found = k, true
+		}
+	}
+	return first
 }

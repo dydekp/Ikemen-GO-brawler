@@ -5445,6 +5445,15 @@ func (c *Char) enemy(n int32) *Char {
 		return nil
 	}
 
+	// Beat 'em up: a player's enemies are the spawned enemy helpers, nearest first
+	if sys.brawler.helperEnemies(c) {
+		if e := sys.charList.enemyNear(c, n, false); e != nil {
+			return e
+		}
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no enemy with index %v", n))
+		return nil
+	}
+
 	// Iterate until nth enemy
 	var count int32
 	for _, e := range sys.chars {
@@ -6018,6 +6027,16 @@ func (c *Char) moveReversed() int32 {
 
 func (c *Char) numEnemy() int32 {
 	var n int32
+
+	// Beat 'em up: the spawned enemy helpers
+	if sys.brawler.helperEnemies(c) {
+		for _, e := range sys.charList.runOrder {
+			if sys.brawler.isInstance(e) && c.isEnemyOf(e) {
+				n++
+			}
+		}
+		return n
+	}
 
 	// Same as enemy() loop
 	for _, e := range sys.chars {
@@ -14760,8 +14779,8 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
 				continue
 			}
 		} else {
-			// EnemyNear checks for dead or alive root players
-			if e.helperIndex != 0 {
+			// EnemyNear checks for dead or alive root players (and beat 'em up enemies, which are helpers)
+			if e.helperIndex != 0 && !(sys.brawler.helperEnemies(c) && sys.brawler.isInstance(e)) {
 				continue
 			}
 		}
