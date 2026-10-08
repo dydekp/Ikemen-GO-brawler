@@ -171,3 +171,126 @@ func TestBrawlerLuaBrawlerErrors(t *testing.T) {
 		}
 	}
 }
+
+// Drop-in co-op on the select screen (start.lua): the block from "-- Drop-in co-op" to the next function runs
+// with stand-ins. "pressed" lists the controllers pressing start this frame
+const brawlerJoinStubs = `
+local stageEnd = false
+function setStageEnd(v) stageEnd = v end
+main = {coopJoin = true, numSimul = {2, 3}, stageMenu = false}
+start = {p = {
+	{teamEnd = true, selEnd = false, numChars = 1, teamMode = 0, t_selCmd = {{cmd = 1, player = 1, selectState = 0}}},
+	{teamEnd = true, selEnd = true},
+}}
+function start.f_getPlayerNo(side, member) return side + member - 1 end
+pressed = {}
+function getInput(cmd, key) return key == 's' and pressed[cmd] == true end
+function gameOption(name) if name == 'Config.Players' then return 4 end end
+motif = {Snd = 0, select_info = {p1 = {teammenu = {done = {snd = {0, 0}}}}, p2 = {name = {}}}}
+function sndPlay() end
+drawn = 0
+function textImgReset() end
+function textImgSetText(_, t) lastText = t end
+function textImgDraw() drawn = drawn + 1 end
+`
+
+func runBrawlerJoinLua(t *testing.T) *lua.LState {
+	t.Helper()
+	src, err := os.ReadFile("../external/script/start.lua")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(src)
+	from := strings.Index(text, "-- Drop-in co-op")
+	to := strings.Index(text, "local function refreshActiveFacePortraits")
+	if from < 0 || to < from {
+		t.Fatal("start.lua: drop-in co-op block not found")
+	}
+	l := lua.NewState()
+	t.Cleanup(l.Close)
+	if err := l.DoString(brawlerJoinStubs + text[from:to]); err != nil {
+		t.Fatal(err)
+	}
+	return l
+}
+
+func TestBrawlerLuaSelectJoin(t *testing.T) {
+	l := runBrawlerJoinLua(t)
+	run := func(code string) {
+		t.Helper()
+		if err := l.DoString(code); err != nil {
+			t.Fatal(err)
+		}
+	}
+	num := func(code string) int {
+		t.Helper()
+		run("result = " + code)
+		return int(lua.LVAsNumber(l.GetGlobal("result")))
+	}
+	// P1 pressing start again doesn't add anyone; controller 3 joins as the second member
+	run("pressed = {[1] = true} start.f_coopJoin()")
+	if n := num("start.p[1].numChars"); n != 1 {
+		t.Fatalf("P1's own start added a member: %v", n)
+	}
+	run("pressed = {[3] = true} start.f_coopJoin()")
+	if num("start.p[1].numChars") != 2 || num("start.p[1].teamMode") != 1 || num("#start.p[1].t_selCmd") != 2 {
+		t.Fatalf("join: numChars %v teamMode %v", num("start.p[1].numChars"), num("start.p[1].teamMode"))
+	}
+	if num("start.p[1].t_selCmd[2].cmd") != 3 || num("start.p[1].t_selCmd[2].player") != 2 {
+		t.Fatalf("joined member: controller %v cursor %v", num("start.p[1].t_selCmd[2].cmd"), num("start.p[1].t_selCmd[2].player"))
+	}
+	// The same controller can't join twice, one join per frame, and the team is full at numSimul[2]
+	run("pressed = {[3] = true} start.f_coopJoin()")
+	run("pressed = {[2] = true, [4] = true} start.f_coopJoin()")
+	if num("start.p[1].numChars") != 3 || num("start.p[1].t_selCmd[3].cmd") != 2 {
+		t.Fatalf("second join: numChars %v", num("start.p[1].numChars"))
+	}
+	run("pressed = {[4] = true} start.f_coopJoin()")
+	if num("start.p[1].numChars") != 3 {
+		t.Fatalf("joined a full team")
+	}
+	// A join is confirmed by name for a moment, then the prompt blinks while joining is possible
+	run("start.f_coopJoinPrompt() result = lastText")
+	if got := l.GetGlobal("result").String(); got != "2P JOINED" {
+		t.Fatalf("after a join: %q", got)
+	}
+	run("for i = 1, 90 do start.f_coopJoinPrompt() end")
+	run("start.p[1].numChars = 2 drawn = 0 for i = 1, 60 do start.f_coopJoinPrompt() end result = lastText")
+	if got := l.GetGlobal("result").String(); got != "PRESS START" {
+		t.Fatalf("prompt: %q", got)
+	}
+	if d := num("drawn"); d == 0 || d == 60 {
+		t.Fatalf("prompt drawn %v of 60 frames, want blinking", d)
+	}
+	run("start.p[1].numChars = 3 drawn = 0 start.f_coopJoinPrompt()")
+	if num("drawn") != 0 {
+		t.Fatalf("prompt shown for a full team")
+	}
+}
+
+func TestBrawlerLuaSelectJoinAfterSelection(t *testing.T) {
+	l := runBrawlerJoinLua(t)
+	check := func(setup string, want int) {
+		t.Helper()
+		if err := l.DoString("start.p[1].numChars = 1 start.p[1].selEnd = true " + setup + " pressed = {[2] = true} start.f_coopJoin() result = start.p[1].numChars"); err != nil {
+			t.Fatal(err)
+		}
+		if got := int(lua.LVAsNumber(l.GetGlobal("result"))); got != want {
+			t.Fatalf("%v: numChars %v, want %v", setup, got, want)
+		}
+	}
+	// Without a stage select, the fight starts once everyone has chosen: too late to join
+	check("main.stageMenu = false", 1)
+	// The stage is chosen yet: too late too
+	check("main.stageMenu = true setStageEnd(true)", 1)
+	// While the stage select shows, a join reopens the character selection
+	check("main.stageMenu = true setStageEnd(false)", 2)
+	if err := l.DoString("result = start.p[1].selEnd"); err != nil {
+		t.Fatal(err)
+	}
+	if lua.LVAsBool(l.GetGlobal("result")) {
+		t.Fatal("selection not reopened for the new player")
+	}
+	// Other modes don't have it
+	check("main.coopJoin = false start.p[1].selEnd = false", 1)
+}

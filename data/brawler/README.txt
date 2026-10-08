@@ -96,9 +96,14 @@ menu like any other item (menu.itemname.brawler,
 menu.itemname.brawler.brawlerfree, menu.itemname.brawler.back). Campaign
 entries are always inserted before FREE PLAY.
 
-In both, player characters are chosen like in other modes (single, or
-simul for 2+ players). More players can drop in at any time during a level
-(see DROP-IN in section 9). Life carries over from level to level. The mode
+In both, the player who opened the mode chooses a character, and every
+other player joins on the select screen by pressing start ("PRESS START"
+shows where the next player's name goes, "2P JOINED" confirms). Joining is
+open until the characters are chosen, or with a stage select (free play)
+until the stage is chosen. With screenpacks that set coopqueue = 1 (the
+default one does), the players choose one after another. Up to [Config]
+Players (max. 4) can play. More players can drop in at any time during a
+level (see DROP-IN in section 9). Life carries over from level to level. The mode
 ends when all players are KO and nobody continues, or the last level is won.
 
 

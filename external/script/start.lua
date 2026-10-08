@@ -2451,6 +2451,66 @@ end
 --;===========================================================
 --; SELECT SCREEN
 --;===========================================================
+-- Drop-in co-op (main.coopJoin, brawler mode): the team starts with the player who opened the mode, and every
+-- other controller joins it by pressing start, until the characters (and the stage, if there's a stage
+-- select) are chosen. Each player who joins gets a team member and a cursor of their own.
+local coopJoinBlink = 0
+local coopJoinMsg, coopJoinMsgTime = '', 0
+
+local function f_coopJoinOpen()
+	local p = start.p[1]
+	return main.coopJoin and p.teamEnd and p.numChars < main.numSimul[2] and
+		(not p.selEnd or (main.stageMenu and not stageEnd and start.p[2].selEnd))
+end
+
+-- Join players who press start. Runs after the members' selection, so the press doesn't also pick a character
+function start.f_coopJoin()
+	if not f_coopJoinOpen() then
+		return
+	end
+	local p = start.p[1]
+	local taken = {}
+	for _, v in ipairs(p.t_selCmd) do
+		taken[v.cmd] = true
+	end
+	for cmd = 1, gameOption('Config.Players') do
+		if not taken[cmd] and getInput(cmd, 's') then
+			p.numChars = p.numChars + 1
+			p.numSimul = p.numChars
+			p.teamMode = 1 --Simul
+			-- Reopens the selection when the others were done and the stage select was showing
+			p.selEnd = false
+			table.insert(p.t_selCmd, {cmd = cmd, player = start.f_getPlayerNo(1, #p.t_selCmd + 1), selectState = 0})
+			sndPlay(motif.Snd, motif.select_info.p1.teammenu.done.snd[1], motif.select_info.p1.teammenu.done.snd[2])
+			coopJoinMsg, coopJoinMsgTime = cmd .. 'P JOINED', 90
+			start.needUpdateDrawList = true
+			return
+		end
+	end
+end
+
+-- Blinking "PRESS START" where the next team member's name would go, and "2P JOINED" after a join: the new
+-- member's cursor may only show later (screenpacks with coopqueue let the members choose one after another)
+function start.f_coopJoinPrompt()
+	local text
+	if coopJoinMsgTime > 0 then
+		coopJoinMsgTime = coopJoinMsgTime - 1
+		text = coopJoinMsg
+	elseif f_coopJoinOpen() then
+		coopJoinBlink = (coopJoinBlink + 1) % 60
+		if coopJoinBlink < 40 then
+			text = motif.select_info.coopjoin_text or 'PRESS START'
+		end
+	end
+	if text == nil then
+		return
+	end
+	local name = motif.select_info.p2.name
+	textImgReset(name.TextSpriteData)
+	textImgSetText(name.TextSpriteData, text)
+	textImgDraw(name.TextSpriteData)
+end
+
 local function refreshActiveFacePortraits()
 	for side = 1, 2 do
 		for k, v in ipairs(start.p[side].t_selCmd) do
@@ -2865,6 +2925,8 @@ function start.f_selectScreen()
 				end
 			end
 		end
+		start.f_coopJoin()
+		start.f_coopJoinPrompt()
 		--team and character selection complete
 		if start.p[1].selEnd and start.p[2].selEnd and start.p[1].teamEnd and start.p[2].teamEnd then
 			restoreCursor = true

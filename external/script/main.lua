@@ -1893,6 +1893,7 @@ function main.f_default()
 		time = false,
 	}
 	main.coop = false --if mode should be recognized as coop
+	main.coopJoin = false --if more coop players join the select screen by pressing start (team starts with 1 member)
 	main.cpuSide = {false, true} --which side is controlled by CPU
 	main.dropDefeated = false --if defeated turns members should be skipped in the next match
 	main.elimination = false --if single lose should stop further lua execution
@@ -1984,16 +1985,15 @@ end
 function main.f_brawlerMode(t, item, levels, stageSelect)
 	main.brawlerLevels = levels
 	main.coop = true
+	main.coopJoin = true
 	main.elimination = true
 	main.exitSelect = true
 	main.luaPath = 'external/script/brawler.lua'
 	main.numSimul = {2, math.max(2, math.min(4, gameOption('Config.Players')))}
 	main.persistLife = true
 	main.stageMenu = stageSelect
+	-- No team menu: the team starts with one player, the others join by pressing start (see start.f_coopJoin)
 	main.teamMenu[1].single = true
-	if gameOption('Config.Players') >= 2 then
-		main.teamMenu[1].simul = true
-	end
 	main.teamMenu[2].single = true
 	textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.brawler or 'Brawler')
 	setGameMode('brawler')
