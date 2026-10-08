@@ -201,7 +201,7 @@ func runBrawlerJoinLua(t *testing.T) *lua.LState {
 		t.Fatal(err)
 	}
 	text := string(src)
-	from := strings.Index(text, "-- Drop-in co-op")
+	from := strings.Index(text, "-- Drop-in co-op (main.coopJoin, brawler mode): the team")
 	to := strings.Index(text, "local function refreshActiveFacePortraits")
 	if from < 0 || to < from {
 		t.Fatal("start.lua: drop-in co-op block not found")
@@ -249,22 +249,17 @@ func TestBrawlerLuaSelectJoin(t *testing.T) {
 	if num("start.p[1].numChars") != 3 {
 		t.Fatalf("joined a full team")
 	}
-	// A join is confirmed by name for a moment, then the prompt blinks while joining is possible
-	run("start.f_coopJoinPrompt() result = lastText")
-	if got := l.GetGlobal("result").String(); got != "2P JOINED" {
-		t.Fatalf("after a join: %q", got)
-	}
-	run("for i = 1, 90 do start.f_coopJoinPrompt() end")
-	run("start.p[1].numChars = 2 drawn = 0 for i = 1, 60 do start.f_coopJoinPrompt() end result = lastText")
+	// The prompt blinks on the free P2 side: only while the player is alone
+	run("start.p[1].numChars = 1 start.p[1].t_selCmd = {start.p[1].t_selCmd[1]} drawn = 0 for i = 1, 60 do start.f_coopJoinPrompt() end result = lastText")
 	if got := l.GetGlobal("result").String(); got != "PRESS START" {
 		t.Fatalf("prompt: %q", got)
 	}
 	if d := num("drawn"); d == 0 || d == 60 {
 		t.Fatalf("prompt drawn %v of 60 frames, want blinking", d)
 	}
-	run("start.p[1].numChars = 3 drawn = 0 start.f_coopJoinPrompt()")
+	run("start.p[1].numChars = 2 start.p[1].t_selCmd[2] = {cmd = 2} drawn = 0 for i = 1, 60 do start.f_coopJoinPrompt() end")
 	if num("drawn") != 0 {
-		t.Fatalf("prompt shown for a full team")
+		t.Fatalf("prompt shown with the P2 side taken")
 	}
 }
 
@@ -293,4 +288,46 @@ func TestBrawlerLuaSelectJoinAfterSelection(t *testing.T) {
 	}
 	// Other modes don't have it
 	check("main.coopJoin = false start.p[1].selEnd = false", 1)
+}
+
+// Drop-in co-op spreads the team over the select screen: members 1 and 3 on the P1 side, 2 and 4 on the P2
+// side, rows of two. Other modes and screens (versus screen) keep their layout
+func TestBrawlerLuaSelectJoinLayout(t *testing.T) {
+	src, err := os.ReadFile("../external/script/start.lua")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(src)
+	from := strings.Index(text, "-- Drop-in co-op (main.coopJoin, brawler mode) spreads")
+	to := strings.Index(text, "--reset temp data values")
+	if from < 0 || to < from {
+		t.Fatal("start.lua: drop-in co-op layout block not found")
+	}
+	l := lua.NewState()
+	t.Cleanup(l.Close)
+	stubs := `
+main = {coopJoin = true}
+motif = {select_info = {coopqueue = true, p1 = {id = 1}, p2 = {id = 2}, p3 = {id = 3}}, vs_screen = {p1 = {id = 1}, p2 = {id = 2}, p3 = {id = 3}}}
+`
+	check := `
+local out = {}
+for m = 1, 4 do
+	local s, r = f_coopJoinSlot(1, m)
+	table.insert(out, s .. "/" .. r .. "/" .. f_coopJoinRow(motif.select_info, 1, m) .. "/" .. f_coopJoinRow(motif.vs_screen, 1, m) ..
+		"/" .. f_getMotifP(motif.select_info, 2 * (m - 1) + 1, 1).id .. "/" .. f_getMotifP(motif.vs_screen, 2 * (m - 1) + 1, 1).id)
+end
+table.insert(out, tostring(f_coopQueue()))
+main.coopJoin = false
+local s, r = f_coopJoinSlot(1, 2)
+table.insert(out, s .. "/" .. r .. "/" .. f_getMotifP(motif.select_info, 3, 1).id .. "/" .. tostring(f_coopQueue()))
+result = table.concat(out, " ")
+`
+	if err := l.DoString(stubs + text[from:to] + check); err != nil {
+		t.Fatal(err)
+	}
+	// side/row/select row/vs row/select config/vs config per member, then the queue setting; then another mode
+	want := "1/1/1/1/1/1 2/1/1/2/2/3 1/2/2/3/1/1 2/2/2/4/2/1 false 1/2/3/true"
+	if got := l.GetGlobal("result").String(); got != want {
+		t.Fatalf("layout\n got %v\nwant %v", got, want)
+	}
 }

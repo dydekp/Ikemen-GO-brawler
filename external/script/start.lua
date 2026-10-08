@@ -657,9 +657,36 @@ function start.f_getName(ref, side)
 	return start.f_getCharData(ref).name
 end
 
+-- Drop-in co-op (main.coopJoin, brawler mode) spreads the team over the select screen: odd members show
+-- on the P1 side, even ones on the P2 side, in rows of two. Returns the side and row a member shows in
+local function f_coopJoinSlot(side, member)
+	if main.coopJoin and side == 1 then
+		return (member - 1) % 2 + 1, math.floor((member - 1) / 2) + 1
+	end
+	return side, member
+end
+
+-- Coop members choose one after another (screenpack coopqueue). Players who drop in choose right away
+local function f_coopQueue()
+	return motif.select_info.coopqueue and not main.coopJoin
+end
+
+-- Position index of a member in its side's select screen layout (t: the motif section drawn)
+local function f_coopJoinRow(t, side, member)
+	if t ~= motif.select_info then
+		return member
+	end
+	local _, row = f_coopJoinSlot(side, member)
+	return row
+end
+
 -- Resolve per-member motif tables (p3/p4/..), fallback to p1/p2 when undefined.
 local function f_getMotifP(t, pn, side)
 	if type(t) ~= "table" then return nil end
+	if t == motif.select_info and main.coopJoin and side == 1 then
+		local slotSide = f_coopJoinSlot(side, (pn + 1) / 2)
+		return t["p" .. slotSide]
+	end
 	local p = t["p" .. pn]
 	if p ~= nil then return p end
 	return t["p" .. side]
@@ -781,6 +808,10 @@ end
 
 local function getParams(side, member, t, subname)
 	local paramsSide = t['p' .. side]
+	if t == motif.select_info then
+		local slotSide = f_coopJoinSlot(side, member)
+		paramsSide = t['p' .. slotSide]
+	end
 	local pn = 2 * (member - 1) + side
 	local params = f_getMotifP(t, pn, side)
 	if subname and subname ~= '' then
@@ -856,7 +887,8 @@ local function drawPortraitLayer(t_portraits, side, t, subname, last, dataField)
 	local paramsSide, params = getParams(side, idx, t, subname)
 	local pn = 2 * (1 - 1) + side
 	local offsetKey = 'select_info.p' .. pn .. '.face.offset'
-	if paramsSide.num == 1 and last then
+	local spread = main.coopJoin and side == 1 and t == motif.select_info
+	if paramsSide.num == 1 and last and not spread then
 		local v = t_portraits[idx]
 		local data, drawParams, skipOffset = getPortraitDrawData(v, side, idx, params, dataField)
 		if not v[skipField] and data ~= nil then
@@ -888,11 +920,12 @@ local function drawPortraitLayer(t_portraits, side, t, subname, last, dataField)
 		local pn = 2 * (member - 1) + side
 		local offsetKey = 'select_info.p' .. pn .. '.face.offset'
 		local data, drawParams, skipOffset = getPortraitDrawData(v, side, member, params, dataField)
-		if member <= paramsSide.num and not v[skipField] and data ~= nil then
+		local row = f_coopJoinRow(t, side, member)
+		if row <= paramsSide.num and not v[skipField] and data ~= nil then
 			main.f_animPosDraw(
 				data,
-				f_portraitsXCalc(side, member, paramsSide, drawParams, skipOffset, offsetKey),
-				paramsSide.pos[2] + (skipOffset and 0 or drawParams.offset[2]) + (member - 1) * paramsSide.spacing[2]
+				f_portraitsXCalc(side, row, paramsSide, drawParams, skipOffset, offsetKey),
+				paramsSide.pos[2] + (skipOffset and 0 or drawParams.offset[2]) + (row - 1) * paramsSide.spacing[2]
 			)
 		end
 	end
@@ -915,7 +948,7 @@ function start.f_drawPortraits(t_portraits, side, t, subname, last, iconDone)
 			local pn = 2 * (m - 1) + side
 			local pData = f_getMotifP(t, pn, side)
 			-- face2 layer random portrait
-			if pData.face2.random and drawPortraitRandom(pData.face2.random, side, m, paramsSide, 'select_info.p' .. pn .. '.face2.random.offset') then
+			if pData.face2.random and drawPortraitRandom(pData.face2.random, side, f_coopJoinRow(t, side, m), paramsSide, 'select_info.p' .. pn .. '.face2.random.offset') then
 				t_portraits[m].skipCurrentFace2 = true
 			end
 			-- primary face random portrait
@@ -923,7 +956,7 @@ function start.f_drawPortraits(t_portraits, side, t, subname, last, iconDone)
 			if subname and subname ~= '' then
 				baseFace = baseFace[subname]
 			end
-			if baseFace.random and drawPortraitRandom(baseFace.random, side, m, paramsSide, 'select_info.p' .. pn .. '.face.random.offset') then
+			if baseFace.random and drawPortraitRandom(baseFace.random, side, f_coopJoinRow(t, side, m), paramsSide, 'select_info.p' .. pn .. '.face.random.offset') then
 				t_portraits[m].skipCurrentFace = true
 			end
 		end
@@ -944,11 +977,11 @@ function start.f_drawPortraits(t_portraits, side, t, subname, last, iconDone)
 			if charInfo and charInfo.hasSlot then
 				-- face2 slot
 				if pData.face2.slot then
-					drawPortraitSlot(pData.face2.slot, side, m, paramsSide, 'select_info.p' .. pn .. '.face2.slot.offset')
+					drawPortraitSlot(pData.face2.slot, side, f_coopJoinRow(t, side, m), paramsSide, 'select_info.p' .. pn .. '.face2.slot.offset')
 				end
 				-- primary face slot
 				if baseFace.slot then
-					drawPortraitSlot(baseFace.slot, side, m, paramsSide, 'select_info.p' .. pn .. '.face.slot.offset')
+					drawPortraitSlot(baseFace.slot, side, f_coopJoinRow(t, side, m), paramsSide, 'select_info.p' .. pn .. '.face.slot.offset')
 				end
 			end
 		end
@@ -2455,7 +2488,6 @@ end
 -- other controller joins it by pressing start, until the characters (and the stage, if there's a stage
 -- select) are chosen. Each player who joins gets a team member and a cursor of their own.
 local coopJoinBlink = 0
-local coopJoinMsg, coopJoinMsgTime = '', 0
 
 local function f_coopJoinOpen()
 	local p = start.p[1]
@@ -2482,32 +2514,25 @@ function start.f_coopJoin()
 			p.selEnd = false
 			table.insert(p.t_selCmd, {cmd = cmd, player = start.f_getPlayerNo(1, #p.t_selCmd + 1), selectState = 0})
 			sndPlay(motif.Snd, motif.select_info.p1.teammenu.done.snd[1], motif.select_info.p1.teammenu.done.snd[2])
-			coopJoinMsg, coopJoinMsgTime = cmd .. 'P JOINED', 90
 			start.needUpdateDrawList = true
 			return
 		end
 	end
 end
 
--- Blinking "PRESS START" where the next team member's name would go, and "2P JOINED" after a join: the new
--- member's cursor may only show later (screenpacks with coopqueue let the members choose one after another)
+-- Blinking "PRESS START" on the P2 side while it's free. Players 3 and 4 can join as well, without a prompt:
+-- their names go below the others'
 function start.f_coopJoinPrompt()
-	local text
-	if coopJoinMsgTime > 0 then
-		coopJoinMsgTime = coopJoinMsgTime - 1
-		text = coopJoinMsg
-	elseif f_coopJoinOpen() then
-		coopJoinBlink = (coopJoinBlink + 1) % 60
-		if coopJoinBlink < 40 then
-			text = motif.select_info.coopjoin_text or 'PRESS START'
-		end
+	if not f_coopJoinOpen() or #start.p[1].t_selCmd ~= 1 then
+		return
 	end
-	if text == nil then
+	coopJoinBlink = (coopJoinBlink + 1) % 60
+	if coopJoinBlink >= 40 then
 		return
 	end
 	local name = motif.select_info.p2.name
 	textImgReset(name.TextSpriteData)
-	textImgSetText(name.TextSpriteData, text)
+	textImgSetText(name.TextSpriteData, motif.select_info.coopjoin_text or 'PRESS START')
 	textImgDraw(name.TextSpriteData)
 end
 
@@ -2790,7 +2815,7 @@ function start.f_selectScreen()
 					local activeMember = true
 					if main.coop and (side == 1 or gameMode('versuscoop')) then
 						member = k
-						if motif.select_info.coopqueue then
+						if f_coopQueue() then
 							activeMember = (k == main.f_tableLength(start.p[side].t_selected) + 1)
 						end
 					end
@@ -2906,21 +2931,24 @@ function start.f_selectScreen()
 		for side = 1, 2 do
 			if #start.p[side].t_selTemp > 0 then
 				for i = 1, #start.p[side].t_selTemp do
-					if i <= motif.select_info['p' .. side].name.num then
+					-- drop-in co-op spreads the team over both sides (f_coopJoinSlot)
+					local nameSide, row = f_coopJoinSlot(side, i)
+					local nameCfg = motif.select_info['p' .. nameSide].name
+					if row <= nameCfg.num then
 						local name = ''
-						if motif.select_info['p' .. side].name.num == 1 then
+						if nameCfg.num == 1 and nameSide == side then
 							name = start.f_getName(start.p[side].t_selTemp[#start.p[side].t_selTemp].ref, side)
 						else
 							name = start.f_getName(start.p[side].t_selTemp[i].ref, side)
 						end
-						textImgReset(motif.select_info['p' .. side].name.TextSpriteData)
+						textImgReset(nameCfg.TextSpriteData)
 						textImgAddPos(
-							motif.select_info['p' .. side].name.TextSpriteData,
-							(i - 1) * motif.select_info['p' .. side].name.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].name.spacing[2]
+							nameCfg.TextSpriteData,
+							(row - 1) * nameCfg.spacing[1],
+							(row - 1) * nameCfg.spacing[2]
 						)
-						textImgSetText(motif.select_info['p' .. side].name.TextSpriteData, name)
-						textImgDraw(motif.select_info['p' .. side].name.TextSpriteData)
+						textImgSetText(nameCfg.TextSpriteData, name)
+						textImgDraw(nameCfg.TextSpriteData)
 					end
 				end
 			end
@@ -3457,7 +3485,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 		local done_spr = pCfg.face.done.spr
 		local preview_anim = pCfg.palmenu.preview.anim
 		if done_anim ~= preview_anim or done_spr[1] ~= -1 then
-			if (st.face_anim ~= done_anim or done_spr[1] ~= -1) and ((main.coop and not motif.select_info.coopqueue) or motif.select_info['p' .. side].face.num > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
+			if (st.face_anim ~= done_anim or done_spr[1] ~= -1) and ((main.coop and not f_coopQueue()) or motif.select_info['p' .. side].face.num > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
 				local a = start.f_animGet(start.c[player].selRef, side, member, pCfg.face.done, pCfg.face, false, st.face_data)
 				if a then
 					st.face_data = start.loadPalettes(a, charRef, pal)
@@ -3469,7 +3497,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 
 		-- face2 "done" anim after pal confirmation
 		local done_anim2 = pCfg.face2.done.anim
-		if st.face2_anim ~= done_anim2 and ((main.coop and not motif.select_info.coopqueue) or motif.select_info['p' .. side].face2.num > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
+		if st.face2_anim ~= done_anim2 and ((main.coop and not f_coopQueue()) or motif.select_info['p' .. side].face2.num > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
 			local a = start.f_animGet(start.c[player].selRef, side, member, pCfg.face2.done, pCfg.face2, false, st.face2_data)
 			if a then
 				st.face2_data = start.loadPalettes(a, charRef, pal)
@@ -3725,8 +3753,8 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					local palmenu_preview_spr = pCfg.palmenu.preview.spr
 					local face_anim = start.p[side].t_selTemp[member].face_anim
 					local face2_anim = start.p[side].t_selTemp[member].face2_anim
-					local canShow = (main.coop and not motif.select_info.coopqueue) or motif.select_info['p' .. side].face.num > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars
-					local canShow2 = (main.coop and not motif.select_info.coopqueue) or motif.select_info['p' .. side].face2.num > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars
+					local canShow = (main.coop and not f_coopQueue()) or motif.select_info['p' .. side].face.num > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars
+					local canShow2 = (main.coop and not f_coopQueue()) or motif.select_info['p' .. side].face2.num > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars
 					-- primary face "done" / preview
 					if canShow then
 						if motif.select_info.paletteselect == 0 then
