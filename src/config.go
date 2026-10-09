@@ -242,6 +242,8 @@ type Config struct {
 		MaxEnemiesPerPlayer int32   `ini:"MaxEnemiesPerPlayer" sync:"host"`
 		Intros              bool    `ini:"Intros" sync:"host"`
 		IntroTime           int32   `ini:"IntroTime" sync:"host"`
+		MoveNames           bool    `ini:"MoveNames"`
+		DirectorInfo        bool    `ini:"DirectorInfo"`
 	} `ini:"Brawler"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`

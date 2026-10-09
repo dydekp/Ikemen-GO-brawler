@@ -21,6 +21,8 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/brawler_controls.go \
 	src/brawler_controls_hud.go \
 	src/brawler_movelist.go \
+	src/brawler_callouts.go \
+	src/brawler_director_log.go \
 	src/bytecode.go \
 	src/camera.go \
 	src/char.go \

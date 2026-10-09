@@ -595,6 +595,26 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
 - Bosses get a wide bar at the bottom center.
 - After a wave that stopped the camera is cleared, a blinking "GO" arrow
   tells the players to move on.
+- Move names (option "Show Move Names"): under each player's panel, the
+  moves the player strings together: chained normals, cancels into
+  specials and supers, e.g. "Close Light Attack > Man's Kiai-dan". A lone
+  normal isn't shown, a lone special, throw or super is. Names are the
+  labels of the character's [State -1, ...] blocks (or the comment above a
+  ZSS changeState); unnamed moves aren't shown.
+- Director decisions (option "Show Director Decisions", needs Director =
+  1): on the right, what the director just changed and why. Green: easier,
+  red: harder, grey: neither. It reports
+    - the number of enemies alive at once (lowered while the team is under
+      pressure),
+    - attack turns per player (fewer, with slower attacks, for a player
+      under pressure),
+    - the spawn pace (faster while there are fewer enemies than players
+      and the team is doing fine),
+  with the reason: damage a player took recently, or low life. A change is
+  only reported once it held for 1.5 seconds; each topic shows its latest
+  change.
+Both options are in Options > Brawler Settings ([Brawler] MoveNames and
+DirectorInfo in the config).
 The HUD uses the fight screen's name font and scales to its localcoord.
 Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 
@@ -608,6 +628,7 @@ Balance:   AttackersPerPlayer, Director, ExtraPlayerEnemies, MaxEnemiesPerPlayer
            EnemyLife, DespawnTime,
            BowlDamage, BowlSlowdown
 Intros:    Intros, IntroTime
+Display:   MoveNames, DirectorInfo (also in Options > Brawler Settings)
 See the comments in the default config for details.
 
 

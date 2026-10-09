@@ -27,6 +27,8 @@ package main
 //   brawler_movenames.go move names read from the character's files
 //   brawler_controls.go  controls screen: try the buttons and rebind them
 //   brawler_movelist.go  move lists for the select screen (generated when a character has none)
+//   brawler_callouts.go  names of the moves players string together, under their HUD panel
+//   brawler_director_log.go what the director changes to make the fight easier or harder, and why
 
 import "math"
 
@@ -304,6 +306,8 @@ func (b *Brawler) roundInit() {
 	brawlerFinishJoinLoads()
 	brawlerInitSeats()
 	brawlerControls.open = false
+	brawlerDirectorLog.reset()
+	brawlerCallouts = [MaxSimul * 2]brawlerCallout{}
 
 	// Players start on the lane closest to their stage start position
 	for _, c := range b.players(false) {
@@ -511,10 +515,12 @@ func (b *Brawler) step() {
 	b.bowlBodies()
 	if b.directorOn() {
 		b.directorStep()
+		b.directorLogStep()
 	} else {
 		b.assignTokens()
 	}
 	b.trackHudTargets()
+	b.stepCallouts()
 
 	if sys.roundState() != 2 || b.complete {
 		return
@@ -647,6 +653,15 @@ func (b *Brawler) endWave() {
 // Enemies allowed alive at once: the wave's limit, and [Brawler] MaxEnemiesPerPlayer for each player
 // still in the fight
 func (b *Brawler) maxAlive(w BrawlerWave) int32 {
+	n := b.maxAliveUncapped(w)
+	if b.directorOn() {
+		n = brawlerDirectorCap(n, b.director.tension)
+	}
+	return n
+}
+
+// The wave's limit for the players in the fight, before the director lowers it for pressure
+func (b *Brawler) maxAliveUncapped(w BrawlerWave) int32 {
 	n := w.maxAlive
 	players := int32(Max(1, len(b.players(true))))
 	if b.directorOn() {
@@ -655,9 +670,6 @@ func (b *Brawler) maxAlive(w BrawlerWave) int32 {
 	}
 	if per := sys.cfg.Brawler.MaxEnemiesPerPlayer; per > 0 {
 		n = Min(n, per*players)
-	}
-	if b.directorOn() {
-		n = brawlerDirectorCap(n, b.director.tension)
 	}
 	return n
 }
