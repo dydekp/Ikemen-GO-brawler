@@ -26,6 +26,7 @@ package main
 //   brawler_buttons.go   button layouts per character and controller
 //   brawler_movenames.go move names read from the character's files
 //   brawler_controls.go  controls screen: try the buttons and rebind them
+//   brawler_movelist.go  move lists for the select screen (generated when a character has none)
 
 import "math"
 

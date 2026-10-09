@@ -781,6 +781,47 @@ local function f_commandlistData(t, str, align, col)
 	return t, col
 end
 
+-- Rows of a movelist text for drawing: per line, the text and glyph parts with their alignment and color.
+-- Glyph tokens (motif.glyphs) become glyph parts
+function menu.f_commandlistRows(movelist)
+	-- Replace glyph tokens with <token> for later lookup in motif.glyphs.
+	for k, v in main.f_sortKeys(motif.glyphs, function(t, a, b) return string.len(a) > string.len(b) end) do
+		local s = movelist
+		movelist = s:gsub('()' .. main.f_escapePattern(k), function(pos)
+			-- If the match starts immediately after a '<', it's already inside a tag.
+			-- Leave it unchanged to prevent nested replacements.
+			if pos > 1 and s:sub(pos - 1, pos - 1) == '<' then
+				return k
+			end
+			local escaped = k:gsub('&', '&amp;'):gsub('<', '&lt;'):gsub('>', '&gt;')
+			return '<' .. escaped .. '>'
+		end)
+	end
+	local t = {}
+	local col = {}
+	for line in movelist:gmatch('([^\n]*)\n?') do
+		line = line:gsub('%s+$', '')
+		local subt = {}
+		for m in line:gmatch('(	*[^	]+)') do
+			local tabs = 0
+			m = m:gsub('^(	*)', function(m1)
+				tabs = string.len(m1)
+				return ''
+			end)
+			local align = 1 --left align
+			if tabs == 1 then
+				align = 0 --center align
+			elseif tabs > 1 then
+				align = -1 --right align
+			end
+			subt, col = f_commandlistData(subt, m, align, col)
+		end
+		table.insert(t, subt)
+	end
+	t[#t] = nil --blank line produced by regexp matching
+	return t
+end
+
 function menu.f_commandlistParse()
 	menu.t_movelists = {}
 	for side, tbl in ipairs({start.p[1].t_selected, start.p[2].t_selected}) do
@@ -799,42 +840,7 @@ function menu.f_commandlistParse()
 					sel.commandlist = nil
 					sel.movelistLine = 1
 					if movelist ~= '' then
-						-- Replace glyph tokens with <token> for later lookup in motif.glyphs.
-						for k, v in main.f_sortKeys(motif.glyphs, function(t, a, b) return string.len(a) > string.len(b) end) do
-							local s = movelist
-							movelist = s:gsub('()' .. main.f_escapePattern(k), function(pos)
-								-- If the match starts immediately after a '<', it's already inside a tag.
-								-- Leave it unchanged to prevent nested replacements.
-								if pos > 1 and s:sub(pos - 1, pos - 1) == '<' then
-									return k
-								end
-								local escaped = k:gsub('&', '&amp;'):gsub('<', '&lt;'):gsub('>', '&gt;')
-								return '<' .. escaped .. '>'
-							end)
-						end
-						local t = {}
-						local col = {}
-						for line in movelist:gmatch('([^\n]*)\n?') do
-							line = line:gsub('%s+$', '')
-							local subt = {}
-							for m in line:gmatch('(	*[^	]+)') do
-								local tabs = 0
-								m = m:gsub('^(	*)', function(m1)
-									tabs = string.len(m1)
-									return ''
-								end)
-								local align = 1 --left align
-								if tabs == 1 then
-									align = 0 --center align
-								elseif tabs > 1 then
-									align = -1 --right align
-								end
-								subt, col = f_commandlistData(subt, m, align, col)
-							end
-							table.insert(t, subt)
-						end
-						t[#t] = nil --blank line produced by regexp matching
-						sel.commandlist = t
+						sel.commandlist = menu.f_commandlistRows(movelist)
 					end
 				end
 				table.insert(menu.t_movelists, {
@@ -858,6 +864,92 @@ function menu.f_commandlistParse()
 		menu.movelistChar = 1
 	end
 	if gameOption('Debug.DumpLuaTables') then main.f_printTable(menu.t_movelists, "debug/t_movelists.txt") end
+end
+
+-- Draw the rows of a movelist (menu.f_commandlistRows) with a pause menu section's fonts and glyphs:
+-- count rows from row first, offset by (ox, oy) from the section's movelist position, boxWidth wide (for
+-- centered and right aligned parts), clipped to window {x1, y1, x2, y2}
+function menu.f_commandlistDraw(sec, cmdList, first, count, ox, oy, boxWidth, window)
+	local i = 0
+	for n = first, math.min(first + count, #cmdList) do
+		i = i + 1
+		local alignOffset = 0
+		local lengthOffset = 0
+		local align = 1
+		local width = 0
+		for k, v in ipairs(cmdList[n]) do
+			if v.text ~= '' then
+				alignOffset = 0
+				if v.align == 0 then --center align
+					alignOffset = boxWidth * 0.5
+				elseif v.align == -1 then --right align
+					alignOffset = boxWidth
+				end
+				if v.align ~= align then
+					lengthOffset = 0
+					align = v.align
+				end
+				local fontProps = motif.files.font['font' .. sec.movelist.text.font[1]]
+				--render glyph
+				if v.glyph and motif.glyphs[v.text] ~= nil then
+					local g = motif.glyphs[v.text]
+					if g.Size ~= nil and g.AnimData ~= nil then
+						local scaleX = fontProps.size[2] * sec.movelist.text.scale[2] / g.Size[2] * sec.movelist.glyphs.scale[1]
+						local scaleY = fontProps.size[2] * sec.movelist.text.scale[2] / g.Size[2] * sec.movelist.glyphs.scale[2]
+						if v.align == -1 then
+							alignOffset = alignOffset - g.Size[1] * scaleX
+						end
+						animSetScale(g.AnimData, scaleX, scaleY)
+						--animSetFacing(g.AnimData, facing)
+						animSetPos(
+							g.AnimData,
+							math.floor(ox + sec.movelist.pos[1] + sec.movelist.text.offset[1] + sec.movelist.glyphs.offset[1] + alignOffset + lengthOffset),
+							oy + sec.movelist.pos[2] + sec.movelist.text.offset[2] + sec.movelist.glyphs.offset[2] + main.f_round((fontProps.size[2] + fontProps.spacing[2]) * sec.movelist.text.scale[2] + sec.movelist.text.spacing[2]) * (i - 1)
+						)
+						animSetWindow(g.AnimData, window[1], window[2], window[3], window[4])
+						--animUpdate(g.AnimData)
+						animDraw(g.AnimData)
+						if k < #cmdList[n] then
+							width = g.Size[1] * scaleX + sec.movelist.glyphs.spacing[1]
+						end
+					end
+				--render text
+				else
+					textImgReset(sec.movelist.text.TextSpriteData)
+					textImgSetWindow(sec.movelist.text.TextSpriteData, window[1], window[2], window[3], window[4])
+					local align = v.align
+					if align == 0 and lengthOffset ~= 0 then
+						align = 1
+					end
+					textImgSetAlign(sec.movelist.text.TextSpriteData, align)
+					textImgSetColor(
+						sec.movelist.text.TextSpriteData,
+						v.col.r or sec.movelist.text.font[4],
+						v.col.g or sec.movelist.text.font[5],
+						v.col.b or sec.movelist.text.font[6],
+						v.col.a or sec.movelist.text.font[7]
+					)
+					textImgAddPos(
+						sec.movelist.text.TextSpriteData,
+						ox + alignOffset + lengthOffset,
+						oy + main.f_round((fontProps.size[2] + fontProps.spacing[2]) * sec.movelist.text.scale[2] + sec.movelist.text.spacing[2]) * (i - 1)
+					)
+					textImgSetText(sec.movelist.text.TextSpriteData, v.text)
+					textImgDraw(sec.movelist.text.TextSpriteData)
+					if k < #cmdList[n] then
+						width = textImgGetTextWidth(sec.movelist.text.TextSpriteData, v.text) * sec.movelist.text.scale[1] + sec.movelist.text.spacing[1]
+					end
+				end
+				if v.align == 0 and not v.glyph and lengthOffset == 0 then
+					lengthOffset = lengthOffset + width / 2
+				elseif v.align == -1 then
+					lengthOffset = lengthOffset - width
+				else
+					lengthOffset = lengthOffset + width
+				end
+			end
+		end
+	end
 end
 
 function menu.f_commandlistRender(sec, t)
@@ -897,85 +989,7 @@ function menu.f_commandlistRender(sec, t)
 	textImgSetText(sec.movelist.title.TextSpriteData, main.f_itemnameUpper(string.format(sec.movelist.title.text, t.name), sec.movelist.title.uppercase))
 	textImgDraw(sec.movelist.title.TextSpriteData)
 	--draw commands
-	local i = 0
-	for n = t.tbl.movelistLine, math.min(t.tbl.movelistLine + sec.movelist.window.visibleitems + 1, #cmdList) do
-		i = i + 1
-		local alignOffset = 0
-		local lengthOffset = 0
-		local align = 1
-		local width = 0
-		for k, v in ipairs(cmdList[n]) do
-			if v.text ~= '' then
-				alignOffset = 0
-				if v.align == 0 then --center align
-					alignOffset = sec.movelist.window.width * 0.5
-				elseif v.align == -1 then --right align
-					alignOffset = sec.movelist.window.width
-				end
-				if v.align ~= align then
-					lengthOffset = 0
-					align = v.align
-				end
-				local fontProps = motif.files.font['font' .. sec.movelist.text.font[1]]
-				--render glyph
-				if v.glyph and motif.glyphs[v.text] ~= nil then
-					local g = motif.glyphs[v.text]
-					if g.Size ~= nil and g.AnimData ~= nil then
-						local scaleX = fontProps.size[2] * sec.movelist.text.scale[2] / g.Size[2] * sec.movelist.glyphs.scale[1]
-						local scaleY = fontProps.size[2] * sec.movelist.text.scale[2] / g.Size[2] * sec.movelist.glyphs.scale[2]
-						if v.align == -1 then
-							alignOffset = alignOffset - g.Size[1] * scaleX
-						end
-						animSetScale(g.AnimData, scaleX, scaleY)
-						--animSetFacing(g.AnimData, facing)
-						animSetPos(
-							g.AnimData,
-							math.floor(sec.movelist.pos[1] + sec.movelist.text.offset[1] + sec.movelist.glyphs.offset[1] + alignOffset + lengthOffset),
-							sec.movelist.pos[2] + sec.movelist.text.offset[2] + sec.movelist.glyphs.offset[2] + main.f_round((fontProps.size[2] + fontProps.spacing[2]) * sec.movelist.text.scale[2] + sec.movelist.text.spacing[2]) * (i - 1)
-						)
-						animSetWindow(g.AnimData, menu.movelistW[1], menu.movelistW[2], menu.movelistW[3], menu.movelistW[4])
-						--animUpdate(g.AnimData)
-						animDraw(g.AnimData)
-						if k < #cmdList[n] then
-							width = g.Size[1] * scaleX + sec.movelist.glyphs.spacing[1]
-						end
-					end
-				--render text
-				else
-					textImgReset(sec.movelist.text.TextSpriteData)
-					local align = v.align
-					if align == 0 and lengthOffset ~= 0 then
-						align = 1
-					end
-					textImgSetAlign(sec.movelist.text.TextSpriteData, align)
-					textImgSetColor(
-						sec.movelist.text.TextSpriteData,
-						v.col.r or sec.movelist.text.font[4],
-						v.col.g or sec.movelist.text.font[5],
-						v.col.b or sec.movelist.text.font[6],
-						v.col.a or sec.movelist.text.font[7]
-					)
-					textImgAddPos(
-						sec.movelist.text.TextSpriteData,
-						alignOffset + lengthOffset,
-						main.f_round((fontProps.size[2] + fontProps.spacing[2]) * sec.movelist.text.scale[2] + sec.movelist.text.spacing[2]) * (i - 1)
-					)
-					textImgSetText(sec.movelist.text.TextSpriteData, v.text)
-					textImgDraw(sec.movelist.text.TextSpriteData)
-					if k < #cmdList[n] then
-						width = textImgGetTextWidth(sec.movelist.text.TextSpriteData, v.text) * sec.movelist.text.scale[1] + sec.movelist.text.spacing[1]
-					end
-				end
-				if v.align == 0 and not v.glyph and lengthOffset == 0 then
-					lengthOffset = lengthOffset + width / 2
-				elseif v.align == -1 then
-					lengthOffset = lengthOffset - width
-				else
-					lengthOffset = lengthOffset + width
-				end
-			end
-		end
-	end
+	menu.f_commandlistDraw(sec, cmdList, t.tbl.movelistLine, sec.movelist.window.visibleitems + 1, 0, 0, sec.movelist.window.width, menu.movelistW)
 	--draw scroll arrows
 	if #cmdList > sec.movelist.window.visibleitems then
 		if t.tbl.movelistLine > 1 then

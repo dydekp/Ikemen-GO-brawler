@@ -20,6 +20,7 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/brawler_movenames.go \
 	src/brawler_controls.go \
 	src/brawler_controls_hud.go \
+	src/brawler_movelist.go \
 	src/bytecode.go \
 	src/camera.go \
 	src/char.go \

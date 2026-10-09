@@ -1994,6 +1994,7 @@ function start.f_selectReset(hardReset, preserveProgress)
 	stageEnd = false
 	t_reservedChars = {{}, {}}
 	cursorActive = {}
+	start.f_movelistReset()
 	cursorDone = {}
 	if main.preload ~= nil and main.preload.charHighlight ~= nil then
 		for _, ref in pairs(main.preload.charHighlight) do
@@ -2536,6 +2537,139 @@ function start.f_coopJoinPrompt()
 	textImgDraw(name.TextSpriteData)
 end
 
+-- Move lists on the select screen (main.selectMovelist, brawler mode): each player opens the move list of
+-- the character under their cursor with the d button. It covers that player's half of the screen, and
+-- shows the buttons as that player presses them: their pad buttons or keys, through their button layout
+-- for the character (brawlerMovelist). Up/down scroll, d or cancel close it. While it's open the
+-- player's cursor waits.
+local movelistOpen = {} -- Per controller: {line, member, ref, rows}
+local movelistClosed = {} -- Controllers that closed theirs this frame: that cancel doesn't leave the screen
+local movelistRect = nil
+
+function start.f_movelistReset()
+	movelistOpen, movelistClosed = {}, {}
+end
+
+-- The move list of a controller is open, or was closed this frame
+function start.f_movelistBusy(cmd)
+	return movelistOpen[cmd] ~= nil or movelistClosed[cmd] == true
+end
+
+-- Section whose fonts and glyphs the move list uses: the pause menu's Command List
+local function f_movelistSec()
+	return motif.pause_menu ~= nil and motif.pause_menu.pause_menu or nil
+end
+
+-- Panel of a member: x, y, width, height in motif coordinates, and the title height
+local function f_movelistPanel(member)
+	local w, h = motif.info.localcoord[1], motif.info.localcoord[2]
+	local side = f_coopJoinSlot(1, member)
+	local x = w * 0.02
+	if side == 2 then
+		x = w * 0.52
+	end
+	return x, h * 0.1, w * 0.46, h * 0.8, h * 0.07
+end
+
+local function f_movelistLineHeight(sec)
+	local fontProps = motif.files.font['font' .. sec.movelist.text.font[1]]
+	return main.f_round((fontProps.size[2] + fontProps.spacing[2]) * sec.movelist.text.scale[2] + sec.movelist.text.spacing[2])
+end
+
+-- Rows area of a member's panel: its top and bottom, and how many rows fit
+local function f_movelistRowsArea(sec, member)
+	local _, y, _, h, th = f_movelistPanel(member)
+	local top, bottom = y + th * 1.3, y + h - th * 1.3
+	return top, bottom, math.max(1, math.floor((bottom - top) / f_movelistLineHeight(sec)))
+end
+
+-- Handle a member's move list buttons. Returns true while it's open: the member's selection waits
+function start.f_movelistInput(cmd, player, member)
+	local sec = f_movelistSec()
+	if not main.selectMovelist or sec == nil then
+		return false
+	end
+	local ml = movelistOpen[cmd]
+	if ml == nil then
+		if getInput(cmd, 'd') then
+			sndPlay(motif.Snd, motif.select_info.p1.cursor.move.snd[1], motif.select_info.p1.cursor.move.snd[2])
+			movelistOpen[cmd] = {line = 1, member = member}
+			return true
+		end
+		return false
+	end
+	ml.member = member
+	-- The character under the cursor
+	local ref = start.c[player].selRef
+	if ref ~= ml.ref then
+		ml.ref, ml.line, ml.rows = ref, 1, nil
+		local data = ref ~= nil and start.f_getCharData(ref) or nil
+		if data ~= nil and data.def ~= nil and data.def ~= '' then
+			local text = brawlerMovelist(data.def, cmd)
+			if text ~= '' then
+				ml.rows = menu.f_commandlistRows(text)
+			end
+		end
+	end
+	if getInput(cmd, 'd') or getInput(cmd, motif.select_info.cancel.key) then
+		sndPlay(motif.Snd, motif.select_info.cancel.snd[1], motif.select_info.cancel.snd[2])
+		movelistOpen[cmd] = nil
+		movelistClosed[cmd] = true
+		return true
+	end
+	local _, _, visible = f_movelistRowsArea(sec, member)
+	local rows = ml.rows ~= nil and #ml.rows or 0
+	if getInput(cmd, 'U') and ml.line > 1 then
+		ml.line = ml.line - 1
+	elseif getInput(cmd, 'D') and ml.line + visible <= rows then
+		ml.line = ml.line + 1
+	end
+	return true
+end
+
+-- Draw the open move lists
+function start.f_movelistDraw()
+	movelistClosed = {}
+	local sec = f_movelistSec()
+	if not main.selectMovelist or sec == nil then
+		return
+	end
+	if movelistRect == nil then
+		movelistRect = rectNew()
+		rectSetLocalcoord(movelistRect, motif.info.localcoord[1], motif.info.localcoord[2])
+		rectSetColor(movelistRect, 0, 0, 16)
+		rectSetAlpha(movelistRect, 220, 40)
+		rectSetLayerno(movelistRect, 2)
+	end
+	local lh = f_movelistLineHeight(sec)
+	for cmd, ml in pairs(movelistOpen) do
+		local x, y, w, h, th = f_movelistPanel(ml.member)
+		rectSetWindow(movelistRect, x, y, x + w, y + h)
+		rectDraw(movelistRect)
+		local pad = w * 0.03
+		local textX = sec.movelist.pos[1] + sec.movelist.text.offset[1]
+		local textY = sec.movelist.pos[2] + sec.movelist.text.offset[2]
+		-- Title: the character's name
+		local name = ml.ref ~= nil and start.f_getName(ml.ref, 1) or ''
+		local title = menu.f_commandlistRows('<#f0f000>' .. name .. '</>\n')
+		menu.f_commandlistDraw(sec, title, 1, 0, x + pad - textX, y + th * 0.6 - textY, w - pad * 2, {x, y, x + w, y + h})
+		-- Moves
+		local rows = ml.rows
+		if rows == nil then
+			rows = {{{glyph = false, text = sec.movelist.text.text, align = 1, col = {}}}}
+		end
+		local top, bottom, visible = f_movelistRowsArea(sec, ml.member)
+		menu.f_commandlistDraw(sec, rows, ml.line, visible - 1, x + pad - textX, top + lh * 0.8 - textY, w - pad * 2, {x, top, x + w, bottom})
+		-- Hint with the player's buttons
+		local hint = '^D: close'
+		if #rows > visible then
+			hint = '_U_D: scroll   ' .. hint
+		end
+		local hintRows = menu.f_commandlistRows('\t\t' .. brawlerButtonsText(hint, cmd) .. '\n')
+		menu.f_commandlistDraw(sec, hintRows, 1, 0, x + pad - textX, y + h - th * 0.9 - textY, w - pad * 2, {x, y, x + w, y + h})
+	end
+end
+
 local function refreshActiveFacePortraits()
 	for side = 1, 2 do
 		for k, v in ipairs(start.p[side].t_selCmd) do
@@ -2821,7 +2955,7 @@ function start.f_selectScreen()
 					end
 					--member selection
 					local drawUpdateFlag
-					if activeMember then
+					if activeMember and not start.f_movelistInput(v.cmd, v.player, member) then
 						v.selectState, drawUpdateFlag = start.f_selectMenu(side, v.cmd, v.player, member, v.selectState)
 					end
 					if drawUpdateFlag then
@@ -2919,7 +3053,7 @@ function start.f_selectScreen()
 		--exit select screen
 		for side = 1, 2 do
 			for _, v in ipairs(start.p[side].t_selCmd) do
-				if not start.escFlag and (esc() or (not start.p[side].inPalMenu and getInput(v.cmd, motif.select_info.cancel.key))) then
+				if not start.escFlag and (esc() or (not start.p[side].inPalMenu and not start.f_movelistBusy(v.cmd) and getInput(v.cmd, motif.select_info.cancel.key))) then
 					sndPlay(motif.Snd, motif.select_info.cancel.snd[1], motif.select_info.cancel.snd[2])
 					fadeOutInit(motif.select_info.fadeout.FadeData)
 					fadeOutStarted = true
@@ -3049,6 +3183,7 @@ function start.f_selectScreen()
 		if motif.select_info.timer.count ~= -1 and (not start.p[1].teamEnd or not start.p[2].teamEnd or not start.p[1].selEnd or not start.p[2].selEnd or (main.stageMenu and not stageEnd)) and counter >= 0 then
 			timerSelect = main.f_drawTimer(timerSelect, motif.select_info.timer)
 		end
+		start.f_movelistDraw()
 		-- hook
 		hook.run("start.f_selectScreen")
 		--draw layerno = 1 backgrounds

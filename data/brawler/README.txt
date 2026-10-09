@@ -103,7 +103,21 @@ chooses right away, at the same time as the others: player 1 and 3 on the
 P1 side of the screen, 2 and 4 on the P2 side. Joining is open until the
 characters are chosen, or with a stage select (free play) until the stage
 is chosen. Up to [Config] Players (max. 4) can play. More players can drop in at any time during a
-level (see DROP-IN in section 9). Life carries over from level to level. The mode
+level (see DROP-IN in section 9).
+
+MOVE LISTS: on the select screen, each player opens the move list of the
+character under their cursor with the d button (LB on pads, Q / O on the
+keyboard layouts used here). It covers that player's half of the screen;
+up/down scroll, d or cancel close it, and the cursor waits meanwhile. The
+buttons are shown as that player presses them: their pad buttons or keys,
+through their button layout for that character (CONTROLS SCREEN AND
+BUTTON LAYOUTS, section 9). The list is the character's own movelist.dat
+([Files] movelist, the pause menu's Command List). Characters without one
+get a list generated from their command and state files: every
+[State -1, Name] block that starts a move, grouped into unique attacks,
+combos (chained normals), throws, specials and supers. Moves without a
+name show as "Move <state number>". A generated list is a good start for
+a movelist.dat of your own: the format is the same. Life carries over from level to level. The mode
 ends when all players are KO and nobody continues, or the last level is won.
 
 

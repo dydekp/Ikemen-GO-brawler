@@ -6263,6 +6263,25 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LBool(ok))
 		return 1
 	})
+	luaRegister(l, "brawlerButtonsText", func(*lua.LState) int {
+		/*Replace the button glyph tokens of a movelist format text with a player's pad buttons or keys.
+		@function brawlerButtonsText
+		@tparam string text Text with button tokens (^A ... ^Z, ^S, ^D, ^W).
+		@tparam int controller 1-based input configuration (player).
+		@treturn string text The text with the player's button names.*/
+		l.Push(lua.LString(brawlerSeatButtonsText(strArg(l, 1), int(numArg(l, 2))-1)))
+		return 1
+	})
+	luaRegister(l, "brawlerMovelist", func(*lua.LState) int {
+		/*Move list of a character with the buttons a player presses for it (beat 'em up select screen).
+		@function brawlerMovelist
+		@tparam string def Character .def path.
+		@tparam int controller 1-based input configuration (player) whose controller and button layout are used.
+		@treturn string movelist The character's movelist.dat, else one generated from its files, in the
+		  movelist format with the buttons replaced by the player's pad buttons or keys. `""` if there's none.*/
+		l.Push(lua.LString(brawlerSeatMovelist(strArg(l, 1), int(numArg(l, 2))-1)))
+		return 1
+	})
 	luaRegister(l, "brawlerClearLevel", func(*lua.LState) int {
 		/*Unload the current beat 'em up level.
 		@function brawlerClearLevel*/

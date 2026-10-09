@@ -1894,6 +1894,7 @@ function main.f_default()
 	}
 	main.coop = false --if mode should be recognized as coop
 	main.coopJoin = false --if more coop players join the select screen by pressing start (team starts with 1 member)
+	main.selectMovelist = false --if players can open move lists on the select screen (d button)
 	main.cpuSide = {false, true} --which side is controlled by CPU
 	main.dropDefeated = false --if defeated turns members should be skipped in the next match
 	main.elimination = false --if single lose should stop further lua execution
@@ -1986,6 +1987,7 @@ function main.f_brawlerMode(t, item, levels, stageSelect)
 	main.brawlerLevels = levels
 	main.coop = true
 	main.coopJoin = true
+	main.selectMovelist = true
 	main.elimination = true
 	main.exitSelect = true
 	main.luaPath = 'external/script/brawler.lua'
