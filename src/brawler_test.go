@@ -1015,3 +1015,86 @@ func TestBrawlerTagStatesNeedTagP2(t *testing.T) {
 		t.Fatalf("tag.zss: the noAutoTurn condition must require a Tag team P2 first:\n%s", cond)
 	}
 }
+
+// [Players]: how every player after the first changes a level
+func TestBrawlerLevelPlayers(t *testing.T) {
+	lv, err := loadBrawlerLevel(writeBrawlerLevel(t, `
+[Level]
+name = Players
+[Enemies]
+enemy = thug, kfm
+enemy = boss, kfm
+boss = boss
+[Players]
+enemies   = 100
+alive     = 100%
+life      = 20
+bosslife  = 50
+attackers = 1
+[Wave 1]
+trigger  = 0
+maxalive = 2
+spawn    = thug, right, player, 30, 3
+spawn    = thug|boss, left, player, 30, 1
+spawn    = thug, left, player, 30, inf
+kills    = 5
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ps := lv.players
+	if ps.enemies != 100 || !ps.hasAlive || ps.alive != 100 || ps.life != 20 || ps.lifeFor(true) != 50 || ps.lifeFor(false) != 20 || ps.attackers != 1 {
+		t.Fatalf("parsed %+v", ps)
+	}
+	b := brawlerTestMode(t, 0)
+	brawlerTestChars(t)
+	b.level = lv
+	w := lv.waves[0]
+	solo := func() {
+		if n := b.spawnCount(w.spawns[0]); n != 3 {
+			t.Fatalf("solo count %v", n)
+		}
+		if n := b.maxAlive(w); n != 2 {
+			t.Fatalf("solo alive %v", n)
+		}
+		if n := b.attackersPerPlayer(); n != sys.cfg.Brawler.AttackersPerPlayer {
+			t.Fatalf("solo attackers %v", n)
+		}
+	}
+	brawlerTestPlayer(b, 0, 0, 0)
+	solo()
+	// Two players: twice the enemies and the alive limit, one more attacker each.
+	// A line that can send the boss and an endless line keep their count
+	brawlerTestPlayer(b, 2, 20, 0)
+	if n := b.spawnCount(w.spawns[0]); n != 6 {
+		t.Fatalf("2 player count %v", n)
+	}
+	if n := b.spawnCount(w.spawns[1]); n != 1 {
+		t.Fatalf("boss line count %v", n)
+	}
+	if n := b.spawnCount(w.spawns[2]); n != -1 {
+		t.Fatalf("endless line %v", n)
+	}
+	if n := b.maxAliveUncapped(w); n != 4 {
+		t.Fatalf("2 player alive %v", n)
+	}
+	if n := b.attackersPerPlayer(); n != sys.cfg.Brawler.AttackersPerPlayer+1 {
+		t.Fatalf("2 player attackers %v", n)
+	}
+	if got := brawlerPlayerScale(1000, b.teamSize(), lv.players.lifeFor(true)); got != 1500 {
+		t.Fatalf("boss life %v", got)
+	}
+	// Without [Players], the alive limit follows [Brawler] ExtraPlayerEnemies and counts stay
+	b.level = &BrawlerLevel{}
+	if n := b.maxAliveUncapped(w); n != brawlerPlayerScale(2, 2, sys.cfg.Brawler.ExtraPlayerEnemies) {
+		t.Fatalf("default alive %v", n)
+	}
+	if n := b.spawnCount(w.spawns[0]); n != 3 {
+		t.Fatalf("default count %v", n)
+	}
+	for _, text := range []string{"[Players]\nenemies = -5\n", "[Players]\nlife = lots\n", "[Players]\nspeed = 2\n"} {
+		if _, err := loadBrawlerLevel(writeBrawlerLevel(t, "[Level]\nname = x\n"+text)); err == nil {
+			t.Errorf("no error for %q", text)
+		}
+	}
+}

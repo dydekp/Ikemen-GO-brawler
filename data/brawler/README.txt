@@ -275,6 +275,25 @@ spawn parameters:
 Only [Brawler] MaxEnemiesPerPlayer enemies (default 4) per player in the
 fight are alive at the same time, whatever the waves say.
 
+MORE PLAYERS: [Players] says how every player after the first changes the
+level. Without it, only maxalive grows ([Brawler] ExtraPlayerEnemies) and a
+level sends the same enemies for 1 or 4 players. Percentages are added per
+extra player (100 = double with 2 players, triple with 3):
+
+  [Players]
+  enemies   = 100  ; more enemies: added to every spawn line's count
+                   ; (lines that can send a boss and endless lines keep
+                   ; theirs). Default 0
+  alive     = 100  ; more enemies at once (default [Brawler]
+                   ; ExtraPlayerEnemies)
+  attackers = 1    ; attack turns added per player once 2+ play
+  life      = 20   ; more life for every enemy. Default 0
+  bosslife  = 75   ; more life for bosses (default: life)
+
+Counts are set when a wave starts, life when an enemy spawns, so players
+who drop in during a level make the next waves bigger. Playing alone is
+never affected.
+
 Spawn lines run one after another. A wave is cleared when its spawning has
 finished (all counts reached, or its kills / time limit) and no enemy is left
 standing. Examples:

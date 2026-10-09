@@ -67,6 +67,7 @@ type BrawlerLevel struct {
 	hasEndX   bool
 	enemies   []BrawlerEnemy
 	types     []string                    // Distinct enemy character defs, as written in the level
+	players   BrawlerPlayerScaling        // [Players]: what every player after the first changes
 	behaviors map[string]*BrawlerBehavior // AI profiles: built in, global file and level sections
 	intros    map[string]*BrawlerIntro    // By enemy alias
 	waves     []BrawlerWave
@@ -79,6 +80,18 @@ func (lv *BrawlerLevel) enemyIndex(alias string) int {
 		}
 	}
 	return -1
+}
+
+// [Players] of a level: how every player after the first changes it. Percentages are added per extra
+// player: 100 = twice as much with 2 players, three times with 3
+type BrawlerPlayerScaling struct {
+	enemies   float32 // More enemies: added to the spawn counts of every line that has no boss (default 0)
+	alive     float32 // More enemies alive at once (default [Brawler] ExtraPlayerEnemies)
+	hasAlive  bool
+	life      float32 // More enemy life (default 0)
+	bossLife  float32 // More boss life (default: life)
+	hasBoss   bool
+	attackers int32 // Attack turns added per player once 2 or more play (default 0)
 }
 
 // A line of an ini style brawler file
@@ -224,9 +237,9 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 				p.lv.intros = map[string]*BrawlerIntro{}
 			}
 			p.lv.intros[name] = p.intro
-		case "level", "enemies":
+		case "level", "enemies", "players":
 		default:
-			return fmt.Errorf("unknown section [%v] (Level, Enemies, Wave, Behavior, Intro)", l.section)
+			return fmt.Errorf("unknown section [%v] (Level, Enemies, Players, Wave, Behavior, Intro)", l.section)
 		}
 		return nil
 	}
@@ -235,6 +248,8 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 		return p.levelKey(l)
 	case "enemies":
 		return p.enemiesKey(l)
+	case "players":
+		return p.playersKey(l)
 	case "wave":
 		return p.waveKey(l)
 	case "behavior":
@@ -243,6 +258,35 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 		return p.intro.set(l.key, l.val)
 	case "":
 		return fmt.Errorf("parameter '%v' outside a section", l.key)
+	}
+	return nil
+}
+
+func (p *brawlerLevelParser) playersKey(l brawlerIniLine) error {
+	s := &p.lv.players
+	if l.key == "attackers" {
+		v, err := brawlerParseI(l.val)
+		if err != nil || v < 0 {
+			return fmt.Errorf("invalid attackers: %v", l.val)
+		}
+		s.attackers = v
+		return nil
+	}
+	v, err := brawlerParseF(strings.TrimSuffix(l.val, "%"))
+	if err != nil || v < 0 {
+		return fmt.Errorf("invalid %v: %v (a percentage, 0 or more)", l.key, l.val)
+	}
+	switch l.key {
+	case "enemies":
+		s.enemies = v
+	case "alive":
+		s.alive, s.hasAlive = v, true
+	case "life":
+		s.life = v
+	case "bosslife":
+		s.bossLife, s.hasBoss = v, true
+	default:
+		return fmt.Errorf("unknown players parameter '%v' (enemies, alive, life, bosslife, attackers)", l.key)
 	}
 	return nil
 }

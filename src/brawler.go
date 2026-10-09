@@ -470,6 +470,7 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 		// Characters are balanced for 1v1. Scale their own life down for crowds of enemies
 		h.lifeMax = Max(1, int32(float32(h.lifeMax)*sys.cfg.Brawler.EnemyLife/100))
 	}
+	h.lifeMax = brawlerPlayerScale(h.lifeMax, b.teamSize(), b.level.players.lifeFor(e.boss))
 	h.life = h.lifeMax
 	h.redLife = h.lifeMax
 	h.setPosX(x/h.localscl, true)
@@ -582,7 +583,7 @@ func (b *Brawler) startWave() {
 	b.waveKills = 0
 	b.queue = nil
 	for _, s := range w.spawns {
-		b.queue = append(b.queue, brawlerQueued{spawn: s, left: s.count})
+		b.queue = append(b.queue, brawlerQueued{spawn: s, left: b.spawnCount(s)})
 	}
 	if len(b.queue) > 0 {
 		b.queueDelay = b.queue[0].spawn.delay
@@ -666,7 +667,11 @@ func (b *Brawler) maxAliveUncapped(w BrawlerWave) int32 {
 	players := int32(Max(1, len(b.players(true))))
 	if b.directorOn() {
 		// The wave's limit is for one player. Every other player adds [Brawler] ExtraPlayerEnemies percent
-		n = brawlerPlayerScale(n, players, sys.cfg.Brawler.ExtraPlayerEnemies)
+		pct := sys.cfg.Brawler.ExtraPlayerEnemies
+		if b.level != nil && b.level.players.hasAlive {
+			pct = b.level.players.alive
+		}
+		n = brawlerPlayerScale(n, players, pct)
 	}
 	if per := sys.cfg.Brawler.MaxEnemiesPerPlayer; per > 0 {
 		n = Min(n, per*players)
@@ -924,4 +929,31 @@ func (b *Brawler) p2Dist(c *Char, axis int, v BytecodeValue) BytecodeValue {
 		return BytecodeFloat(brawlerNoOpponentDist)
 	}
 	return BytecodeFloat(0)
+}
+
+// Players in the team, down or not: what a level's [Players] scaling counts
+func (b *Brawler) teamSize() int32 {
+	return int32(Max(1, len(b.players(false))))
+}
+
+// Enemies a spawn line sends: its count, plus [Players] enemies for every player after the first.
+// Lines that can send a boss keep their count, the boss gets more life instead
+func (b *Brawler) spawnCount(s BrawlerSpawn) int32 {
+	if s.count <= 0 {
+		return s.count
+	}
+	for _, i := range s.enemies {
+		if i >= 0 && i < len(b.level.enemies) && b.level.enemies[i].boss {
+			return s.count
+		}
+	}
+	return brawlerPlayerScale(s.count, b.teamSize(), b.level.players.enemies)
+}
+
+// Extra life percentage per player after the first for an enemy
+func (s *BrawlerPlayerScaling) lifeFor(boss bool) float32 {
+	if boss && s.hasBoss {
+		return s.bossLife
+	}
+	return s.life
 }

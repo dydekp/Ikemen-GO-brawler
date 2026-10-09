@@ -1019,7 +1019,17 @@ func brawlerAICommand(name string) bool {
 
 // Enemies that may attack the same player at once: the active wave's "attackers", the level's, or
 // [Brawler] AttackersPerPlayer
+// Attack turns per player: the wave's, the level's or [Brawler] AttackersPerPlayer, plus [Players] attackers
+// once 2 or more play
 func (b *Brawler) attackersPerPlayer() int32 {
+	n := b.baseAttackers()
+	if b.level != nil && b.teamSize() > 1 {
+		n += b.level.players.attackers
+	}
+	return n
+}
+
+func (b *Brawler) baseAttackers() int32 {
 	if lv := b.level; lv != nil {
 		if b.waveActive && b.wave < len(lv.waves) && lv.waves[b.wave].attackers > 0 {
 			return lv.waves[b.wave].attackers
