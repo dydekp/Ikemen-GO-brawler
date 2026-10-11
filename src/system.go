@@ -825,6 +825,22 @@ func (s *System) runMainThreadTask() {
 	}
 }
 
+// Run queued main thread tasks for about d, at least one. The rest waits for the next call
+func (s *System) runMainThreadTaskFor(d time.Duration) {
+	start := time.Now()
+	for {
+		select {
+		case f := <-s.mainThreadTask:
+			f()
+		default:
+			return
+		}
+		if time.Since(start) >= d {
+			return
+		}
+	}
+}
+
 func (s *System) keepAlive() {
 	//s.keepAliveProfile = true
 	// Log elapsed time since previous keepAlive and where this call came from.
@@ -872,7 +888,12 @@ func (s *System) await(fps int) bool {
 		defer gfx.BeginFrame(sys.netConnection == nil)
 	}
 
-	s.runMainThreadTask()
+	// Brawler mode spreads the textures of loading characters over several frames
+	if d := s.brawler.taskBudget(); d > 0 {
+		s.runMainThreadTaskFor(d)
+	} else {
+		s.runMainThreadTask()
+	}
 
 	now := time.Now()
 	diff := s.redrawWait.nextTime.Sub(now)
@@ -6578,6 +6599,7 @@ func (l *Loader) load() {
 				return
 			}
 			stageDone = true
+			brawlerLoad.step()
 		}
 		// Load characters that aren't already loaded
 		for i, b := range charDone {
@@ -6591,6 +6613,7 @@ func (l *Loader) load() {
 					continue
 				}
 				result := -1
+				brawlerLoad.start(i)
 				// Attached stage chars depend on the loaded stage definition.
 				if i >= playerSlotsEnd {
 					if !stageDone || sys.stageList[0] == nil {
@@ -6610,6 +6633,7 @@ func (l *Loader) load() {
 				}
 				if result > 0 {
 					charDone[i] = true
+					brawlerLoad.step()
 				} else if result < 0 {
 					l.state = LS_Error
 					return

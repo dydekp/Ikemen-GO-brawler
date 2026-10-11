@@ -357,7 +357,7 @@ func (b *Brawler) drawSeats(txt brawlerHudText) {
 		case phase == bsSelect:
 			b.drawSelectPanel(k, l, ref, pal, timer, txt)
 		case phase == bsLoading:
-			b.drawSeatMessage(k, l, sys.sel.charlist[ref].name, "LOADING...", txt)
+			b.drawLoadPanel(k, l, ref, txt)
 		case b.seatChar(k) != nil:
 			b.drawPlayerPanel(b.seatChar(k), l, k, txt)
 		case errText != "":
@@ -383,6 +383,31 @@ func (b *Brawler) drawSeatMessage(k int, l brawlerHudPanel, title, msg string, t
 	if msg != "" {
 		txt.draw(l.x+l.w/2, l.lifeY+l.lifeH+1, msg, 0)
 	}
+}
+
+// A character loading for the seat: its portrait and name, and a loading bar where the power bar goes
+func (b *Brawler) drawLoadPanel(k int, l brawlerHudPanel, ref int, txt brawlerHudText) {
+	accent := brawlerHudColors[k%len(brawlerHudColors)]
+	bottom := l.powerY + l.powerH + 3
+	brawlerHudFill(l.x, l.y, l.w, bottom-l.y, 0x000000, 150)
+	brawlerHudFill(l.x, l.y, 2, bottom-l.y, accent, 255)
+	px, py := l.x+3, l.y+1
+	brawlerHudFill(px-1, py-1, l.portrait+2, l.portrait+2, accent, 255)
+	brawlerHudFill(px, py, l.portrait, l.portrait, 0x101018, 255)
+	if spr := b.rosterPortrait(ref); spr != nil {
+		brawlerHudSprite(spr, px, py, l.portrait)
+	}
+	txt.draw(px+1, py+l.portrait-1, fmt.Sprintf("%vP", k+1), 1)
+	sc := &sys.sel.charlist[ref]
+	name := sc.lifebarname
+	if name == "" {
+		name = sc.name
+	}
+	txt.draw(l.barX, l.nameY, name, 1)
+	dots := []string{"", ".", "..", "..."}[(sys.gameTime()/15)%4]
+	txt.draw(l.barX, l.lifeY+l.lifeH-1, "LOADING"+dots, 1)
+	tasks, peak := brawlerJoin.seats[k].loadTasks()
+	brawlerJoinLoadBar(l.barX, l.powerY, l.barW, l.powerH, accent, tasks, peak)
 }
 
 // Quick select: portrait, name, color and the time left

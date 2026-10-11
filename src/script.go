@@ -2931,13 +2931,17 @@ func systemScriptInit(l *lua.LState) {
 		sys.resetFrameTime()
 
 		load := func() error {
+			brawlerLoad.begin(&sys.brawler)
+			defer brawlerLoad.end()
 			sys.loader.runTread()
-			for sys.loader.state != LS_Complete {
+			// Brawler mode: a loading screen, and the textures it makes over several frames must be done too
+			for sys.loader.state != LS_Complete || sys.brawler.loadWaiting() {
 				if sys.loader.state == LS_Error {
 					return sys.loader.err
 				} else if sys.loader.state == LS_Cancel {
 					return nil
 				}
+				sys.brawler.drawLoadScreen()
 				sys.await(sys.gameRenderSpeed())
 			}
 			runtime.GC()

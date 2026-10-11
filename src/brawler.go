@@ -31,6 +31,7 @@ package main
 //   brawler_director_log.go what the director changes to make the fight easier or harder, and why
 //   brawler_extend.go    pictures a level adds to the left and right of its stage
 //   brawler_stage_template.go edge templates for those pictures (-stagetemplates)
+//   brawler_loading.go   loading screen, drop-in loading bar, textures made a few per frame
 
 import (
 	"fmt"

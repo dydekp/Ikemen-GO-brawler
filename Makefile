@@ -25,6 +25,7 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/brawler_director_log.go \
 	src/brawler_extend.go \
 	src/brawler_stage_template.go \
+	src/brawler_loading.go \
 	src/bytecode.go \
 	src/camera.go \
 	src/char.go \

@@ -594,10 +594,15 @@ DROP-IN, REJOIN AND CONTINUE (arcade style, without coins)
   being fought: press start. A quick select opens in the player's HUD
   column: left/right picks the character, up/down the color, an attack
   button or start confirms (it also confirms by itself after 10 seconds).
-  The character loads in the background while the fight goes on and
-  appears next to the team with a blinking "1P"/"2P"... marker. It can't be
-  hit for a moment and flickers while it's protected. The quick select
-  offers the characters of the select screen.
+  The character loads in the background while the fight goes on: the
+  player's HUD column shows its portrait, LOADING and a bar (sweeping while
+  the files are read, filling while its sprites are sent to the graphics
+  card, a few per frame so the game doesn't stall). Then it drops in from
+  the top of the screen wherever the camera is by then, next to the team,
+  with a blinking "1P"/"2P"... marker (characters without jump animations
+  41 and 47 just appear standing). It can't be hit for a moment and
+  flickers while it's protected. The quick select offers the characters of
+  the select screen.
   A KO'd player rejoins the same way after a moment: picking the same
   character revives it right away, another one replaces it.
   When all players are down, a CONTINUE countdown gives everyone 10
@@ -657,6 +662,9 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   split into equal columns, so 3 and 4 player games fit automatically.
   Players who aren't in the fight get a "PRESS START" panel; columns for
   a 3rd and 4th player appear once they join.
+- While a level loads, a loading screen shows its name, a progress bar and
+  what is loading (the stage, the players' characters by name, then the
+  enemies and their graphics).
 - When characters appear (level start, drop-in, rejoin), a blinking
   player marker shows who is who.
 - Under each player's bars: the enemy that player is hitting, with its name

@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync/atomic"
+	"time"
 )
 
 const (
@@ -28,6 +30,7 @@ const (
 	brawlerSpawnInvul     = 90  // Frames a dropped in character can't be hit
 	brawlerJoinRepeat     = 12  // Frames a held direction waits before it repeats in the quick select
 	brawlerContinueTime   = 600 // Frames the players have to drop back in once all of them are down
+	brawlerDropHeight     = 200 // Stage units above the ground a character drops in from
 )
 
 type brawlerSeatPhase int32
@@ -56,6 +59,9 @@ type brawlerSeat struct {
 	load    chan brawlerLoadResult
 	errText string // Shown in the panel when loading failed
 	errTime int32
+	// Set (atomically) by the loading thread once the files are read; the textures are made after that
+	filesDone int32
+	taskPeak  int // Most textures waiting since then, for the loading bar
 }
 
 type brawlerJoinState struct {
@@ -326,6 +332,8 @@ func (b *Brawler) confirmJoin(k int) {
 	s.slot = pn
 	s.ref = ref
 	s.load = make(chan brawlerLoadResult, 1)
+	s.taskPeak = 0
+	atomic.StoreInt32(&s.filesDone, 0)
 	pal := s.pal
 	// The same steps as Loader.loadCharacter for a fresh character. The compiler needs it in its slot. Until
 	// it is activated it stays out of the fight like a BG Turns standby character
@@ -334,14 +342,18 @@ func (b *Brawler) confirmJoin(k int) {
 	p.setSCF(SCF_disabled)
 	p.setSCF(SCF_standby)
 	sys.chars[pn] = []*Char{p}
-	go func(ch chan brawlerLoadResult) {
+	go func(ch chan brawlerLoadResult, done *int32) {
 		err := p.load(def)
 		if err == nil {
 			sys.cgi[pn].states, err = newCharCompiler().Compile(p.playerNo, def, p.gi().constants)
 		}
 		sys.cgi[pn].palno = pal
-		ch <- brawlerLoadResult{p, err}
-	}(s.load)
+		atomic.StoreInt32(done, 1)
+		// The result is handed over by a main thread task: tasks run in order, so by then the main thread
+		// has made every texture the character's sprites queued (see brawler_loading.go)
+		res := brawlerLoadResult{p, err}
+		sys.mainThreadTask <- func() { ch <- res }
+	}(s.load, &s.filesDone)
 }
 
 // Activate a character whose background load finished
@@ -445,21 +457,27 @@ func (b *Brawler) revive(c *Char, pal int32) {
 	}
 	c.vel = [3]float32{}
 	c.setFacing(facing)
-	// Standing, with its standing animation: a character that was just loaded has no animation yet and
-	// wouldn't be drawn until it changed one (an attack)
-	c.selfState(0, brawlerStandAnim(c.gi().animTable), -1, 1, "")
-	c.setCtrl(true)
+	if brawlerCanDrop(c.gi().animTable) {
+		// Drops in from the top of the screen: falling in the jump state, it lands by itself (state 52)
+		c.setPosY(-brawlerDropHeight/c.localscl, true)
+		c.selfState(50, -1, -1, 0, "")
+	} else {
+		// Standing, with its standing animation: a character that was just loaded has no animation yet and
+		// wouldn't be drawn until it changed one (an attack)
+		c.selfState(0, brawlerStandAnim(c.gi().animTable), -1, 1, "")
+		c.setCtrl(true)
+	}
 	c.bw = brawlerChar{initialized: true, aiLane: -1, lane: lane, targetLane: lane, desiredFace: facing,
 		spawnTime: brawlerSpawnBlink, invulTime: brawlerSpawnInvul}
 }
 
-// Wait for background loads still running. Called before the next level loads or the mode ends: the
-// loader must not fill the same slot at the same time. Unused results are dropped
+// Wait for background loads still running. Called on the main thread before the next level loads or the
+// mode ends: the loader must not fill the same slot at the same time. Unused results are dropped
 func brawlerFinishJoinLoads() {
 	for k := range brawlerJoin.seats {
 		s := &brawlerJoin.seats[k]
 		if s.load != nil {
-			res := <-s.load
+			res := brawlerAwaitLoad(s.load)
 			brawlerDropLoaded(s.slot, res.c)
 			s.load = nil
 		}
@@ -467,6 +485,29 @@ func brawlerFinishJoinLoads() {
 		s.koTime = 0
 	}
 	brawlerJoin.faces = map[*Char]brawlerFaceCache{}
+}
+
+// Wait for a background load's result. It comes through a main thread task, so run them meanwhile
+func brawlerAwaitLoad(ch chan brawlerLoadResult) brawlerLoadResult {
+	for {
+		select {
+		case res := <-ch:
+			return res
+		default:
+			sys.runMainThreadTask()
+			time.Sleep(time.Millisecond)
+		}
+	}
+}
+
+// Loading bar of a seat: textures waiting (0 while the files are still read) and the most waiting
+func (s *brawlerSeat) loadTasks() (tasks, peak int) {
+	if atomic.LoadInt32(&s.filesDone) == 0 {
+		return 0, 0
+	}
+	tasks = len(sys.mainThreadTask)
+	s.taskPeak = Max(Max(s.taskPeak, tasks), 1)
+	return tasks, s.taskPeak
 }
 
 // Record the players of the slots at the start of a level
@@ -603,6 +644,12 @@ func (b *Brawler) slotLoading(pn int) bool {
 		}
 	}
 	return false
+}
+
+// A character drops in if it has the animations of the jump (41, falling) and the landing (47). Without
+// them it would be invisible in the air or stuck landing
+func brawlerCanDrop(anims AnimationTable) bool {
+	return anims.anims[41] != nil && anims.anims[47] != nil
 }
 
 // Animation a character stands with: 0, or the lowest one if it has no animation 0 (like the round start)
