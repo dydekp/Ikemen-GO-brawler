@@ -205,6 +205,10 @@ library   = ../enemies.def        ; Optional: a content pack's own enemy
 lanes     = 3                    ; Number of lanes (default 3)
 lanepos   = -60, 0, 60           ; Optional: explicit lane depths
 backtrack = 0                    ; 1 = the camera may scroll back to the left
+startx    = -2000                ; Optional: stage X the team starts at (e.g.
+                                 ; in a stage extension, see section 6)
+extend    = left, street.png     ; Optional: a picture added to the stage,
+                                 ; see EXTENDING A STAGE in section 6
 attackers = 1                    ; Optional: enemies that may attack the same
                                  ; player at once (default: [Brawler]
                                  ; AttackersPerPlayer). Fewer = slower pace
@@ -343,6 +347,52 @@ unchanged in other modes.
 The free play level (freeplay.def) has no stage and sets a small
 topbound/botbound, so any stage picked on the stage select screen gets
 three lanes. Stages with their own depth can drop these two lines.
+
+EXTENDING A STAGE: a level can make its stage longer by adding pictures
+(PNG) to its left and right, without touching the stage. Any number of
+pieces per side; the first one touches the stage, every next one touches
+the one before. They're bottom aligned with the stage, scroll with it, and
+the camera and walk limits widen to include them:
+
+  [Level]
+  extend = left, images/street_left.png    ; short form
+  startx = -1500                          ; start in the new part
+  backtrack = 1                           ; optional: may walk back
+
+  [Extend harbor]                         ; long form
+  side    = left                          ; left or right
+  image   = images/harbor.png              ; or frames, see below
+  y       = 0                             ; down (+) or up (-), pixels
+  overlap = 24                            ; pixels drawn over the stage (or
+                                          ; the previous piece), e.g. a
+                                          ; strip that fades out (alpha)
+  delta   = 1                             ; parallax (1 = with the stage)
+  layer   = 0                             ; 1 = in front of the characters
+
+  [Extend lantern]                        ; an animation on a piece
+  piece  = harbor                         ; without piece: stage coordinates
+  pos    = 120, 40                        ; from the piece's top left
+  frames = lantern1.png, 10, lantern2.png, 10   ; picture, ticks, ...
+  loopstart = 0
+
+Pictures are in the stage's pixel size (half size pixels for hires
+stages). The stage's edge is measured from its own pictures: the
+background elements that scroll with the camera, not tiled, behind the
+characters. Fights in the new part are placed with the usual wave
+triggers (negative X on the left).
+
+Templates: to paint (or generate) a piece that fits, run
+
+  Ikemen_GO.exe -stagetemplates "stages/mystage/mystage.def"
+
+It writes, next to the stage's .def file:
+  mystage_picture.png         the stage's picture (for reference)
+  mystage_left_template.png   one screen of empty canvas with the stage's
+                              leftmost 64 pixels at its right side
+  mystage_right_template.png  the same for the right side
+Fill the empty part and keep the strip; "overlap = 64" then draws it over
+the stage's edge, where it matches. Pictures made at another size: scale
+them to the stage's height and cut them where they meet the stage.
 
 
 7. ENEMY AI AND BEHAVIORS

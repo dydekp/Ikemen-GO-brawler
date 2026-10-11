@@ -65,11 +65,14 @@ type BrawlerLevel struct {
 	attackers int32      // Enemies that may attack the same player at once (0 = [Brawler] AttackersPerPlayer)
 	endX      float32
 	hasEndX   bool
+	startX    float32 // Stage X the team starts at (default: the stage's own start positions)
+	hasStartX bool
 	enemies   []BrawlerEnemy
 	types     []string                    // Distinct enemy character defs, as written in the level
 	players   BrawlerPlayerScaling        // [Players]: what every player after the first changes
 	behaviors map[string]*BrawlerBehavior // AI profiles: built in, global file and level sections
 	intros    map[string]*BrawlerIntro    // By enemy alias
+	extends   []*BrawlerExtend            // Pictures added to the stage, see brawler_extend.go
 	waves     []BrawlerWave
 }
 
@@ -179,6 +182,7 @@ type brawlerLevelParser struct {
 	bosses    []string
 	behAssign [][2]string // Enemy alias, profile name
 	intro     *BrawlerIntro
+	ext       *BrawlerExtend
 	lib       *brawlerLibrary
 }
 
@@ -237,9 +241,11 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 				p.lv.intros = map[string]*BrawlerIntro{}
 			}
 			p.lv.intros[name] = p.intro
+		case "extend":
+			return p.extendSection(name)
 		case "level", "enemies", "players":
 		default:
-			return fmt.Errorf("unknown section [%v] (Level, Enemies, Players, Wave, Behavior, Intro)", l.section)
+			return fmt.Errorf("unknown section [%v] (Level, Enemies, Players, Wave, Behavior, Intro, Extend)", l.section)
 		}
 		return nil
 	}
@@ -250,6 +256,8 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 		return p.enemiesKey(l)
 	case "players":
 		return p.playersKey(l)
+	case "extend":
+		return p.ext.set(l.key, l.val, l.args, p)
 	case "wave":
 		return p.waveKey(l)
 	case "behavior":
@@ -376,6 +384,13 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 		}
 	case "backtrack":
 		lv.backtrack = brawlerParseB(l.val)
+	case "extend":
+		return p.extendShort(l)
+	case "startx":
+		if lv.startX, err = brawlerParseF(l.val); err != nil {
+			return fmt.Errorf("invalid startx: %v", l.val)
+		}
+		lv.hasStartX = true
 	case "endx":
 		if lv.endX, err = brawlerParseF(l.val); err != nil {
 			return fmt.Errorf("invalid endx: %v", l.val)
@@ -383,7 +398,7 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 		lv.hasEndX = true
 	default:
 		return fmt.Errorf("unknown level parameter '%v' (name, stage, music, library, lanes, lanepos, topbound, botbound, "+
-			"boundleft, boundright, leftbound, rightbound, zscale, attackers, backtrack, endx)", l.key)
+			"boundleft, boundright, leftbound, rightbound, zscale, attackers, backtrack, endx, startx, extend)", l.key)
 	}
 	return nil
 }
@@ -564,6 +579,9 @@ func (p *brawlerLevelParser) spawn(args []string) error {
 // Resolve references between sections and validate the level
 func (p *brawlerLevelParser) finish() error {
 	lv := p.lv
+	if err := p.finishExtends(); err != nil {
+		return err
+	}
 	if len(lv.enemies) == 0 && len(lv.waves) > 0 {
 		return fmt.Errorf("[Enemies] section defines no enemies")
 	}

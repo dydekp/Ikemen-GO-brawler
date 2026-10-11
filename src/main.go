@@ -156,6 +156,19 @@ func realMain() {
 
 	processCommandLine()
 
+	// Brawler stage extension templates: write them and quit, see brawler_stage_template.go
+	if def, ok := sys.cmdFlags["-stagetemplates"]; ok {
+		files, err := brawlerStageTemplates(def)
+		for _, f := range files {
+			fmt.Println("written:", f)
+		}
+		if err != nil {
+			fmt.Println("error:", err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	// Ensure cmdFlags exists even when there are no CLI args,
 	// since we assign defaults below.
 	if sys.cmdFlags == nil {
@@ -326,7 +339,10 @@ Debug Options:
 -ailevel <level>        Changes game difficulty setting to <level> (1-8)
 -speed <speed>          Changes game speed setting to <speed> (-9 to 9)
 -stresstest <frameskip> Stability test (AI matches at speed increased by <frameskip>)
--speedtest              Speed test (match speed x100)`
+-speedtest              Speed test (match speed x100)
+	
+Brawler Options:
+-stagetemplates <stage.def>  Writes the stage's picture and edge templates for [Extend] pieces`
 					//ShowInfoDialog(text, "I.K.E.M.E.N Command line options")
 					fmt.Printf("I.K.E.M.E.N Command line options\n\n" + text + "\nPress ENTER to exit")
 					var s string

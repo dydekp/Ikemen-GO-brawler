@@ -29,8 +29,13 @@ package main
 //   brawler_movelist.go  move lists for the select screen (generated when a character has none)
 //   brawler_callouts.go  names of the moves players string together, under their HUD panel
 //   brawler_director_log.go what the director changes to make the fight easier or harder, and why
+//   brawler_extend.go    pictures a level adds to the left and right of its stage
+//   brawler_stage_template.go edge templates for those pictures (-stagetemplates)
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 const (
 	brawlerEnterTimeout   = 240 // Frames an entering enemy may ignore screen bounds
@@ -98,31 +103,32 @@ type brawlerQueued struct {
 // Part of SystemStateVars, so it is saved and restored with save states.
 // Save states are shallow copies: slices must be replaced, never modified in place
 type Brawler struct {
-	level      *BrawlerLevel
-	typeDefs   []string // Resolved character defs of the level's enemy types (set by Lua)
-	enabled    bool
-	lanesZ     []float32 // Lane Z positions in world units
-	wave       int
-	waveActive bool
-	queue      []brawlerQueued
-	queueDelay int32
-	waveTime   int32
-	waveKills  int32
-	locked     bool
-	lockX      float32
-	camMin     float32
-	camMinSet  bool
-	complete   bool
-	stageEdit  *brawlerStageEdit // Stage values changed by the level, to restore when the level is unloaded
-	goTime     int32             // Frames left to show the "GO" sign after a wave
-	downTime   int32             // Frames all players have been down. The level is lost when the continue time runs out
-	director   brawlerDirector   // Pressure, targets, attack turns and waiting spots, see brawler_director.go
-	introOn    bool              // A character introduction is shown and the game is frozen
-	introID    int32             // Player ID of the introduced enemy
-	introEntry int               // Its enemy entry
-	introTime  int32             // Frames the introduction has been shown
-	introShown []bool            // Per enemy entry: introduction already shown in this level
-	introLayer int32             // Draw layer of the introduced enemy before it was raised above the mask
+	level        *BrawlerLevel
+	typeDefs     []string // Resolved character defs of the level's enemy types (set by Lua)
+	enabled      bool
+	lanesZ       []float32 // Lane Z positions in world units
+	wave         int
+	waveActive   bool
+	queue        []brawlerQueued
+	queueDelay   int32
+	waveTime     int32
+	waveKills    int32
+	locked       bool
+	lockX        float32
+	camMin       float32
+	camMinSet    bool
+	complete     bool
+	stageEdit    *brawlerStageEdit // Stage values changed by the level, to restore when the level is unloaded
+	startPending bool              // The team is held at the level's startx until the fight starts
+	goTime       int32             // Frames left to show the "GO" sign after a wave
+	downTime     int32             // Frames all players have been down. The level is lost when the continue time runs out
+	director     brawlerDirector   // Pressure, targets, attack turns and waiting spots, see brawler_director.go
+	introOn      bool              // A character introduction is shown and the game is frozen
+	introID      int32             // Player ID of the introduced enemy
+	introEntry   int               // Its enemy entry
+	introTime    int32             // Frames the introduction has been shown
+	introShown   []bool            // Per enemy entry: introduction already shown in this level
+	introLayer   int32             // Draw layer of the introduced enemy before it was raised above the mask
 }
 
 func (b *Brawler) active() bool {
@@ -318,6 +324,8 @@ func (b *Brawler) roundInit() {
 		c.bw.desiredFace = c.facing
 		c.setPosZ(b.lanesZ[c.bw.lane]/c.localscl, true)
 	}
+	b.startPending = b.level.hasStartX
+	b.moveToStart()
 
 	// Enemy side: type templates stay hidden, unused team slots are disabled
 	for pn := 1; pn < len(sys.chars); pn++ {
@@ -502,6 +510,13 @@ func (b *Brawler) step() {
 		return
 	}
 	b.keepTemplatesHidden()
+	if b.startPending {
+		// The round start resets the camera and keeps characters on the screen: hold the team at the level's
+		// start until the fight begins
+		b.moveToStart()
+		b.camMinSet = false
+		b.startPending = sys.roundState() < 2
+	}
 	// The controls screen stops the level: nothing but its own character moves
 	if b.controlsOpen() {
 		b.stepControls()
@@ -718,7 +733,14 @@ func (b *Brawler) cameraX(x, scl float32) float32 {
 	if n > 0 && !sys.gsf(GSF_camerafreeze) {
 		prev := sys.cam.Pos[0]
 		x = prev + (sum/float32(n)-prev)*brawlerCamFollow
-		x = sys.cam.XBound(scl, x)
+		if !b.camMinSet {
+			// A level starts with the camera on the team, wherever it starts (level startx)
+			x = sum / float32(n)
+		}
+		// The camera's bounds are relative to the stage's camera start; its position here is a stage
+		// position, like the players'
+		camStart := float32(sys.cam.startx) * sys.cam.localscl
+		x = sys.cam.XBound(scl, x-camStart) + camStart
 	}
 	if b.locked {
 		return b.lockX
@@ -857,6 +879,8 @@ type brawlerStageEdit struct {
 	leftB, rightB      float32
 	topz, botz         float32
 	ztop, zbot         float32
+	adds               brawlerStageAdds         // Pictures the level added (stage extensions)
+	players            [MaxPlayerNo]stagePlayer // Start positions
 }
 
 // Apply the level's camera and player bound overrides. Depth is handled by setupLanes
@@ -870,7 +894,24 @@ func (b *Brawler) editStage(stg *Stage) {
 		topz: stg.stageCamera.topz, botz: stg.stageCamera.botz,
 		ztop: stg.stageCamera.ztopscale, zbot: stg.stageCamera.zbotscale,
 	}
+	b.stageEdit.players = stg.p
 	lv := b.level
+	// Pictures added to the left and right make the stage longer: the camera and players may go further
+	left, right, err := b.extendStage(stg, &b.stageEdit.adds)
+	if err != nil {
+		sys.appendToConsole(fmt.Sprintf("brawler: %v", err))
+		LogMessage("brawler: %v", err)
+	}
+	if left > 0 || right > 0 {
+		stg.stageCamera.boundleft -= int32(math.Ceil(float64(left)))
+		stg.stageCamera.boundright += int32(math.Ceil(float64(right)))
+		stg.leftbound -= left
+		stg.rightbound += right
+		if !lv.hasCam {
+			sys.cam.stageCamera = stg.stageCamera
+			sys.cam.Init()
+		}
+	}
 	if lv.hasCam {
 		if lv.camBounds[0] != math.MinInt32 {
 			stg.stageCamera.boundleft = lv.camBounds[0]
@@ -902,6 +943,8 @@ func (b *Brawler) restoreStage() {
 	e.stage.leftbound, e.stage.rightbound = e.leftB, e.rightB
 	e.stage.stageCamera.topz, e.stage.stageCamera.botz = e.topz, e.botz
 	e.stage.stageCamera.ztopscale, e.stage.stageCamera.zbotscale = e.ztop, e.zbot
+	e.adds.undo(e.stage)
+	e.stage.p = e.players
 	b.stageEdit = nil
 }
 
@@ -956,4 +999,36 @@ func (s *BrawlerPlayerScaling) lifeFor(boss bool) float32 {
 		return s.bossLife
 	}
 	return s.life
+}
+
+// Level startx: the team starts there instead of at the stage's start, keeping its spacing, and the
+// camera with it. Used to start in a stage extension on the left
+func (b *Brawler) moveToStart() {
+	lv := b.level
+	if !lv.hasStartX || sys.stage == nil {
+		return
+	}
+	players := b.players(false)
+	if len(players) == 0 {
+		return
+	}
+	var center float32
+	for _, c := range players {
+		center += brawlerX(c)
+	}
+	center /= float32(len(players))
+	shift := lv.startX*sys.stage.localscl - center
+	if Abs(shift) < 1 {
+		return
+	}
+	for _, c := range players {
+		c.setPosX(c.pos[0]+shift/c.localscl, true)
+	}
+	sys.cam.Pos[0] = lv.startX * sys.stage.localscl
+	// The stage's start positions too (restored with the stage): the round start puts players there again
+	if stg := sys.stage; b.stageEdit != nil && b.stageEdit.stage == stg {
+		for i := range stg.p {
+			stg.p[i].startx += int32(math.Round(float64(shift / stg.localscl)))
+		}
+	}
 }

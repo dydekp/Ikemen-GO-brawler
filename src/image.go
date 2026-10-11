@@ -670,8 +670,14 @@ type Sprite struct {
 	coldepth     byte
 	paltemp      []uint32
 	PalTex       Texture
-	sffv1BasePal bool // SFFv1 sprite palette duplicates the base palette
+	sffv1BasePal bool   // SFFv1 sprite palette duplicates the base palette
+	cpuPx        []byte // Decoded pixels kept in memory while sffKeepPixels is set (8 bit indexes or 32 bit RGBA)
+	cpuDepth     int32
 }
+
+// Keep decoded sprite pixels in memory (Sprite.cpuPx) as well as in textures, for tools that read images
+// without drawing them (brawler stage edge templates). Off in the game
+var sffKeepPixels bool
 
 func (s *Sprite) isBlank() bool {
 	return s.Tex == nil || s.Size[0] == 0 || s.Size[1] == 0
@@ -871,6 +877,9 @@ func (s *Sprite) SetPxl(px []byte) {
 	if int64(len(px)) != int64(s.Size[0])*int64(s.Size[1]) {
 		return
 	}
+	if sffKeepPixels {
+		s.cpuPx, s.cpuDepth = px, 8
+	}
 	sys.mainThreadTask <- func() {
 		tex, err := gfx.newTexture(int32(s.Size[0]), int32(s.Size[1]), 8, false)
 		if err != nil {
@@ -883,6 +892,9 @@ func (s *Sprite) SetPxl(px []byte) {
 }
 
 func (s *Sprite) SetRaw(data []byte, sprWidth int32, sprHeight int32, sprDepth int32) {
+	if sffKeepPixels {
+		s.cpuPx, s.cpuDepth = data, sprDepth
+	}
 	if sprDepth == 32 {
 		// Normalize fully transparent RGBA pixels to prevent their RGB values from bleeding into visible pixels
 		for i := 0; i+3 < len(data); i += 4 {

@@ -116,9 +116,15 @@ func TestBrawlerCoreCamera(t *testing.T) {
 	p1 := brawlerTestPlayer(b, 0, 100, 0)
 	brawlerTestPlayer(b, 2, 300, 0)
 
-	// Moves part of the way to the players' center every frame
-	x := b.cameraX(0, 1)
-	if want := float32(200) * brawlerCamFollow; Abs(x-want) > 0.01 {
+	// A level starts with the camera on the team (it may start anywhere, level startx)
+	if x := b.cameraX(0, 1); x != 200 {
+		t.Errorf("start: %v, want 200", x)
+	}
+	// Then it moves part of the way to the players' center every frame
+	sys.cam.Pos[0] = 200
+	p1.pos[0], b.root(2).pos[0] = 300, 500
+	x := b.cameraX(200, 1)
+	if want := 200 + float32(200)*brawlerCamFollow; Abs(x-want) > 0.01 {
 		t.Errorf("follow: %v, want %v", x, want)
 	}
 	// Without backtrack, it never scrolls back to the left
@@ -142,6 +148,12 @@ func TestBrawlerCoreCamera(t *testing.T) {
 	sys.cam.Pos[0] = 950
 	if got := b.cameraX(950, 1); got > 1000 {
 		t.Errorf("past the stage's camera bound: %v", got)
+	}
+	// The bounds are relative to the stage's camera start: with startx 180, the camera reaches 1180
+	sys.cam.startx, sys.cam.localscl = 180, 1
+	sys.cam.Pos[0] = 1150
+	if got := b.cameraX(1150, 1); got < 1170 || got > 1180 {
+		t.Errorf("bound with camera startx: %v, want 1180", got)
 	}
 }
 
