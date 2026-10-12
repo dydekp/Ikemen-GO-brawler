@@ -12,6 +12,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"unsafe"
@@ -1473,18 +1474,59 @@ func (s *Sprite) CachePalTex(pal []uint32) Texture {
 			}
 		}
 	}
-	// If cached texture doesn't match, update or replace it
+	// If cached texture doesn't match, take the shared one of the new palette
 	if !match {
-		// Previously we were always generating a new texture in this branch
-		if s.PalTex == nil {
-			s.PalTex = NewTextureFromPalette(pal)
-		} else {
-			s.PalTex.SetData(Pal32ToBytes(pal))
-		}
+		s.PalTex = sharedPalTex.get(pal)
 		// Update cache reference for the next comparison
 		s.paltemp = append([]uint32{}, pal...)
 	}
 	return s.PalTex
+}
+
+// Palette textures shared by all sprites whose palettes have the same colors. A character's sprites use a
+// few palettes, but every sprite had a texture of its own: one upload for each sprite drawn for the first
+// time, and during a fight an upload waits for the GPU (about 10 ms each on an Intel GPU). Shared textures
+// are never changed after they're made: a sprite whose palette changes takes the texture of the new one
+type palTexCache struct {
+	byHash map[uint64][]palTexEntry
+	size   int
+	make   func(pal []uint32) Texture // NewTextureFromPalette
+}
+
+type palTexEntry struct {
+	pal []uint32
+	tex Texture
+}
+
+// Distinct palettes kept. Past that the cache starts over; textures in use stay with their sprites
+const palTexCacheMax = 512
+
+var sharedPalTex = palTexCache{make: NewTextureFromPalette}
+
+// The texture of a palette, made the first time it's asked for
+func (c *palTexCache) get(pal []uint32) Texture {
+	h := palHash(pal)
+	for _, e := range c.byHash[h] {
+		if slices.Equal(e.pal, pal) {
+			return e.tex
+		}
+	}
+	if c.byHash == nil || c.size >= palTexCacheMax {
+		c.byHash, c.size = map[uint64][]palTexEntry{}, 0
+	}
+	tex := c.make(pal)
+	c.byHash[h] = append(c.byHash[h], palTexEntry{pal: append([]uint32{}, pal...), tex: tex})
+	c.size++
+	return tex
+}
+
+// FNV-1a over the colors
+func palHash(pal []uint32) uint64 {
+	h := uint64(14695981039346656037)
+	for _, c := range pal {
+		h = (h ^ uint64(c)) * 1099511628211
+	}
+	return h ^ uint64(len(pal))
 }
 
 func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation, projectionMode int32, fLength float32, fx *PalFX, window *[4]int32) {
