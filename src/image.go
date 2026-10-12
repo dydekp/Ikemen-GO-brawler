@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"image"
@@ -10,7 +11,9 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
 	"unsafe"
 )
 
@@ -988,29 +991,60 @@ func (s *Sprite) RlePcxDecode(rle []byte) (p []byte) {
 		return rle
 	}
 	p = make([]byte, int(s.Size[0])*int(s.Size[1]))
-	i, j, k, w := 0, 0, 0, int(s.Size[0])
+	// k: position in the scanline, which is bpl bytes long (s.rle) of which the first w are pixels. A run
+	// ends at the end of a scanline
+	i, j, k, w, bpl, last := 0, 0, 0, int(s.Size[0]), s.rle, len(rle)-1
 	for j < len(p) {
+		start := i
 		n, d := 1, rle[i]
-		if i < len(rle)-1 {
+		if i < last {
 			i++
 		}
 		if d >= 0xc0 {
 			n = int(d & 0x3f)
 			d = rle[i]
-			if i < len(rle)-1 {
+			if i < last {
 				i++
 			}
+			if n == 0 {
+				// Data that ends with an empty run would repeat it forever
+				if start == last {
+					break
+				}
+				continue
+			}
 		}
-		for ; n > 0; n-- {
-			if k < w && j < len(p) {
+		// Most bytes are single pixels inside the scanline
+		if n == 1 && k+1 < bpl {
+			if k < w {
 				p[j] = d
 				j++
 			}
 			k++
-			if k == s.rle {
-				k = 0
-				n = 1
+			continue
+		}
+		lineEnd := n >= bpl-k
+		if lineEnd {
+			n = bpl - k
+		}
+		// Pixels of the run within the image width
+		px := n
+		if px > w-k {
+			px = w - k
+		}
+		if px > len(p)-j {
+			px = len(p) - j
+		}
+		if px > 0 {
+			run := p[j : j+px]
+			for x := range run {
+				run[x] = d
 			}
+			j += px
+		}
+		k += n
+		if lineEnd {
+			k = 0
 		}
 	}
 	s.rle = 0
@@ -1019,6 +1053,12 @@ func (s *Sprite) RlePcxDecode(rle []byte) (p []byte) {
 
 func (s *Sprite) read(f io.ReadSeeker, sh *SffHeader, offset int64, datasize uint32,
 	nextSubheader uint32, prev *Sprite, pl *PaletteList, isCharFirstSprite bool) error {
+	return s.readV1(f, sh, offset, datasize, nextSubheader, prev, pl, isCharFirstSprite, nil)
+}
+
+// Read an SFFv1 sprite. Its pixels are decoded right away, or by the queue if there is one
+func (s *Sprite) readV1(f io.ReadSeeker, sh *SffHeader, offset int64, datasize uint32,
+	nextSubheader uint32, prev *Sprite, pl *PaletteList, isCharFirstSprite bool, queue *sffDecodeQueue) error {
 
 	read := func(x interface{}) error {
 		return binary.Read(f, binary.LittleEndian, x)
@@ -1127,7 +1167,11 @@ func (s *Sprite) read(f io.ReadSeeker, sh *SffHeader, offset int64, datasize uin
 			pal[i] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
 		}
 	}
-	s.SetPxl(s.RlePcxDecode(px))
+	if queue != nil {
+		queue.add(s, px)
+	} else {
+		s.SetPxl(s.RlePcxDecode(px))
+	}
 	return nil
 }
 
@@ -1640,6 +1684,58 @@ func loadingCanceled() bool {
 	return sys.loader.cancelRequested() || sys.gameEnd || sys.loader.state == LS_Cancel
 }
 
+// A whole file read into memory. Sprite files are read in many small pieces (headers field by field,
+// SFFv1 palettes byte by byte), and from a file each piece is a system call
+func readFileInMemory(filename string) (*bytes.Reader, error) {
+	f, err := OpenFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		chk(f.Close())
+	}()
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(data), nil
+}
+
+// Decodes SFFv1 sprites (PCX) on all CPU cores while the file's headers are read
+type sffDecodeQueue struct {
+	jobs chan sffDecodeJob
+	wg   sync.WaitGroup
+}
+
+type sffDecodeJob struct {
+	s   *Sprite
+	rle []byte
+}
+
+func newSffDecodeQueue() *sffDecodeQueue {
+	q := &sffDecodeQueue{jobs: make(chan sffDecodeJob, 64)}
+	for n := runtime.NumCPU(); n > 0; n-- {
+		go func() {
+			for j := range q.jobs {
+				j.s.SetPxl(j.s.RlePcxDecode(j.rle))
+				q.wg.Done()
+			}
+		}()
+	}
+	return q
+}
+
+func (q *sffDecodeQueue) add(s *Sprite, rle []byte) {
+	q.wg.Add(1)
+	q.jobs <- sffDecodeJob{s, rle}
+}
+
+// Wait for the sprites queued so far and stop the workers
+func (q *sffDecodeQueue) finish() {
+	close(q.jobs)
+	q.wg.Wait()
+}
+
 // Loads the full SFF file
 func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff, error) {
 	if loadingCanceled() {
@@ -1653,14 +1749,10 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 	s := newSff()
 	s.filename = filename
 
-	f, err := OpenFile(filename)
+	f, err := readFileInMemory(filename)
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		chk(f.Close())
-	}()
 
 	var lofs, tofs uint32
 	if err := s.header.Read(f, &lofs, &tofs); err != nil {
@@ -1672,8 +1764,20 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 		return nil, err
 	}
 
-	// Load sprites
+	// Load sprites. SFFv1 sprites are decoded in parallel; linked sprites (sharing another one's pixels)
+	// then take their source's texture after the decoding, in file order, see shareCopy
 	spriteList := make([]*Sprite, int(s.header.NumberOfSprites))
+	var queue *sffDecodeQueue
+	var links [][2]*Sprite
+	if s.header.Version[0] == 1 {
+		queue = newSffDecodeQueue()
+		// Returning early (error, canceled): stop the workers
+		defer func() {
+			if queue != nil {
+				queue.finish()
+			}
+		}()
+	}
 	var prev *Sprite
 	shofs := int64(s.header.FirstSpriteHeaderOffset)
 	for i := 0; i < len(spriteList); i++ {
@@ -1702,10 +1806,14 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 				if loadingCanceled() {
 					return nil, ErrLoadingCanceled
 				}
-				// Moved to shareCopy() itself
-				//sys.mainThreadTask <- func() {
-				dst.shareCopy(src)
-				//}
+				if queue != nil {
+					links = append(links, [2]*Sprite{dst, src})
+				} else {
+					// Moved to shareCopy() itself
+					//sys.mainThreadTask <- func() {
+					dst.shareCopy(src)
+					//}
+				}
 			} else {
 				spriteList[i].palidx = 0 // index out of range
 			}
@@ -1713,8 +1821,8 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 			switch s.header.Version[0] {
 			case 1:
 				isCharFirstSprite := char && (prev == nil || spriteList[i].Group == 0 && spriteList[i].Number == 0)
-				if err := spriteList[i].read(f, &s.header, shofs+32, size,
-					xofs, prev, &s.palList, isCharFirstSprite); err != nil {
+				if err := spriteList[i].readV1(f, &s.header, shofs+32, size,
+					xofs, prev, &s.palList, isCharFirstSprite, queue); err != nil {
 					return nil, err
 				}
 				if isActPal {
@@ -1744,6 +1852,16 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 			if loadingCanceled() {
 				return nil, ErrLoadingCanceled
 			}
+			sys.runMainThreadTask()
+		}
+	}
+	if queue != nil {
+		queue.finish()
+		queue = nil
+		for _, l := range links {
+			l[0].shareCopy(l[1])
+		}
+		if isMainThread {
 			sys.runMainThreadTask()
 		}
 	}
