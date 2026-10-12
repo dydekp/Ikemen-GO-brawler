@@ -315,6 +315,7 @@ type System struct {
 	debugClsnText      []DebugClsnText
 	consoleText        []string
 	luaLState          *lua.LState
+	luaFrameChunks     luaChunkCache // Compiled [Common] Lua code
 	statusLFunc        *lua.LFunction
 	listLFunc          []*lua.LFunction
 	reloadPreserveVars [MaxPlayerNo]bool
@@ -3022,7 +3023,7 @@ func (s *System) uiAction() {
 	// Needs to happen after motif update or motif inputs will lag 1 frame
 	for _, key := range SortedKeys(sys.cfg.Common.Lua) {
 		for _, v := range sys.cfg.Common.Lua[key] {
-			if err := sys.luaLState.DoString(v); err != nil {
+			if err := sys.luaFrameChunks.do(sys.luaLState, v); err != nil {
 				sys.luaLState.RaiseError("Error executing Lua code: %s\n%v", v, err.Error())
 			}
 		}
