@@ -1981,17 +1981,21 @@ func (fa *FightScreenFace) draw(layerno int16, charpn int, refFace *FightScreenF
 
 		// Update portrait palette
 		if refFace.face.coldepth <= 8 {
-			// Check the player's current palette
-			palIdx := refFace.face.palidx
-			if fa.face_palshare {
-				remap := refChar.getPalfx().remap
-				if int(palIdx) < len(remap) {
-					palIdx = remap[palIdx]
+			// A portrait keeping its own colors has them in Pal already (sffv1PortraitOwnColors)
+			charPal := refFace.face.Pal
+			if !refFace.face.ownPal {
+				// Check the player's current palette
+				palIdx := refFace.face.palidx
+				if fa.face_palshare {
+					remap := refChar.getPalfx().remap
+					if int(palIdx) < len(remap) {
+						palIdx = remap[palIdx]
+					}
 				}
+				// Retrieve that palette
+				palList := &sys.cgi[charpn].palettedata.palList
+				charPal = palList.Get(palIdx)
 			}
-			// Retrieve that palette
-			palList := &sys.cgi[charpn].palettedata.palList
-			charPal := palList.Get(palIdx)
 			// Update portrait palette and cache
 			refFace.face.Pal = charPal
 			refFace.face.PalTex = refFace.face.CachePalTex(charPal)

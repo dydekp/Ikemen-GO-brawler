@@ -253,3 +253,103 @@ func TestSffV1Load(t *testing.T) {
 		}
 	}
 }
+
+// A gray ramp: brightness rises with the palette index
+func sffV1TestRamp(tint func(v uint32) uint32) []uint32 {
+	pal := make([]uint32, 256)
+	for i := range pal {
+		pal[i] = 0xff<<24 | tint(uint32(i))
+	}
+	return pal
+}
+
+// An SFFv1 portrait takes the costume's colors when the costume recolors it (light and dark areas stay), and
+// keeps its own when the costume's colors scramble it
+func TestSffV1PortraitOwnColors(t *testing.T) {
+	use := new([256]int32)
+	for i := 1; i < 200; i++ {
+		use[i] = int32(1 + i%7)
+	}
+	own := sffV1TestRamp(func(v uint32) uint32 { return v<<16 | v<<8 | v })
+	blue := sffV1TestRamp(func(v uint32) uint32 { return v << 16 })        // Recolored, same shading
+	dark := sffV1TestRamp(func(v uint32) uint32 { return (v/3)<<8 | v/4 }) // Recolored darker
+	rng := rand.New(rand.NewSource(3))
+	scrambled := sffV1TestRamp(func(uint32) uint32 { return uint32(rng.Intn(1 << 24)) })
+	flat := sffV1TestRamp(func(uint32) uint32 { return 0x406080 })
+	for _, c := range []struct {
+		name    string
+		use     *[256]int32
+		costume []uint32
+		want    bool
+	}{
+		{"same palette", use, own, false},
+		{"recolored", use, blue, false},
+		{"recolored darker", use, dark, false},
+		{"scrambled", use, scrambled, true},
+		{"one color in the costume", use, flat, true},
+		{"not counted", nil, scrambled, false},
+		{"no pixels", new([256]int32), scrambled, false},
+	} {
+		if got := sffv1PortraitOwnColors(c.use, own, c.costume); got != c.want {
+			t.Errorf("%v: own colors %v, want %v", c.name, got, c.want)
+		}
+	}
+	// A portrait of one shade has nothing to scramble
+	one := new([256]int32)
+	one[5] = 100
+	if sffv1PortraitOwnColors(one, own, scrambled) {
+		t.Errorf("one shade: own colors")
+	}
+}
+
+// Loading counts the small portrait's pixels per palette index; the portrait then keeps its own colors only
+// with a costume that scrambles them
+func TestSffV1PortraitColorsLoad(t *testing.T) {
+	px := make([]byte, 9*5)
+	for i := range px {
+		px[i] = byte(1 + i%4) // Index 0 (transparent) not used: 12, 11, 11, 11 pixels
+	}
+	var pal [256][3]byte
+	for c := range pal {
+		pal[c] = [3]byte{byte(c * 40), byte(c * 40), byte(c * 40)}
+	}
+	sprites := []sffV1TestSprite{
+		{group: 9000, number: 0, w: 9, h: 5, px: px, link: -1, pal: pal},
+		{group: 0, number: 0, w: 3, h: 2, px: make([]byte, 6), link: -1},
+	}
+	path := filepath.Join(t.TempDir(), "char.sff")
+	if err := os.WriteFile(path, sffV1TestFile(sprites), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oldTasks := sys.mainThreadTask
+	t.Cleanup(func() { sys.mainThreadTask = oldTasks })
+	sys.mainThreadTask = make(chan func(), 64)
+
+	sff, err := loadSff(path, true, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sff.portraitUse == nil || sff.portraitUse[1] != 12 || sff.portraitUse[2] != 11 ||
+		sff.portraitUse[3] != 11 || sff.portraitUse[4] != 11 || sff.portraitUse[0] != 0 {
+		t.Fatalf("portrait pixels per index: %v", sff.portraitUse)
+	}
+	spr := sff.GetSprite(9000, 0)
+	own := sff.palList.Get(spr.palidx)
+	recolor, scramble := make([]uint32, 256), make([]uint32, 256)
+	for i := range recolor {
+		recolor[i] = own[i] & 0xff0000ff // Red only: same shading
+		scramble[i] = own[(i*7+3)%5]     // Index 4 dark, 1 light...
+	}
+	sff.setPortraitColors(scramble)
+	if !spr.ownPal || len(spr.GetPal(&sff.palList)) != 256 || spr.GetPal(nil)[4] != own[4] {
+		t.Errorf("scrambling costume: ownPal %v", spr.ownPal)
+	}
+	sff.setPortraitColors(recolor)
+	if spr.ownPal || spr.Pal != nil {
+		t.Errorf("recoloring costume: ownPal %v", spr.ownPal)
+	}
+	// Characters loaded without counting (not a character): never own colors
+	if sff2, err := loadSff(path, false, false, false); err == nil && sff2 != sff && sff2.portraitUse != nil {
+		t.Errorf("not a character: portrait counted")
+	}
+}

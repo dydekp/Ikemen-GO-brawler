@@ -674,6 +674,7 @@ type Sprite struct {
 	paltemp      []uint32
 	PalTex       Texture
 	sffv1BasePal bool   // SFFv1 sprite palette duplicates the base palette
+	ownPal       bool   // SFFv1 portrait keeping its own colors (Pal), see sffv1PortraitOwnColors
 	cpuPx        []byte // Decoded pixels kept in memory while sffKeepPixels is set (8 bit indexes or 32 bit RGBA)
 	cpuDepth     int32
 }
@@ -1638,6 +1639,7 @@ type Sff struct {
 	palList      PaletteList
 	filename     string
 	debugMissing map[[2]uint16]bool // Sprites not found by animations
+	portraitUse  *[256]int32        // SFFv1 character: pixels of its small portrait (9000,0) per palette index
 }
 
 func newSff() (s *Sff) {
@@ -1705,11 +1707,15 @@ func readFileInMemory(filename string) (*bytes.Reader, error) {
 type sffDecodeQueue struct {
 	jobs chan sffDecodeJob
 	wg   sync.WaitGroup
+	// Sprite whose pixels are counted per palette index (the small portrait, see sffv1PortraitOwnColors)
+	countSpr *Sprite
+	counts   *[256]int32
 }
 
 type sffDecodeJob struct {
-	s   *Sprite
-	rle []byte
+	s      *Sprite
+	rle    []byte
+	counts *[256]int32
 }
 
 func newSffDecodeQueue() *sffDecodeQueue {
@@ -1717,7 +1723,13 @@ func newSffDecodeQueue() *sffDecodeQueue {
 	for n := runtime.NumCPU(); n > 0; n-- {
 		go func() {
 			for j := range q.jobs {
-				j.s.SetPxl(j.s.RlePcxDecode(j.rle))
+				px := j.s.RlePcxDecode(j.rle)
+				if j.counts != nil {
+					for _, c := range px {
+						j.counts[c]++
+					}
+				}
+				j.s.SetPxl(px)
 				q.wg.Done()
 			}
 		}()
@@ -1727,7 +1739,11 @@ func newSffDecodeQueue() *sffDecodeQueue {
 
 func (q *sffDecodeQueue) add(s *Sprite, rle []byte) {
 	q.wg.Add(1)
-	q.jobs <- sffDecodeJob{s, rle}
+	j := sffDecodeJob{s: s, rle: rle}
+	if s == q.countSpr {
+		j.counts = q.counts
+	}
+	q.jobs <- j
 }
 
 // Wait for the sprites queued so far and stop the workers
@@ -1821,6 +1837,10 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 			switch s.header.Version[0] {
 			case 1:
 				isCharFirstSprite := char && (prev == nil || spriteList[i].Group == 0 && spriteList[i].Number == 0)
+				if char && spriteList[i].Group == 9000 && spriteList[i].Number == 0 && s.portraitUse == nil {
+					s.portraitUse = new([256]int32)
+					queue.countSpr, queue.counts = spriteList[i], s.portraitUse
+				}
 				if err := spriteList[i].readV1(f, &s.header, shofs+32, size,
 					xofs, prev, &s.palList, isCharFirstSprite, queue); err != nil {
 					return nil, err
@@ -2381,6 +2401,65 @@ func (s *Sff) loadActPalettes(ref int) error {
 	}
 
 	return nil
+}
+
+// Agreement needed between the light and dark areas of an SFFv1 portrait in its own colors and in the
+// character's first costume (correlation of the pixels' brightness) for the portrait to take the costumes'
+// colors. Portraits made for the character's palette are near 1, others near 0
+const sffv1PortraitMatch = 0.5
+
+// Whether an SFFv1 character's small portrait (9000,0) keeps its own colors. Like MUGEN, the engine gives it the
+// costume's colors, as the character's sprites: portraits are made for that, their pixels being indexes into
+// the character's palette, so every costume recolors them. Some were drawn with an unrelated palette (a
+// portrait replaced later), and in the costume's colors their pixels turn into noise. A recolor keeps the
+// portrait's light and dark areas where they are, an unrelated palette scrambles them. use: the portrait's
+// pixels per palette index
+func sffv1PortraitOwnColors(use *[256]int32, own, costume []uint32) bool {
+	if use == nil || len(own) < 256 || len(costume) < 256 {
+		return false
+	}
+	lum := func(c uint32) float64 {
+		return 0.3*float64(c&0xff) + 0.59*float64(c>>8&0xff) + 0.11*float64(c>>16&0xff)
+	}
+	var n, sx, sy, sxx, syy, sxy float64
+	for i := 1; i < 256; i++ { // 0 is transparent
+		if w := float64(use[i]); w > 0 {
+			x, y := lum(own[i]), lum(costume[i])
+			n, sx, sy = n+w, sx+w*x, sy+w*y
+			sxx, syy, sxy = sxx+w*x*x, syy+w*y*y, sxy+w*x*y
+		}
+	}
+	if n == 0 {
+		return false
+	}
+	vx, vy := sxx/n-sx*sx/n/n, syy/n-sy*sy/n/n
+	if vx < 1 {
+		return false // A single shade, nothing to scramble
+	}
+	if vy < 1 {
+		return true // The costume makes it a blot
+	}
+	return (sxy/n-sx*sy/n/n)/math.Sqrt(vx*vy) < sffv1PortraitMatch
+}
+
+// Gives an SFFv1 character's small portrait its own colors or the costumes', see sffv1PortraitOwnColors.
+// costume: the character's first costume
+func (s *Sff) setPortraitColors(costume []uint32) {
+	spr := s.GetSprite(9000, 0)
+	if spr == nil || s.header.Version[0] != 1 {
+		return
+	}
+	own := s.palList.Get(spr.palidx)
+	ownPal := sffv1PortraitOwnColors(s.portraitUse, own, costume)
+	// The sprite may be drawn already (a character loading during the fight, same file): only write changes
+	if spr.ownPal != ownPal {
+		spr.ownPal = ownPal
+		if ownPal {
+			spr.Pal = own
+		} else {
+			spr.Pal = nil
+		}
+	}
 }
 
 func (s *Sff) GetSprite(g, n uint16) *Sprite {

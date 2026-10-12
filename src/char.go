@@ -4789,6 +4789,12 @@ func (c *Char) loadPalettes() {
 			// If no ACT files were successfully loaded, remove the default [1, 1] mapping.
 			delete(gi.palettedata.palList.PalTable, [...]uint16{1, 1})
 		}
+
+		// The small portrait takes the costumes' colors, unless it was drawn with a palette of its own
+		pl := &gi.palettedata.palList
+		if i, ok := pl.PalTable[[...]uint16{1, 1}]; ok && i >= 0 && i < len(pl.palettes) {
+			gi.sff.setPortraitColors(pl.palettes[i])
+		}
 	} else {
 		// SFFv2 logic
 		numPals := int(gi.sff.header.NumberOfPalettes)
@@ -9670,7 +9676,7 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 			if spr := c.gi().sff.GetSprite(0, 0); spr != nil {
 				plist.Remap(spr.palidx, di)
 			}
-			if spr := c.gi().sff.GetSprite(9000, 0); spr != nil {
+			if spr := c.gi().sff.GetSprite(9000, 0); spr != nil && !spr.ownPal {
 				plist.Remap(spr.palidx, di)
 			}
 		}
