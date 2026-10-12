@@ -99,6 +99,26 @@ type Renderer interface {
 	NewWorkerThread() bool
 }
 
+// A renderer that makes a texture and fills it in one step. With OpenGL, newTexture and then SetData sets
+// the texture's storage up twice: empty, then again with the data. For the thousands of sprites a
+// character loads, the empty one was 40% of the time spent making textures
+type textureDataMaker interface {
+	newTextureFromData(width, height, depth int32, filter bool, data []byte) Texture
+}
+
+// A new texture holding data (nil: storage only), as newTexture followed by SetData
+func newTextureWithData(width, height, depth int32, filter bool, data []byte) (Texture, error) {
+	if r, ok := gfx.(textureDataMaker); ok {
+		return r.newTextureFromData(width, height, depth, filter, data), nil
+	}
+	t, err := gfx.newTexture(width, height, depth, filter)
+	if err != nil {
+		return nil, err
+	}
+	t.SetData(data)
+	return t, nil
+}
+
 //go:embed shaders/sprite.vert.glsl
 var vertShader string
 

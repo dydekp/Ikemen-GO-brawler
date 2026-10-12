@@ -885,13 +885,12 @@ func (s *Sprite) SetPxl(px []byte) {
 		s.cpuPx, s.cpuDepth = px, 8
 	}
 	sys.mainThreadTask <- func() {
-		tex, err := gfx.newTexture(int32(s.Size[0]), int32(s.Size[1]), 8, false)
+		tex, err := newTextureWithData(int32(s.Size[0]), int32(s.Size[1]), 8, false, px)
 		if err != nil {
 			LogMessage("[VRAM] SetPxl newTexture failed: %v", err)
 			return
 		}
 		s.Tex = tex
-		s.Tex.SetData(px)
 	}
 }
 
@@ -910,13 +909,12 @@ func (s *Sprite) SetRaw(data []byte, sprWidth int32, sprHeight int32, sprDepth i
 		}
 	}
 	sys.mainThreadTask <- func() {
-		tex, err := gfx.newTexture(sprWidth, sprHeight, sprDepth, sys.cfg.Video.RGBSpriteBilinearFilter)
+		tex, err := newTextureWithData(sprWidth, sprHeight, sprDepth, sys.cfg.Video.RGBSpriteBilinearFilter, data)
 		if err != nil {
 			LogMessage("[VRAM] SetRaw newTexture failed: %v", err)
 			return
 		}
 		s.Tex = tex
-		s.Tex.SetData(data)
 	}
 }
 

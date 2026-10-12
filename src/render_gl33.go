@@ -257,6 +257,13 @@ func (r *Renderer_GL33) newTexture(width, height, depth int32, filter bool) (Tex
 	return t, nil
 }
 
+// A texture made and filled in one step: SetData sets its storage up, so newTexture's empty one is skipped
+func (r *Renderer_GL33) newTextureFromData(width, height, depth int32, filter bool, data []byte) Texture {
+	t := r.generateTexture(width, height, depth, filter)
+	t.SetData(data)
+	return t
+}
+
 func (r *Renderer_GL33) newPaletteTexture() Texture {
 	t, _ := r.newTexture(256, 1, 32, false)
 	return t
