@@ -168,6 +168,25 @@ var (
 	tileScratch       []float32
 )
 
+// Reusable values handed to the renderer for each sprite. Passed through the Renderer interface as
+// slices or variadic arguments, local ones escape and were allocated for every sprite drawn: most of the
+// allocations during a fight. Renderers copy what they get, and sprites are only drawn on the main thread
+var spriteScratch struct {
+	pfx        ShaderPalFX
+	projection mgl.Mat4
+	modelview  mgl.Mat4
+	tint       [4]float32
+	x1x2x4x3   [4]float32
+	vertices   [16]float32
+	f1         [1]float32
+}
+
+// Sets a one-float uniform without allocating its argument
+func setSpriteUniformF1(name string, v float32) {
+	spriteScratch.f1[0] = v
+	gfx.SetUniformF(name, spriteScratch.f1[:]...)
+}
+
 // Blend constants
 type BlendFunc int
 
@@ -311,20 +330,24 @@ func (rp *RenderParams) IsValid() bool {
 }
 
 func drawQuads(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4 float32) {
-	gfx.SetUniformMatrix("modelview", modelview[:])
-	gfx.SetUniformF("x1x2x4x3", x1, x2, x4, x3) // this uniform is optional
+	s := &spriteScratch
+	s.modelview = modelview
+	gfx.SetUniformMatrix("modelview", s.modelview[:])
+	s.x1x2x4x3 = [4]float32{x1, x2, x4, x3}
+	gfx.SetUniformF("x1x2x4x3", s.x1x2x4x3[:]...) // this uniform is optional
 
 	// This effectively side-steps a low-level rectangle rasterization edge case,
 	// that caused visible and frequent artifacts on the diagonal.
 	// See: https://github.com/ikemen-engine/Ikemen-GO/issues/3583
 	uvBias := float32(0.000002)
 
-	gfx.SetVertexData(
-		x2, y2, 1, 1-uvBias,
+	s.vertices = [16]float32{
+		x2, y2, 1, 1 - uvBias,
 		x3, y3, 1, 0,
-		x1, y1, uvBias, 1-uvBias,
+		x1, y1, uvBias, 1 - uvBias,
 		x4, y4, uvBias, 0,
-	)
+	}
+	gfx.SetVertexData(s.vertices[:]...)
 
 	gfx.RenderQuad()
 }
@@ -728,9 +751,10 @@ func renderSpriteQuad(modelview mgl.Mat4, rp RenderParams) {
 
 		if len(batch) > 0 {
 			// Vertices are already transformed, so use identity matrix
-			identity := mgl.Ident4()
-			gfx.SetUniformMatrix("modelview", identity[:])
-			gfx.SetUniformF("x1x2x4x3", 0, 0, 0, 0)
+			spriteScratch.modelview = mgl.Ident4()
+			gfx.SetUniformMatrix("modelview", spriteScratch.modelview[:])
+			spriteScratch.x1x2x4x3 = [4]float32{}
+			gfx.SetUniformF("x1x2x4x3", spriteScratch.x1x2x4x3[:]...)
 			gfx.SetVertexData(batch...)
 			gfx.RenderQuadBatch(int32(len(batch) / 4)) // 4 floats per vertex
 		}
@@ -819,7 +843,8 @@ func RenderSprite(rp RenderParams) {
 	initRenderSpriteQuad(&rp)
 
 	// PalFX and color setup
-	spfx := ShaderPalFX{
+	spfx := &spriteScratch.pfx
+	*spfx = ShaderPalFX{
 		neg:      false,
 		add:      [3]float32{0, 0, 0},
 		mult:     [3]float32{1, 1, 1},
@@ -828,17 +853,19 @@ func RenderSprite(rp RenderParams) {
 		invblend: 0,
 	}
 	if rp.pfx != nil {
-		spfx = rp.pfx.getFinalPalFx(rp.blendMode, rp.blendAlpha)
+		*spfx = rp.pfx.getFinalPalFx(rp.blendMode, rp.blendAlpha)
 	}
 
-	tint := [4]float32{
+	tint := &spriteScratch.tint
+	*tint = [4]float32{
 		float32(rp.tint&0xff) / 255,
 		float32(rp.tint>>8&0xff) / 255,
 		float32(rp.tint>>16&0xff) / 255,
 		float32(rp.tint>>24&0xff) / 255,
 	}
 
-	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
+	proj := &spriteScratch.projection
+	*proj = gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
 
 	// Heavy state change
@@ -853,8 +880,8 @@ func RenderSprite(rp RenderParams) {
 	gfx.SetUniformI("mask", int(rp.mask))
 	gfx.SetUniformI("isTrapez", int(Btoi(Abs(Abs(rp.xts)-Abs(rp.xbs)) > 0.001)))
 
-	gfx.SetUniformF("gray", spfx.gray)
-	gfx.SetUniformF("hue", spfx.hue)
+	setSpriteUniformF1("gray", spfx.gray)
+	setSpriteUniformF1("hue", spfx.hue)
 	gfx.SetUniformFv("tint", tint[:])
 
 	if rp.paltex == nil {
@@ -906,12 +933,12 @@ func RenderSprite(rp RenderParams) {
 		gfx.SetUniformI("neg", int(Btoi(spfx.neg)))
 		gfx.SetUniformFv("add", spfx.add[:])
 		gfx.SetUniformFv("mult", spfx.mult[:])
-		gfx.SetUniformF("alpha", a)
+		setSpriteUniformF1("alpha", a)
 
 		renderSpriteQuad(modelview, rp)
 	}
 
-	renderWithBlending(renderPass, rp.blendMode, rp.blendAlpha, rp.paltex != nil, &spfx, rp.paltex == nil)
+	renderWithBlending(renderPass, rp.blendMode, rp.blendAlpha, rp.paltex != nil, spfx, rp.paltex == nil)
 
 	gfx.DisableScissor()
 }
