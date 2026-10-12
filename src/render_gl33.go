@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"unsafe"
@@ -29,6 +30,13 @@ type ShaderProgram_GL33 struct {
 
 func (r *Renderer_GL33) newShaderProgram(vert, frag, geo, name string, crashWhenFail bool) (s *ShaderProgram_GL33, err error) {
 	var vertObj, fragObj, geoObj, prog uint32
+	var key string
+	if r.programCache != nil {
+		key = r.programCache.key(vert, frag, geo)
+		if prog, ok := r.loadProgram(key); ok {
+			return r.newShaderProgramFrom(prog, name), nil
+		}
+	}
 	if vertObj, err = r.compileShader(gl.VERTEX_SHADER, vert); chkEX(err, "Shader compilation error on "+name+"\n", crashWhenFail) {
 		return nil, err
 	}
@@ -47,7 +55,14 @@ func (r *Renderer_GL33) newShaderProgram(vert, frag, geo, name string, crashWhen
 			return nil, err
 		}
 	}
-	s = &ShaderProgram_GL33{program: prog, name: name}
+	if r.programCache != nil {
+		r.storeProgram(key, prog)
+	}
+	return r.newShaderProgramFrom(prog, name), nil
+}
+
+func (r *Renderer_GL33) newShaderProgramFrom(prog uint32, name string) *ShaderProgram_GL33 {
+	s := &ShaderProgram_GL33{program: prog, name: name}
 	s.attributes = make(map[string]int32)
 	s.uniforms = make(map[string]int32)
 	s.textures = make(map[string]int)
@@ -57,7 +72,7 @@ func (r *Renderer_GL33) newShaderProgram(vert, frag, geo, name string, crashWhen
 		LogMessage("[GL Debug] Linked shader '%s' as Program ID: %d", name, prog)
 	}
 
-	return s, nil
+	return s
 }
 
 func (r *ShaderProgram_GL33) glStr(s string) *uint8 {
@@ -146,6 +161,9 @@ func (r *Renderer_GL33) linkProgram(params ...uint32) (program uint32, err error
 	//	gl.ProgramParameteri(program, gl.GEOMETRY_VERTICES_OUT, 3*6)
 	//}
 
+	if r.programCache != nil {
+		gl.ProgramParameteri(program, gl.PROGRAM_BINARY_RETRIEVABLE_HINT, gl.TRUE)
+	}
 	gl.LinkProgram(program)
 
 	// Mark shaders for deletion when the program is deleted
@@ -171,6 +189,67 @@ func (r *Renderer_GL33) linkProgram(params ...uint32) (program uint32, err error
 		return 0, err
 	}
 	return program, nil
+}
+
+// Keeps linked shader programs on disk where the driver can hand them out (see shaderCache)
+func (r *Renderer_GL33) initProgramCache() {
+	var formats int32
+	if glHasExtension("GL_ARB_get_program_binary") {
+		gl.GetIntegerv(gl.NUM_PROGRAM_BINARY_FORMATS, &formats)
+	}
+	if formats == 0 {
+		return
+	}
+	r.programCache = &shaderCache{
+		dir: filepath.Join(sys.baseDir, "save", "shadercache"),
+		driver: gl.GoStr(gl.GetString(gl.VENDOR)) + "\n" + gl.GoStr(gl.GetString(gl.RENDERER)) + "\n" +
+			gl.GoStr(gl.GetString(gl.VERSION)),
+	}
+}
+
+// A program from the cache, if there is one and the driver takes it
+func (r *Renderer_GL33) loadProgram(key string) (uint32, bool) {
+	format, data, ok := r.programCache.load(key)
+	if !ok {
+		return 0, false
+	}
+	program := gl.CreateProgram()
+	gl.ProgramBinary(program, format, unsafe.Pointer(&data[0]), int32(len(data)))
+	var linked int32
+	gl.GetProgramiv(program, gl.LINK_STATUS, &linked)
+	if linked == 0 {
+		gl.DeleteProgram(program)
+		r.programCache.remove(key)
+		return 0, false
+	}
+	return program, true
+}
+
+func (r *Renderer_GL33) storeProgram(key string, program uint32) {
+	var size int32
+	gl.GetProgramiv(program, gl.PROGRAM_BINARY_LENGTH, &size)
+	if size <= 0 {
+		return
+	}
+	data := make([]byte, size)
+	var length int32
+	var format uint32
+	gl.GetProgramBinary(program, size, &length, &format, unsafe.Pointer(&data[0]))
+	if err := r.programCache.store(key, format, data[:length]); err != nil {
+		LogMessage("Shader cache: %v", err)
+	}
+}
+
+// The driver supports an extension
+func glHasExtension(name string) bool {
+	var n int32
+	gl.GetIntegerv(gl.NUM_EXTENSIONS, &n)
+	for i := int32(0); i < n; i++ {
+		if gl.GoStr(gl.GetStringi(gl.EXTENSIONS, uint32(i))) == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Tracks what's actually bound to a unit right now
@@ -506,7 +585,8 @@ type Renderer_GL33 struct {
 	modelEnvVAO             uint32
 	postVAO                 uint32
 	vertexScratch           []byte
-	texNames                glNamePool // Texture handles, made in batches
+	texNames                glNamePool   // Texture handles, made in batches
+	programCache            *shaderCache // Linked shader programs on disk. nil: not supported
 
 	grabTexture  *Texture_GL33
 	grabFbo      uint32
@@ -647,6 +727,7 @@ func (r *Renderer_GL33) Init() {
 	r.texNames = glNamePool{gen: func(names []uint32) {
 		gl.GenTextures(int32(len(names)), &names[0])
 	}}
+	r.initProgramCache()
 
 	r.customShaders = make(map[uint32]*ShaderProgram_GL33)
 	r.customShaderMap = make(map[string]uint32)
