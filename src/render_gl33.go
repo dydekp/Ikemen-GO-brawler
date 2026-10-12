@@ -226,8 +226,7 @@ type Texture_GL33 struct {
 
 // Helper that wraps the actual GL call to generate a texture
 func (r *Renderer_GL33) generateTexture(width, height, depth int32, filter bool) *Texture_GL33 {
-	var h uint32
-	gl.GenTextures(1, &h)
+	h := r.texNames.next()
 
 	tex := &Texture_GL33{
 		width:  width,
@@ -500,6 +499,7 @@ type Renderer_GL33 struct {
 	modelEnvVAO             uint32
 	postVAO                 uint32
 	vertexScratch           []byte
+	texNames                glNamePool // Texture handles, made in batches
 
 	grabTexture  *Texture_GL33
 	grabFbo      uint32
@@ -637,6 +637,9 @@ func (r *Renderer_GL33) Init() {
 	LogMessage("Using OpenGL %v (%v)", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER)))
 
 	r.InitStateCache()
+	r.texNames = glNamePool{gen: func(names []uint32) {
+		gl.GenTextures(int32(len(names)), &names[0])
+	}}
 
 	r.customShaders = make(map[uint32]*ShaderProgram_GL33)
 	r.customShaderMap = make(map[string]uint32)
