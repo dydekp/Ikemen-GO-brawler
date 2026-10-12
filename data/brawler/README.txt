@@ -38,7 +38,8 @@ CONTENTS
  10. HUD
  11. Config
  12. Content packs: content outside the engine
- 13. Tests
+ 13. Props and items
+ 14. Tests
 
 
 1. QUICK START: YOUR OWN CAMPAIGN
@@ -157,6 +158,8 @@ ownai    = 0                ; 1 = keep the character's own AI code
                             ; (default 0, see below)
 screenfx = 0                ; 1 = keep its screen-fixed effects (default 0,
                             ; see below)
+drop     = apple, 20         ; item it may leave when defeated, chance in
+                            ; percent (section 13, default none)
 
 [Intro thug]                ; optional introduction (section 8)
 
@@ -252,6 +255,9 @@ See levels/dojo.def for all of these.
 Any number of enemies of any entry can be on screen at the same time: every
 enemy is its own instance with its own life, palette and AI. Defeated enemies
 fall, stay on the ground for [Brawler] DespawnTime frames and disappear.
+
+[Props]          ; Optional: breakable props and items (section 13)
+prop = barrel, 300, 1
 
 [Wave]           ; Any number of waves, played in order. "[Wave 2]" etc. is
                  ; also fine, the text after "Wave" is ignored.
@@ -740,7 +746,70 @@ enemies.def) and the shared profiles (behaviors.def); its own enemies.def
 adds to them and replaces ids it redefines.
 
 
-13. TESTS
+13. PROPS AND ITEMS
+-------------------
+Breakable props (barrels, crates) stand on the lanes; items (food) lie on
+the ground. Players break props with their normal attacks, a broken prop
+can leave an item, and so can a defeated enemy. Walking over an item picks
+it up. Ready ones are in the enemy library (enemies.def): barrel, crate,
+apple and chicken, with pictures in data/brawler/props.
+
+Place them in a level:
+
+  [Props]
+  prop = barrel, 300, 1           ; id, stage X, lane (number or random)
+  prop = crate, 520, 0, chicken   ; optional drop list for this one only
+  prop = crate, 600, 2, none      ; ...or none
+  item = apple, 700, random       ; an item lying around from the start
+
+Define them in the enemy library or in the level (a level's sections
+replace library ones with the same id, for that level):
+
+  [Prop barrel]
+  image  = props/barrel.png        ; standing picture, relative to the file
+  broken = props/barrel_broken.png ; optional: pieces shown when it breaks
+  hits   = 2                       ; hits it takes (default 1)
+  drop   = apple, 50, chicken, 15  ; see DROP LISTS (default none)
+  scale  = 1                       ; picture size multiplier
+
+  [Item apple]
+  image = props/apple.png
+  life  = 10%                      ; life restored: points, or percent of
+                                   ; the player's max life
+  power = 0                        ; power added: points, or percent
+  time  = 0                        ; frames it stays (0 = until the level
+                                   ; ends). It blinks before it goes
+  scale = 1
+
+DROP LISTS: items with their chances in percent, adding up to 100 or less;
+the rest is the chance of nothing. "apple" alone always leaves an apple.
+  drop = apple, 50, chicken, 15    ; 50% apple, 15% chicken, 35% nothing
+Enemies leave theirs where they lie, when they disappear:
+  [Enemy thug]                     ; enemy library
+  drop = apple, 20
+  [Enemies]                        ; or in a level, for its NPCs
+  drop = thug, chicken, 10
+
+Pictures are PNGs at the 320x240 character scale: a fighter is about 100
+pixels tall, the shipped barrel 36. They stand bottom centered on their
+spot, get smaller further back like characters, reflect on reflective
+floors and cast a soft round shadow as dark as the stage's shadows.
+
+How they play:
+- Hits work like hits on characters: an attack's hit boxes must touch the
+  picture, at a depth the attack reaches (its lane). The attack's own
+  spark and hit sound are played and the prop shakes. After a hit it
+  ignores attacks for a moment, like a character in hit stun.
+- A knocked down enemy flying into a prop smashes it.
+- Standing props are solid for players, who can jump over them. Enemies
+  walk through them, so they never get stuck behind one.
+- Items are picked up by a player on its lane, on the ground and not being
+  hit, by walking over it.
+- Props and items belong to the level: they're placed again when it
+  starts, and survive save states and rollback.
+
+
+14. TESTS
 ---------
 The mode comes with automated tests (src/brawler_*_test.go). Run them after
 changing the mode or its data, so that features that worked before don't
@@ -765,6 +834,8 @@ them. They run without a window, graphics or sound, in a few seconds:
 - Drop-in: quick select, rejoin, continue countdown, the team carried to
   the next level.
 - HUD layout and introductions.
+- Props and items: files and drop lists, placement, breaking, solid props,
+  items running out, pictures on the stage, save state safety.
 - Lua: every script under external/script parses, and brawler.lua plays a
   campaign with stand-ins for the engine (level order, losing, errors,
   team carried between levels).

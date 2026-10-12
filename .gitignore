@@ -38,6 +38,7 @@ data/*
 !data/tag.zss
 !data/training.zss
 !data/brawler/
+!data/brawler/props/*.png
 font/*
 !font/Open_Sans/
 !font/debug.def

@@ -43,6 +43,7 @@ type BrawlerEnemy struct {
 	ownAI    bool             // Keep the character's own AI code (AILevel triggers) running
 	screenFX bool             // Keep the character's screen-fixed explods (its own gauges, cut-ins)
 	typ      int              // Index into BrawlerLevel.types
+	drops    []BrawlerDrop    // Items it may leave when defeated (see brawler_props.go)
 }
 
 type BrawlerLevel struct {
@@ -73,6 +74,10 @@ type BrawlerLevel struct {
 	behaviors map[string]*BrawlerBehavior // AI profiles: built in, global file and level sections
 	intros    map[string]*BrawlerIntro    // By enemy alias
 	extends   []*BrawlerExtend            // Pictures added to the stage, see brawler_extend.go
+	props     []BrawlerPropPlace          // Breakable objects, see brawler_props.go
+	items     []BrawlerItemPlace          // Items lying around from the start
+	propTypes []*BrawlerPropType          // Prop types the level uses
+	itemTypes []*BrawlerItemType          // Item types the level uses (placed or dropped)
 	waves     []BrawlerWave
 }
 
@@ -184,6 +189,11 @@ type brawlerLevelParser struct {
 	intro     *BrawlerIntro
 	ext       *BrawlerExtend
 	lib       *brawlerLibrary
+	dropSet   []brawlerDropAssign         // Level drop lists for enemies
+	prop      *BrawlerPropType            // Current [Prop id] section
+	item      *BrawlerItemType            // Current [Item id] section
+	props     map[string]*BrawlerPropType // The level's own [Prop id] sections
+	items     map[string]*BrawlerItemType
 }
 
 // Parse a brawler level definition
@@ -243,13 +253,37 @@ func (p *brawlerLevelParser) line(l brawlerIniLine) error {
 			p.lv.intros[name] = p.intro
 		case "extend":
 			return p.extendSection(name)
-		case "level", "enemies", "players":
+		case "prop":
+			if name == "" {
+				return fmt.Errorf("prop section needs an id: [Prop id]")
+			}
+			p.prop = newBrawlerPropType(name)
+			if p.props == nil {
+				p.props = map[string]*BrawlerPropType{}
+			}
+			p.props[name] = p.prop
+		case "item":
+			if name == "" {
+				return fmt.Errorf("item section needs an id: [Item id]")
+			}
+			p.item = newBrawlerItemType(name)
+			if p.items == nil {
+				p.items = map[string]*BrawlerItemType{}
+			}
+			p.items[name] = p.item
+		case "level", "enemies", "players", "props":
 		default:
-			return fmt.Errorf("unknown section [%v] (Level, Enemies, Players, Wave, Behavior, Intro, Extend)", l.section)
+			return fmt.Errorf("unknown section [%v] (Level, Enemies, Players, Wave, Behavior, Intro, Extend, Props, Prop, Item)", l.section)
 		}
 		return nil
 	}
 	switch kind {
+	case "props":
+		return p.propsKey(l)
+	case "prop":
+		return p.prop.set(l, p.resolve)
+	case "item":
+		return p.item.set(l, p.resolve)
 	case "level":
 		return p.levelKey(l)
 	case "enemies":
@@ -421,10 +455,26 @@ func (p *brawlerLevelParser) enemiesKey(l brawlerIniLine) error {
 		}
 	case "enemy":
 		return p.enemy(l.val)
+	case "drop":
+		// drop = alias, item[, chance, item, chance...]
+		if len(args) < 2 || args[0] == "" {
+			return fmt.Errorf("expected drop = alias, item[, chance...]")
+		}
+		drops, err := parseBrawlerDrops(args[1:])
+		if err != nil {
+			return err
+		}
+		p.dropSet = append(p.dropSet, brawlerDropAssign{strings.ToLower(args[0]), drops})
 	default:
-		return fmt.Errorf("unknown enemies parameter '%v' (enemy, boss, behavior)", l.key)
+		return fmt.Errorf("unknown enemies parameter '%v' (enemy, boss, behavior, drop)", l.key)
 	}
 	return nil
+}
+
+// A level's drop list for one of its enemies
+type brawlerDropAssign struct {
+	alias string
+	drops []BrawlerDrop
 }
 
 // enemy = id (from the enemy library) or enemy = alias, def[, palette[, life[, name]]].
@@ -631,6 +681,16 @@ func (p *brawlerLevelParser) finish() error {
 			}
 			s.enemies = append(s.enemies, i)
 		}
+	}
+	for _, da := range p.dropSet {
+		i := lv.enemyIndex(da.alias)
+		if i < 0 {
+			return fmt.Errorf("drop refers to unknown enemy '%v'", da.alias)
+		}
+		lv.enemies[i].drops = da.drops
+	}
+	if err := p.finishProps(); err != nil {
+		return err
 	}
 	for i, w := range lv.waves {
 		endless := false

@@ -2793,6 +2793,7 @@ func (s *System) cueDraw() {
 	}
 
 	s.charList.cueDraw()
+	s.brawler.cueDrawProps()
 	s.explodCueDraw()
 }
 

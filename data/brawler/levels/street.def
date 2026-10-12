@@ -42,3 +42,10 @@ maxalive = 5
 spawn    = runner, right, player, 60
 spawn    = master, right, 1, 60
 spawn    = thug|leaper|bruiser, random, random, 90, 4
+
+[Props]
+; Breakable props and items of the enemy library: id, stage X, lane[, drops]
+prop = barrel, -20, 0
+prop = crate, 110, 2
+prop = barrel, 230, 1, chicken   ; this one always leaves a chicken
+item = apple, 280, 2

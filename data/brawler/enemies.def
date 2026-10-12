@@ -10,6 +10,8 @@
 ; name     = name shown in the HUD (default: the character's name)
 ; behavior = behavior profile (behaviors.def or [Behavior] sections here)
 ; boss     = 1 to show the big boss lifebar
+; drop     = items it may leave when defeated, with chances in percent:
+;            apple, 20 (default none). See the props section at the end
 ;
 ; [Intro id] sections work like in levels. Levels can override both the
 ; behavior (behavior = id, profile) and the intro ([Intro id]) of an enemy.
@@ -20,6 +22,7 @@ char     = kfm
 pal      = 7
 name     = Street Thug
 behavior = kicker
+drop     = apple, 15
 
 [Intro thug]
 name     = "Two-Kick" Tony
@@ -50,6 +53,7 @@ char     = kfm
 pal      = 9
 name     = Bruiser
 behavior = comboer
+drop     = apple, 20, chicken, 5
 
 [Intro bruiser]
 name     = The Accountant
@@ -98,6 +102,7 @@ life     = 1500
 name     = Master Kung Fu
 behavior = brute
 boss     = 1
+drop     = chicken
 
 [Intro master]
 style    = Kung fu master
@@ -105,3 +110,28 @@ strength = Specials, guards a lot
 weakness = Slow to start
 text     = Nobody has walked past him. Yet.
 color    = 75, 10, 20
+
+; ===========================================================================
+; Props and items (README section 13). Levels place props with
+; "prop = id, x, lane" in [Props]; enemies leave items with "drop".
+; Pictures are at the 320x240 character scale, relative to this file.
+
+[Prop barrel]
+image  = props/barrel.png
+broken = props/barrel_broken.png
+hits   = 2
+drop   = apple, 50, chicken, 15   ; 35% nothing
+
+[Prop crate]
+image  = props/crate.png
+broken = props/crate_broken.png
+hits   = 1
+drop   = apple, 30
+
+[Item apple]
+image = props/apple.png
+life  = 10%
+
+[Item chicken]
+image = props/chicken.png
+life  = 35%

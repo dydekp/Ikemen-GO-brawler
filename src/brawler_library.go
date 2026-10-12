@@ -15,9 +15,11 @@ package main
 //   scale    = 1            ; size multiplier
 //   ownai    = 0            ; 1 = keep the character's own AI code running
 //   screenfx = 0            ; 1 = keep its screen-fixed explods (own gauges, cut-ins)
+//   drop     = apple, 20    ; item it may leave when defeated (chance in percent)
 //
 //   [Intro thug]            ; optional introduction, like in levels
 //   [Behavior name]         ; profiles can be defined here too
+//   [Prop barrel], [Item apple] ; props and items, see brawler_props.go
 //
 // Levels can override an enemy's behavior (behavior = id, profile) and intro ([Intro id]).
 //
@@ -39,11 +41,14 @@ import (
 
 type brawlerLibrary struct {
 	enemies map[string]BrawlerEnemy
+	props   map[string]*BrawlerPropType // [Prop id] sections, see brawler_props.go
+	items   map[string]*BrawlerItemType
 }
 
 // Load the shared enemy library ([Brawler] Enemies). Profiles defined in it are added to behaviors
 func loadBrawlerLibrary(behaviors map[string]*BrawlerBehavior) (*brawlerLibrary, error) {
-	lib := &brawlerLibrary{enemies: map[string]BrawlerEnemy{}}
+	lib := &brawlerLibrary{enemies: map[string]BrawlerEnemy{}, props: map[string]*BrawlerPropType{},
+		items: map[string]*BrawlerItemType{}}
 	path := strings.TrimSpace(sys.cfg.Brawler.Enemies)
 	if path == "" || FileExist(path) == "" {
 		return lib, nil
@@ -71,6 +76,8 @@ func (lib *brawlerLibrary) load(path string, behaviors map[string]*BrawlerBehavi
 	var enemy *BrawlerEnemy
 	var beh *BrawlerBehavior
 	var intro *BrawlerIntro
+	var prop *BrawlerPropType
+	var item *BrawlerItemType
 	store := func() {
 		if enemy != nil {
 			file[enemy.alias] = *enemy
@@ -81,7 +88,7 @@ func (lib *brawlerLibrary) load(path string, behaviors map[string]*BrawlerBehavi
 		kind, name := l.kind()
 		if l.header {
 			store()
-			beh, intro = nil, nil
+			beh, intro, prop, item = nil, nil, nil, nil
 			switch kind {
 			case "enemy":
 				if name == "" {
@@ -99,6 +106,18 @@ func (lib *brawlerLibrary) load(path string, behaviors map[string]*BrawlerBehavi
 				}
 				intro = newBrawlerIntro()
 				intros[name] = intro
+			case "prop":
+				if name == "" {
+					return fmt.Errorf("prop section needs an id: [Prop id]")
+				}
+				prop = newBrawlerPropType(name)
+				lib.props[name] = prop
+			case "item":
+				if name == "" {
+					return fmt.Errorf("item section needs an id: [Item id]")
+				}
+				item = newBrawlerItemType(name)
+				lib.items[name] = item
 			}
 			return nil
 		}
@@ -109,6 +128,10 @@ func (lib *brawlerLibrary) load(path string, behaviors map[string]*BrawlerBehavi
 			return holder.setBehavior(beh, l.key, l.val)
 		case intro != nil:
 			return intro.set(l.key, l.val)
+		case prop != nil:
+			return prop.set(l, resolve)
+		case item != nil:
+			return item.set(l, resolve)
 		}
 		return nil
 	})
@@ -164,8 +187,11 @@ func setBrawlerEnemyKey(e *BrawlerEnemy, l brawlerIniLine, resolve func(string) 
 		e.ownAI = brawlerParseB(l.val)
 	case "screenfx":
 		e.screenFX = brawlerParseB(l.val)
+	case "drop":
+		e.drops, err = parseBrawlerDrops(l.args)
+		return err
 	default:
-		return fmt.Errorf("unknown enemy parameter '%v' (char, pal, life, name, behavior, boss, scale, ownai, screenfx)", l.key)
+		return fmt.Errorf("unknown enemy parameter '%v' (char, pal, life, name, behavior, boss, scale, ownai, screenfx, drop)", l.key)
 	}
 	return nil
 }

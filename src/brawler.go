@@ -130,6 +130,9 @@ type Brawler struct {
 	introTime    int32             // Frames the introduction has been shown
 	introShown   []bool            // Per enemy entry: introduction already shown in this level
 	introLayer   int32             // Draw layer of the introduced enemy before it was raised above the mask
+	props        []brawlerProp     // Breakable objects on the lanes, see brawler_props.go
+	items        []brawlerItem     // Items on the ground
+	propGfx      *brawlerPropGfx   // Their pictures, made with the stage. Shared by save states, never changed
 }
 
 func (b *Brawler) active() bool {
@@ -294,6 +297,7 @@ func (b *Brawler) roundInit() {
 		return
 	}
 	b.setupLanes()
+	b.placeProps()
 
 	// Progress
 	b.wave = 0
@@ -530,6 +534,7 @@ func (b *Brawler) step() {
 	b.updateEnemies()
 	b.spaceEnemies()
 	b.bowlBodies()
+	b.stepProps()
 	if b.directorOn() {
 		b.directorStep()
 		b.directorLogStep()
@@ -587,6 +592,7 @@ func (b *Brawler) updateEnemies() {
 		}
 		// Defeated enemies are removed once they lie on the ground
 		if st.koTime >= despawnTime && c.ss.stateType == ST_L || st.koTime >= despawnTime*3 {
+			b.enemyDrop(c)
 			c.setCSF(CSF_destroy)
 		}
 	}
@@ -903,6 +909,10 @@ func (b *Brawler) editStage(stg *Stage) {
 		sys.appendToConsole(fmt.Sprintf("brawler: %v", err))
 		LogMessage("brawler: %v", err)
 	}
+	if b.propGfx, err = b.loadPropGfx(stg, &b.stageEdit.adds); err != nil {
+		sys.appendToConsole(fmt.Sprintf("brawler: %v", err))
+		LogMessage("brawler: %v", err)
+	}
 	if left > 0 || right > 0 {
 		stg.stageCamera.boundleft -= int32(math.Ceil(float64(left)))
 		stg.stageCamera.boundright += int32(math.Ceil(float64(right)))
@@ -945,6 +955,7 @@ func (b *Brawler) restoreStage() {
 	e.stage.stageCamera.topz, e.stage.stageCamera.botz = e.topz, e.botz
 	e.stage.stageCamera.ztopscale, e.stage.stageCamera.zbotscale = e.ztop, e.zbot
 	e.adds.undo(e.stage)
+	b.propGfx = nil
 	e.stage.p = e.players
 	b.stageEdit = nil
 }

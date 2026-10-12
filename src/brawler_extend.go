@@ -264,6 +264,29 @@ func brawlerStagePicture(stg *Stage) brawlerStageArea {
 type brawlerStageAdds struct {
 	bgCount int         // Background elements before the level's
 	sprites [][2]uint16 // Sprites added to the stage's SFF
+	group   uint16      // Sprite group of the added pictures. 0 = none chosen yet
+}
+
+// Add a picture to the stage's sprites, with its axis at axis (pixels from the top left). Returns its
+// group and number
+func (a *brawlerStageAdds) addSprite(stg *Stage, img *image.RGBA, axis ...int16) [2]uint16 {
+	if a.group == 0 {
+		a.group = brawlerFreeGroup(stg.sff)
+	}
+	key := [2]uint16{a.group, uint16(len(a.sprites))}
+	spr := newSprite()
+	spr.Group, spr.Number = key[0], key[1]
+	spr.Size = [2]uint16{uint16(img.Bounds().Dx()), uint16(img.Bounds().Dy())}
+	if len(axis) == 2 {
+		spr.Offset = [2]int16{axis[0], axis[1]}
+	}
+	spr.coldepth = 32
+	px := make([]byte, len(img.Pix))
+	copy(px, img.Pix) // SetRaw clears the color of transparent pixels
+	spr.SetRaw(px, int32(spr.Size[0]), int32(spr.Size[1]), 32)
+	stg.sff.sprites[key] = spr
+	a.sprites = append(a.sprites, key)
+	return key
 }
 
 // Place the level's pieces and animations on the stage. Returns how far the stage got longer to the left
@@ -282,22 +305,6 @@ func (b *Brawler) extendStage(stg *Stage, adds *brawlerStageAdds) (left, right f
 	if stg.hires {
 		k = 0.5
 	}
-	group := brawlerFreeGroup(stg.sff)
-	number := uint16(0)
-	sprite := func(img *image.RGBA) [2]uint16 {
-		key := [2]uint16{group, number}
-		number++
-		spr := newSprite()
-		spr.Group, spr.Number = key[0], key[1]
-		spr.Size = [2]uint16{uint16(img.Bounds().Dx()), uint16(img.Bounds().Dy())}
-		spr.coldepth = 32
-		px := make([]byte, len(img.Pix))
-		copy(px, img.Pix) // SetRaw clears the color of transparent pixels
-		spr.SetRaw(px, int32(spr.Size[0]), int32(spr.Size[1]), 32)
-		stg.sff.sprites[key] = spr
-		adds.sprites = append(adds.sprites, key)
-		return key
-	}
 	// Top left corner of every piece, by name
 	corners := map[string][2]float32{}
 	edge := [2]float32{area.left, area.right} // Outer edge of each side so far
@@ -308,7 +315,7 @@ func (b *Brawler) extendStage(stg *Stage, adds *brawlerStageAdds) (left, right f
 			if int32(i) == e.loopstart && i > 0 {
 				lines = append(lines, "loopstart")
 			}
-			key := sprite(f.img)
+			key := adds.addSprite(stg, f.img)
 			lines = append(lines, fmt.Sprintf("%v,%v, 0,0, %v", key[0], key[1], f.time))
 		}
 		i := 0

@@ -66,3 +66,9 @@ spawn    = thug|ninja, random, random, 40, 5
 trigger  = 900
 spawn    = sensei, right, 1, 30
 spawn    = thug, left, random, 120, 2
+
+[Props]
+; In this hires stage's coordinates (1280x720)
+prop = crate, 250, 0
+prop = barrel, 650, 2
+prop = crate, 1000, 1, chicken
