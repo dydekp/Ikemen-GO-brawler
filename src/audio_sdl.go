@@ -23,7 +23,7 @@ var speaker AudioSink
 
 type SDLSpeaker struct {
 	dev        sdl.AudioDeviceID
-	mixer      *beep.Mixer
+	mixer      *audioMixer
 	mu         sync.Mutex
 	sampleRate beep.SampleRate
 	bufferSize int
@@ -41,7 +41,7 @@ func floatToS16(v float64) int16 {
 
 func (s *SDLSpeaker) Init(sampleRate beep.SampleRate, bufferSize int) error {
 	s.sampleRate = sampleRate
-	s.mixer = &beep.Mixer{}
+	s.mixer = &audioMixer{}
 	s.buf = make([][2]float64, bufferSize)
 	s.bufferSize = bufferSize
 

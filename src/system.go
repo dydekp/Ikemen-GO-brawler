@@ -158,8 +158,8 @@ type SystemStateVars struct {
 // The only instance of a System struct.
 // Do not create more than 1.
 var sys = System{
-	soundMixer:       &beep.Mixer{},
-	videoMixer:       &beep.Mixer{},
+	soundMixer:       &audioMixer{},
+	videoMixer:       &audioMixer{},
 	bgm:              *newBgm(),
 	pauseFocusVolume: 100,
 	//soundChannels: newSoundChannels(16), // Lazy allocation in Request()
@@ -225,8 +225,8 @@ type System struct {
 	debugDisplay        bool
 	debugRef            [2]int // player number, helper index
 	debugLastID         int32
-	soundMixer          *beep.Mixer
-	videoMixer          *beep.Mixer
+	soundMixer          *audioMixer
+	videoMixer          *audioMixer
 	bgm                 Bgm
 	matchMusicSel       []*bgMusic
 	pauseFocusVolume    int // Live combined pause/focus loss volume
