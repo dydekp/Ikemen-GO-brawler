@@ -458,6 +458,7 @@ type brawlerAI struct {
 	patrolLane   int32   // Patrol: current lane. -1 = pick one
 	patrolStep   int32   // Patrol: direction of the next lane change, -1 or 1
 	patrolDir    float32 // Patrol: running direction on the screen
+	patrolZ      float32 // Patrol with free depth: the depth of the current run
 	recoverLeft  int32   // Frames left backing off to recover, see aiRecover
 	recovered    bool    // Backed off to recover already
 }
@@ -805,7 +806,8 @@ func (b *Brawler) aiGoal(f *brawlerAIFrame) brawlerAIGoal {
 	case BT_Flank:
 		if ai.phase == bpApproach {
 			// Pick a side lane and a side of the target: its back, or with the director the less crowded side
-			if ai.flankLane < 0 || ai.flankLane == f.tst.targetLane {
+			// With free depth there are no lanes to compare: the side is picked once per approach
+			if ai.flankLane < 0 || !b.freeDepth() && ai.flankLane == f.tst.targetLane {
 				ai.flankLane = b.sideLane(f.tst.targetLane)
 				ai.side = b.flankSide(f.t)
 			}
@@ -1115,6 +1117,10 @@ func (b *Brawler) aiPatrol(f *brawlerAIFrame) bool {
 		if f.grounded && ai.phaseTime < 10 {
 			f.in[brawlerDirIndex(ai.patrolDir)] = true
 		}
+		if b.freeDepth() && !f.grounded {
+			speed := sys.cfg.Brawler.LaneSnapSpeed * 1.5
+			b.moveZ(c, Clamp(f.tZ-f.myZ, -speed, speed))
+		}
 		if !f.grounded && ai.phaseLen == 0 && beh.jumpAttack > 0 && ai.phaseTime >= beh.jumpAttack {
 			ai.phaseLen = 1
 			if prog := pickBrawlerMove(beh.moves); prog != nil {
@@ -1143,6 +1149,8 @@ func (b *Brawler) aiPatrol(f *brawlerAIFrame) bool {
 		if ai.patrolLane == f.tst.targetLane && n > 1 {
 			ai.patrolLane = b.sideLane(f.tst.targetLane)
 		}
+		// Free depth: a run across the screen at a depth away from the target's
+		ai.patrolZ = b.otherDepth(f.tZ)
 		// Run towards the far side of the screen
 		ai.patrolDir = 1
 		if f.myX > (sys.xmin+sys.xmax)/2 {
@@ -1155,6 +1163,9 @@ func (b *Brawler) aiPatrol(f *brawlerAIFrame) bool {
 	}
 	if st.laneJump || !f.grounded || !c.ctrl() {
 		return true
+	}
+	if b.freeDepth() {
+		b.aiDepth(f, ai.patrolZ, true)
 	}
 	if st.targetLane != ai.patrolLane {
 		// Stop running, turn around, then jump to the next lane in the running direction
@@ -1172,6 +1183,7 @@ func (b *Brawler) aiPatrol(f *brawlerAIFrame) bool {
 	if (edge-f.myX)*ai.patrolDir <= 8 {
 		// End of the lane: the next lane, bouncing between the outer ones, and the other direction
 		ai.patrolDir = -ai.patrolDir
+		ai.patrolZ = b.otherDepth(f.tZ)
 		if n > 1 {
 			next := ai.patrolLane + ai.patrolStep
 			if next < 0 || next >= n {
@@ -1202,6 +1214,16 @@ func (b *Brawler) aiPatrolLeap(f *brawlerAIFrame) bool {
 	}
 	if !brawlerOpenToAttack(f.t) || b.attackersOn(f.t, c) >= b.attackLimit(f.t) {
 		return false
+	}
+	// Free depth: leap from a run within reach in depth, steering towards the target in the air (aiPatrol)
+	if b.freeDepth() {
+		if Abs(f.tZ-f.myZ) > b.depthRadius()+brawlerFreeDepthReach {
+			return false
+		}
+		ai.start(f.beh.jump, false)
+		ai.runProgram(c, &f.in)
+		ai.setPhase(bpAirborne, 0)
+		return true
 	}
 	switch d := f.tst.targetLane - st.targetLane; {
 	case d == 0:

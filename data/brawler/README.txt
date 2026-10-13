@@ -545,7 +545,11 @@ default, everything above), balance (no breathers, e.g. for boss fights) or
 classic (the simpler rules, like Director = 0, for that level only).
 
 The director works with positions in continuous depth and only turns them
-into lanes at the end, so it works with any number of lanes.
+into lanes at the end, so it works with any number of lanes, and without
+lanes (free depth movement, not reachable from level files yet). The
+tactics do too: flankers pick their side once per approach, patrols run
+at a depth away from the player and leap when it crosses their path,
+steering towards its depth in the air.
 
 DIFFICULTY ([Brawler] Difficulty, also in Options > Brawler Settings)
 Easy, Normal and Hard are profiles in data/brawler/difficulty.def ([Brawler]

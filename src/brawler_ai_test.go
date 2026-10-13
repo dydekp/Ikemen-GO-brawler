@@ -503,3 +503,72 @@ func TestBrawlerBehaviorRecoverKeys(t *testing.T) {
 		t.Fatalf("recover.time: %v %v", beh.recoverTime, err)
 	}
 }
+
+// Patrols with free depth (no lanes): runs at a depth away from the player, leaps when the player crosses its
+// path, steering towards the player's depth in the air
+func TestBrawlerAIPatrolFreeDepth(t *testing.T) {
+	s := newAISim(t, nil, 0, 0)
+	sys.xmin, sys.xmax = -300, 300
+	sys.zmin, sys.zmax = -40, 40
+	beh := newBrawlerBehavior("patrol")
+	beh.tactic = BT_Patrol
+	beh.run = true
+	beh.jumpDist = 100
+	beh.moves, _ = parseBrawlerMoves("b")
+	e := s.enemy(beh, 250, 0)
+	s.player.pos[0], s.player.pos[2] = 1000, 0
+	s.run(120)
+	ai := &e.bw.ai
+	if Abs(ai.patrolZ) < s.b.depthRadius()*0.9 {
+		t.Fatalf("patrol depth %v, the player is at 0 (radius %v)", ai.patrolZ, s.b.depthRadius())
+	}
+	if Abs(e.pos[2]-ai.patrolZ) > 3 {
+		t.Fatalf("enemy at depth %v, run at %v", e.pos[2], ai.patrolZ)
+	}
+	if s.jumps[e] > 0 {
+		t.Fatal("leapt with nobody in its path")
+	}
+	// The player crosses its path: a leap, closing in on the player's depth
+	s.player.pos[0] = e.pos[0] + ai.patrolDir*80
+	startZ := Abs(e.pos[2] - s.player.pos[2])
+	closest := startZ
+	for i := 0; i < 120 && s.jumps[e] == 0; i++ {
+		s.step()
+	}
+	if s.jumps[e] == 0 {
+		t.Fatal("no leap at the player")
+	}
+	for i := 0; i < 40; i++ {
+		s.step()
+		closest = Min(closest, Abs(e.pos[2]-s.player.pos[2]))
+	}
+	if closest > startZ-5 {
+		t.Errorf("no steering in depth: %v -> %v", startZ, closest)
+	}
+}
+
+// Flankers with free depth pick their side once per approach, even when the target turns around
+func TestBrawlerAIFlankFreeDepth(t *testing.T) {
+	s := newAISim(t, nil, 0, 0)
+	sys.zmin, sys.zmax = -40, 40
+	// Without the director the side is behind the target, which turns around below
+	sys.cfg.Brawler.Director = false
+	beh := newBrawlerBehavior("flank")
+	beh.tactic = BT_Flank
+	e := s.enemy(beh, 200, 0)
+	s.step()
+	side := e.bw.ai.side
+	if side == 0 {
+		t.Fatal("no side picked")
+	}
+	for i := 0; i < 20; i++ {
+		s.player.facing = -s.player.facing
+		s.step()
+		if e.bw.ai.phase != bpApproach {
+			break
+		}
+		if e.bw.ai.side != side {
+			t.Fatalf("side changed on frame %v", i)
+		}
+	}
+}
