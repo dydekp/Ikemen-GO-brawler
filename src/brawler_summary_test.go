@@ -68,3 +68,19 @@ func TestBrawlerSummaryLevelHurt(t *testing.T) {
 		t.Fatalf("level %v, wave %v", d.levelHurt, d.waveHurt)
 	}
 }
+
+// The title card fades in at the start of the fight and out after brawlerCardTime frames
+func TestBrawlerTitleCard(t *testing.T) {
+	if a := brawlerCardAlpha(0); a <= 0 || a >= 1 {
+		t.Errorf("first frame %v", a)
+	}
+	if a := brawlerCardAlpha(brawlerCardTime / 2); a != 1 {
+		t.Errorf("middle %v", a)
+	}
+	if a := brawlerCardAlpha(brawlerCardTime - 1); a <= 0 || a >= 1 {
+		t.Errorf("last frame %v", a)
+	}
+	if a := brawlerCardAlpha(brawlerCardTime); a != 0 {
+		t.Errorf("after %v", a)
+	}
+}

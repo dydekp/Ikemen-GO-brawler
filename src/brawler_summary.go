@@ -1,7 +1,8 @@
 package main
 
-// Brawler mode level summary: when a level is cleared, a panel in the middle of the screen shows how it
-// went (time, enemies defeated, life lost per player, difficulty), and the director comments on it:
+// Brawler mode level title card and summary: the level's name and difficulty show as the fight starts.
+// When a level is cleared, a panel in the middle of the screen shows how it went (time, enemies defeated,
+// life lost per player, difficulty), and the director comments on it:
 // [Victory] lines when the team lost less than par per defeat, [Survived] lines otherwise (director.def).
 //
 // The numbers are part of the Brawler state (no slices), counted from the start of the fight: time while
@@ -74,4 +75,30 @@ func (b *Brawler) drawSummary(txt brawlerHudText) {
 	lines := b.summaryLines()
 	txt.drawFaded(160, y+6, lines[0], 0, 0.7, a)
 	txt.drawFaded(160, y+17, lines[1], 0, 0.7, a)
+}
+
+const (
+	brawlerCardTime = 150 // Frames the level's title card shows at the start of the fight
+	brawlerCardFade = 20
+)
+
+// Opacity of the title card: fading in at the start of the fight, then out
+func brawlerCardAlpha(time int32) float32 {
+	if time >= brawlerCardTime {
+		return 0
+	}
+	return Clamp(Min(float32(time+1), float32(brawlerCardTime-time))/brawlerCardFade, 0, 1)
+}
+
+// The level's name and difficulty in the lower part of the screen as the fight starts
+func (b *Brawler) drawTitleCard(txt brawlerHudText) {
+	a := brawlerCardAlpha(b.stats.time)
+	if a <= 0 || b.complete || b.level.name == "" || sys.roundState() != 2 {
+		return
+	}
+	y := brawlerHudHeight() * 0.72
+	brawlerHudFill(40, y-14, 240, 26, 0x000000, int32(150*a))
+	brawlerHudFill(40, y+12, 240, 1, 0xffc93a, int32(255*a))
+	txt.drawFaded(160, y, b.level.name, 0, 1.3, a)
+	txt.drawFaded(160, y+9, "DIFFICULTY "+b.difficulty().name, 0, 0.6, a)
 }

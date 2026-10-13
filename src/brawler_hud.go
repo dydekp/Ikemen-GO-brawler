@@ -255,6 +255,7 @@ func (b *Brawler) drawHUD(layerno int16) {
 	b.drawGoSign(txt)
 	b.drawContinue(txt)
 	b.drawSummary(txt)
+	b.drawTitleCard(txt)
 	b.drawCallouts(txt)
 	b.drawDirectorLog(txt)
 	b.drawDirectorTalk(txt)
