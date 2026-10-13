@@ -1,9 +1,11 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -13739,19 +13741,18 @@ func (cl *CharList) updateRunOrder() {
 	}
 
 	// Sort by priority
-	sort.Slice(cl.runOrder, func(i, j int) bool {
-		chari := cl.runOrder[i]
-		charj := cl.runOrder[j]
+	// (slices.SortFunc: sort.Slice allocates a reflection based swapper on every call)
+	slices.SortFunc(cl.runOrder, func(chari, charj *Char) int {
 		pri := getPriority(chari)
 		prj := getPriority(charj)
 		// If priorities are different, sort by priority
 		if pri != prj {
-			return pri > prj
+			return cmp.Compare(prj, pri)
 		}
 		// Otherwise run lower ID first
 		// This makes the order more predictable
 		// The fact we have ID's to fall back on also means we don't need SliceStable
-		return chari.id < charj.id
+		return cmp.Compare(chari.id, charj.id)
 	})
 
 	// Reset priority flags as they are only needed during this function
@@ -14669,18 +14670,18 @@ func (cl *CharList) collisionDetection() {
 
 	// Sort players by priority
 	// Using runOrder or creationOrder here probably has the same result
-	sort.Slice(sortedOrder, func(i, j int) bool {
-		chari := cl.runOrder[sortedOrder[i]]
-		charj := cl.runOrder[sortedOrder[j]]
+	slices.SortFunc(sortedOrder, func(i, j int) int {
+		chari := cl.runOrder[i]
+		charj := cl.runOrder[j]
 		pri := getPr(chari)
 		prj := getPr(charj)
 
 		if pri != prj {
-			return pri > prj
+			return cmp.Compare(prj, pri)
 		}
 
 		// Fallback to ID's
-		return chari.id < charj.id
+		return cmp.Compare(chari.id, charj.id)
 	})
 
 	// Push detection for players

@@ -1,9 +1,10 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -1384,25 +1385,8 @@ func (dl DrawList) draw(layerno int32, under bool, cameraX, cameraY, cameraScl f
 	}
 
 	// Sort the filtered items in order to determine how to layer the sprites
-	sort.Slice(sortList, func(i, j int) bool {
-		a, b := dl[sortList[i]], dl[sortList[j]]
-		// Sort by ascending sprpriority
-		if a.priority != b.priority {
-			return a.priority < b.priority
-		}
-		// Separate sync groups from each other
-		if a.syncGroup != b.syncGroup {
-			return a.syncGroup > b.syncGroup
-		}
-		// Order the same sync group by syncLayer
-		if a.syncId > 0 && a.syncId == b.syncId {
-			if a.syncLayer != b.syncLayer {
-				return a.syncLayer < b.syncLayer
-			}
-		}
-		// Place newer sprites first
-		return a.sortindex > b.sortindex
-	})
+	// (slices.SortFunc: sort.Slice allocates a reflection based swapper on every call)
+	slices.SortFunc(sortList, func(i, j int) int { return compareSpriteDraw(dl[i], dl[j]) })
 
 	// Common variables
 	shake := sys.envShake.getOffset()
@@ -1558,11 +1542,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 	}
 
 	// Sort by descending sprpriority
-	sort.SliceStable(sl, func(i, j int) bool {
-		if sl[i].priority != sl[j].priority {
-			return sl[i].priority > sl[j].priority
-		}
-		return false
+	slices.SortStableFunc(sl, func(a, b *ShadowSprite) int {
+		return cmp.Compare(b.priority, a.priority)
 	})
 
 	// Common variables
@@ -1804,11 +1785,8 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 	}
 
 	// Sort by descending sprpriority
-	sort.SliceStable(rl, func(i, j int) bool {
-		if rl[i].priority != rl[j].priority {
-			return rl[i].priority > rl[j].priority
-		}
-		return false
+	slices.SortStableFunc(rl, func(a, b *ReflectionSprite) int {
+		return cmp.Compare(b.priority, a.priority)
 	})
 
 	// Common variables
@@ -2454,4 +2432,24 @@ func (pa PreloadedAnims) updateSff(sff *Sff) {
 		// so it must be updated together with the SFF.
 		v.palettedata = &sff.palList
 	}
+}
+
+// Drawing order of two sprites of a layer: ascending sprpriority, sync groups apart, a sync group by its
+// syncLayer, newer sprites first. sortindex (unique) makes it a total order
+func compareSpriteDraw(a, b *SpriteData) int {
+	if a.priority != b.priority {
+		return cmp.Compare(a.priority, b.priority)
+	}
+	// Separate sync groups from each other
+	if a.syncGroup != b.syncGroup {
+		return cmp.Compare(b.syncGroup, a.syncGroup)
+	}
+	// Order the same sync group by syncLayer
+	if a.syncId > 0 && a.syncId == b.syncId {
+		if a.syncLayer != b.syncLayer {
+			return cmp.Compare(a.syncLayer, b.syncLayer)
+		}
+	}
+	// Place newer sprites first
+	return cmp.Compare(b.sortindex, a.sortindex)
 }
