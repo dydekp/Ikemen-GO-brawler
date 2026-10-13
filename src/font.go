@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	mgl "github.com/go-gl/mathgl/mgl32"
 	"math"
 	"os"
 	"regexp"
@@ -536,13 +537,23 @@ func (f *Fnt) drawChar(
 	c rune, pal []uint32,
 	rp RenderParams,
 ) float32 {
+	adv, ok := f.glyphParams(x, y, xscl, yscl, bank, bt, c, pal, &rp)
+	if ok {
+		RenderSprite(rp)
+	}
+	return adv
+}
+
+// Set the render parameters of a letter at x, y: its sprite, palette and position. Returns how far the next
+// letter is, and false if there's nothing to draw (space, missing letter)
+func (f *Fnt) glyphParams(x, y, xscl, yscl float32, bank, bt int32, c rune, pal []uint32, rp *RenderParams) (float32, bool) {
 	if c == ' ' {
-		return float32(f.Size[0]) * xscl
+		return float32(f.Size[0]) * xscl, false
 	}
 
 	spr := f.getCharSpr(c, bank, bt)
 	if spr == nil || spr.Tex == nil {
-		return 0
+		return 0, false
 	}
 
 	// Only paletted sprites (<=8bpp) use palette mapping.
@@ -593,9 +604,50 @@ func (f *Fnt) drawChar(
 	rp.size = spr.Size
 	rp.x = -x * sys.widthScale
 	rp.y = -y * sys.heightScale
+	return float32(spr.Size[0]) * xscl, true
+}
 
-	RenderSprite(rp)
-	return float32(spr.Size[0]) * xscl
+// Vertices of the text being batched, reused
+var fntQuadScratch []float32
+
+// Draw all letters of a text in one draw call, instead of one each. Possible when they're on the same
+// texture (the font's sprite atlas page) with the same palette. The quads are those the letters get drawn
+// one by one (plainQuadCorners), so the text looks the same. False: draw them one by one
+func (f *Fnt) drawTextBatch(txt string, x, y, xscl, yscl float32, bank, bt int32, pal []uint32,
+	rp RenderParams, spacingXAdd int32) bool {
+	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
+	quads := fntQuadScratch[:0]
+	defer func() { fntQuadScratch = quads[:0] }()
+	drawn := false
+	for _, c := range txt {
+		g := rp
+		adv, ok := f.glyphParams(x, y, xscl, yscl, bank, bt, c, pal, &g)
+		x += adv + xscl*float32(f.Spacing[0]+spacingXAdd)
+		if !ok {
+			continue
+		}
+		if !drawn {
+			rp.tex, rp.paltex, rp.size = g.tex, g.paltex, g.size
+			drawn = true
+		} else if g.tex != rp.tex || g.paltex != rp.paltex {
+			return false
+		}
+		initRenderSpriteQuad(&g)
+		if x1, y1, x2, y2, x3, y3, x4, y4, visible := plainQuadCorners(&g); visible {
+			uv := g.uvRect
+			if uv == ([4]float32{}) {
+				uv = [4]float32{0, 0, 1, 1}
+			}
+			quads = appendTransformedQuadUV(quads, modelview, x1, y1, x2, y2, x3, y3, x4, y4, uv)
+		}
+	}
+	if len(quads) > 0 {
+		// The quads carry their rectangles of the page
+		rp.uvRect = [4]float32{}
+		rp.quads = quads
+		RenderSprite(rp)
+	}
+	return true
 }
 
 func (f *Fnt) Print(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation, projectionMode int32, fLength float32, bank, align int32,
@@ -712,6 +764,11 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
 		yOffset:        0,
 	}
 
+	// Plain text (no rotation, projection or shear, opaque) is drawn in one go when it can be
+	if tt == TT_none && rot.IsZero() && projectionMode == 0 && rxadd == 0 && xscl > 0 && yscl > 0 &&
+		f.drawTextBatch(txt, x, y, xscl, yscl, bank, bt, pal, rp, spacingXAdd) {
+		return
+	}
 	for _, c := range txt {
 		x += f.drawChar(x, y, xscl, yscl, bank, bt, c, pal, rp) + xscl*float32(f.Spacing[0]+spacingXAdd)
 	}

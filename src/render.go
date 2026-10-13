@@ -242,6 +242,7 @@ var notiling = Tiling{}
 type RenderParams struct {
 	tex            Texture    // Sprite
 	uvRect         [4]float32 // The sprite's rectangle in tex (u0, v0, u1, v1), see sprite_atlas.go. Zero: all of tex
+	quads          []float32  // Batched quads drawn instead of the sprite's own (appendTransformedQuadUV, Fnt.DrawText)
 	paltex         Texture    // Palette
 	size           [2]uint16
 	x, y           float32 // Position
@@ -534,27 +535,47 @@ func transformPoint(mat mgl.Mat4, x, y float32) (float32, float32) {
 
 // Helper to append a quad as two triangles to the batch
 func appendTransformedQuadTriangles(batch []float32, mat mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4 float32) []float32 {
+	return appendTransformedQuadUV(batch, mat, x1, y1, x2, y2, x3, y3, x4, y4, [4]float32{0, 0, 1, 1})
+}
+
+// The same for a sprite in rectangle uv (u0, v0, u1, v1) of its texture: an atlas page (batched text)
+func appendTransformedQuadUV(batch []float32, mat mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4 float32,
+	uv [4]float32) []float32 {
 	uvBias := float32(0.000002)
 	p2x, p2y := transformPoint(mat, x2, y2)
 	p3x, p3y := transformPoint(mat, x3, y3)
 	p1x, p1y := transformPoint(mat, x1, y1)
 	p4x, p4y := transformPoint(mat, x4, y4)
+	// Like the sprite shader maps a single quad's 0..1 coordinates into its rectangle
+	u := func(t float32) float32 { return uv[0] + t*(uv[2]-uv[0]) }
+	v := func(t float32) float32 { return uv[1] + t*(uv[3]-uv[1]) }
 
 	// Vertices are laid out in triangle strip order, matching the single quad order
 	if len(batch) > 0 {
 		lastX, lastY, lastU, lastV := batch[len(batch)-4], batch[len(batch)-3], batch[len(batch)-2], batch[len(batch)-1]
 		batch = append(batch, lastX, lastY, lastU, lastV)
-		batch = append(batch, p2x, p2y, 1, 1-uvBias)
+		batch = append(batch, p2x, p2y, u(1), v(1-uvBias))
 	}
 
 	batch = append(batch,
-		p2x, p2y, 1, 1-uvBias,
-		p3x, p3y, 1, 0,
-		p1x, p1y, uvBias, 1-uvBias,
-		p4x, p4y, uvBias, 0,
+		p2x, p2y, u(1), v(1-uvBias),
+		p3x, p3y, u(1), v(0),
+		p1x, p1y, u(uvBias), v(1-uvBias),
+		p4x, p4y, u(uvBias), v(0),
 	)
 
 	return batch
+}
+
+// Draw quads made by appendTransformedQuadUV: their vertices are already transformed, so the modelview is
+// the identity
+func drawQuadBatch(batch []float32) {
+	spriteScratch.modelview = mgl.Ident4()
+	gfx.SetUniformMatrix("modelview", spriteScratch.modelview[:])
+	spriteScratch.x1x2x4x3 = [4]float32{}
+	gfx.SetUniformF("x1x2x4x3", spriteScratch.x1x2x4x3[:]...)
+	gfx.SetVertexData(batch...)
+	gfx.RenderQuadBatch(int32(len(batch) / 4)) // 4 floats per vertex
 }
 
 // Draws or accumulates every visible horizontal tile of one row
@@ -754,13 +775,7 @@ func renderSpriteQuad(modelview mgl.Mat4, rp RenderParams) {
 		emitTiles(&batch, modelview, rp, x1, y1, x2, y2, x3, y3, x4, y4)
 
 		if len(batch) > 0 {
-			// Vertices are already transformed, so use identity matrix
-			spriteScratch.modelview = mgl.Ident4()
-			gfx.SetUniformMatrix("modelview", spriteScratch.modelview[:])
-			spriteScratch.x1x2x4x3 = [4]float32{}
-			gfx.SetUniformF("x1x2x4x3", spriteScratch.x1x2x4x3[:]...)
-			gfx.SetVertexData(batch...)
-			gfx.RenderQuadBatch(int32(len(batch) / 4)) // 4 floats per vertex
+			drawQuadBatch(batch)
 		}
 
 		// Update scratch buffer with new capacity
@@ -785,29 +800,41 @@ func renderSpriteQuad(modelview mgl.Mat4, rp RenderParams) {
 		drawQuads(modelview, x1, y1, x2, y2, x3, y3, x4, y4)
 
 	default:
-		// Non-tiled, not rotated: shear must be baked into coordinates directly since no
-		// rotation matrix runs - matches the tiled path's handling
-		if rp.rxadd != 0 {
-			x1 += rp.rxadd * rp.ys * float32(rp.size[1])
-			x2 = x1 + rp.xbs*float32(rp.size[0])
-		}
-
-		// Trapezoid convergence adjustment, same as emitHTiles does per row
-		// No-op for rectangles (topdist == botdist), but required for parallax
-		topdist := (x3 - x4) / rp.xas
-		botdist := (x2 - x1) / rp.xas
-		if Abs(topdist) >= 0.01 {
-			db := (x4 - rp.rcx) * (botdist - topdist) / Abs(topdist)
-			x1 += db
-			x2 += db
-		}
-
-		// Skip the draw call entirely if this quad is fully above or fully below the visible
-		// screen range - matches the tiled path's vertical visibility culling
-		if (0 > y1 || 0 > y4) && (y1 > float32(-sys.scrrect[3]) || y4 > float32(-sys.scrrect[3])) {
+		if x1, y1, x2, y2, x3, y3, x4, y4, visible := plainQuadCorners(&rp); visible {
 			drawQuads(modelview, x1, y1, x2, y2, x3, y3, x4, y4)
 		}
 	}
+}
+
+// Corners of a sprite's quad when it's neither tiled nor rotated (rp went through initRenderSpriteQuad).
+// visible: not fully above or below the screen
+func plainQuadCorners(rp *RenderParams) (x1, y1, x2, y2, x3, y3, x4, y4 float32, visible bool) {
+	x1, y1 = rp.x, rp.rcy+((rp.y-rp.ys*float32(rp.size[1]))-rp.rcy)*rp.vs
+	x2, y2 = x1+rp.xbs*float32(rp.size[0]), y1
+	x3, y3 = rp.x+rp.xts*float32(rp.size[0]), rp.rcy+(rp.y-rp.rcy)*rp.vs
+	x4, y4 = rp.x, y3
+
+	// Shear must be baked into coordinates directly since no rotation matrix runs - matches the tiled
+	// path's handling
+	if rp.rxadd != 0 {
+		x1 += rp.rxadd * rp.ys * float32(rp.size[1])
+		x2 = x1 + rp.xbs*float32(rp.size[0])
+	}
+
+	// Trapezoid convergence adjustment, same as emitHTiles does per row
+	// No-op for rectangles (topdist == botdist), but required for parallax
+	topdist := (x3 - x4) / rp.xas
+	botdist := (x2 - x1) / rp.xas
+	if Abs(topdist) >= 0.01 {
+		db := (x4 - rp.rcx) * (botdist - topdist) / Abs(topdist)
+		x1 += db
+		x2 += db
+	}
+
+	// Skip the draw call entirely if this quad is fully above or fully below the visible
+	// screen range - matches the tiled path's vertical visibility culling
+	visible = (0 > y1 || 0 > y4) && (y1 > float32(-sys.scrrect[3]) || y4 > float32(-sys.scrrect[3]))
+	return
 }
 
 func initRenderSpriteQuad(rp *RenderParams) {
@@ -940,7 +967,11 @@ func RenderSprite(rp RenderParams) {
 		gfx.SetUniformFv("mult", spfx.mult[:])
 		setSpriteUniformF1("alpha", a)
 
-		renderSpriteQuad(modelview, rp)
+		if rp.quads != nil {
+			drawQuadBatch(rp.quads)
+		} else {
+			renderSpriteQuad(modelview, rp)
+		}
 	}
 
 	renderWithBlending(renderPass, rp.blendMode, rp.blendAlpha, rp.paltex != nil, spfx, rp.paltex == nil)
