@@ -9,7 +9,10 @@ package main
 // the level is fought, every enemy defeated, and the life lost, which the director measures (without it,
 // the damage isn't shown).
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	brawlerSummaryDelay = 65   // Frames after the level is cleared before the panel shows: after the K.O. text
@@ -18,9 +21,10 @@ const (
 )
 
 type brawlerLevelStats struct {
-	time    int32 // Frames the level was fought
-	kills   int32 // Enemies defeated
-	endTime int32 // Frames since the level was cleared
+	time    int32               // Frames the level was fought
+	kills   int32               // Enemies defeated
+	killsBy [MaxSimul * 2]int32 // Per player slot: the defeats whose last hit was theirs
+	endTime int32               // Frames since the level was cleared
 }
 
 // Count one frame of the level. Runs every frame of the level, before the fight checks
@@ -69,12 +73,20 @@ func (b *Brawler) drawSummary(txt brawlerHudText) {
 	}
 	a := Clamp(float32(b.stats.endTime-brawlerSummaryDelay)/brawlerSummaryFade, 0, 1)
 	y := brawlerHudHeight() * 0.42
-	brawlerHudFill(70, y-26, 180, 52, 0x000000, int32(170*a))
+	defeats := b.summaryDefeats()
+	h := float32(52)
+	if defeats != "" {
+		h += 11
+	}
+	brawlerHudFill(70, y-26, 180, h, 0x000000, int32(170*a))
 	brawlerHudFill(70, y-26, 180, 1.5, 0x3fd36a, int32(255*a))
 	txt.drawFaded(160, y-10, "LEVEL CLEAR", 0, 1.6, a)
 	lines := b.summaryLines()
 	txt.drawFaded(160, y+6, lines[0], 0, 0.7, a)
 	txt.drawFaded(160, y+17, lines[1], 0, 0.7, a)
+	if defeats != "" {
+		txt.drawFaded(160, y+28, "DEFEATS  "+defeats, 0, 0.7, a)
+	}
 }
 
 const (
@@ -101,4 +113,26 @@ func (b *Brawler) drawTitleCard(txt brawlerHudText) {
 	brawlerHudFill(40, y+12, 240, 1, 0xffc93a, int32(255*a))
 	txt.drawFaded(160, y, b.level.name, 0, 1.3, a)
 	txt.drawFaded(160, y+9, "DIFFICULTY "+b.difficulty().name, 0, 0.6, a)
+}
+
+// A defeated enemy counts for the player whose hit knocked it out (or that player's helper)
+func (b *Brawler) creditDefeat(c *Char) {
+	a := sys.playerID(c.ghv.playerid)
+	if a == nil || a.teamside != 0 || a.playerNo < 0 || a.playerNo >= len(b.stats.killsBy) {
+		return
+	}
+	b.stats.killsBy[a.playerNo]++
+}
+
+// Defeats per player for the summary in co-op: "1P 12   2P 9", "" with one player
+func (b *Brawler) summaryDefeats() string {
+	players := b.players(false)
+	if len(players) < 2 {
+		return ""
+	}
+	var parts []string
+	for _, p := range players {
+		parts = append(parts, fmt.Sprintf("%vP %v", b.charSeat(p)+1, b.stats.killsBy[p.playerNo]))
+	}
+	return strings.Join(parts, "   ")
 }

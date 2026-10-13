@@ -638,6 +638,7 @@ func (b *Brawler) updateEnemies() {
 		if st.koTime == 0 && b.waveActive {
 			b.waveKills++
 			b.stats.kills++
+			b.creditDefeat(c)
 		}
 		st.koTime++
 		// Helpers aren't forced into the KO state by the engine like roots are

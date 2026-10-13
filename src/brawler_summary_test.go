@@ -84,3 +84,33 @@ func TestBrawlerTitleCard(t *testing.T) {
 		t.Errorf("after %v", a)
 	}
 }
+
+// Defeats count for the player whose hit knocked the enemy out; the summary lists them in co-op
+func TestBrawlerSummaryDefeats(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	oldSeats := brawlerJoin.slotSeat
+	t.Cleanup(func() { brawlerJoin.slotSeat = oldSeats })
+	p1 := brawlerTestPlayer(b, 0, 0, 0)
+	p1.id = 56
+	sys.charList.idMap[p1.id] = p1
+	brawlerJoin.slotSeat[0], brawlerJoin.slotSeat[2] = 0, 1
+	enemy := &Char{id: 99, teamside: 1, playerNo: 1}
+	sys.charList.idMap[enemy.id] = enemy
+	for _, by := range []int32{56, 56, 99, 1234} {
+		e := &Char{}
+		e.ghv.playerid = by
+		b.creditDefeat(e)
+	}
+	if b.stats.killsBy[0] != 2 || b.stats.killsBy[1] != 0 {
+		t.Fatalf("defeats %v", b.stats.killsBy)
+	}
+	if s := b.summaryDefeats(); s != "" {
+		t.Fatalf("one player: %q", s)
+	}
+	brawlerTestPlayer(b, 2, 50, 0)
+	b.stats.killsBy[2] = 5
+	if s := b.summaryDefeats(); s != "1P 2   2P 5" {
+		t.Fatalf("co-op: %q", s)
+	}
+}
