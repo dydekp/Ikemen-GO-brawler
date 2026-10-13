@@ -860,7 +860,7 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   [Victory] lines when the team lost less than 8% life per defeat,
   [Survived] lines otherwise.
 The options are in Options > Brawler Settings ([Brawler] MoveNames,
-DirectorInfo and DirectorTalk in the config).
+DirectorInfo, DirectorTalk, Score and DepthGuide in the config).
 The HUD uses the fight screen's name font and scales to its localcoord.
 Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 
@@ -875,8 +875,8 @@ Balance:   Difficulty, Difficulties, AttackersPerPlayer, Director,
            EnemyLife, DespawnTime,
            BowlDamage, BowlSlowdown, GetUpGrace
 Intros:    Intros, IntroTime
-Display:   MoveNames, DirectorInfo, DirectorTalk (also in Options > Brawler
-           Settings), DirectorLines, Score, DepthGuide
+Display:   MoveNames, DirectorInfo, DirectorTalk, Score, DepthGuide (also in
+           Options > Brawler Settings), DirectorLines
 See the comments in the default config for details.
 
 

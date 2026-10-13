@@ -116,6 +116,8 @@ options.t_itemname = {
 			modifyGameOption('Brawler.MoveNames', true)
 			modifyGameOption('Brawler.DirectorInfo', true)
 			modifyGameOption('Brawler.DirectorTalk', 1)
+			modifyGameOption('Brawler.Score', true)
+			modifyGameOption('Brawler.DepthGuide', true)
 			modifyGameOption('Brawler.Difficulty', 'normal')
 			modifyGameOption('Options.AutoGuard', false)
 			modifyGameOption('Options.GuardBreak', false)
@@ -447,6 +449,26 @@ options.t_itemname = {
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
 			modifyGameOption('Brawler.MoveNames', not gameOption('Brawler.MoveNames'))
 			t.items[item].vardisplay = options.t_vardisplay['brawlermovenames']()
+			options.modified = true
+		end
+		return true
+	end,
+	--Brawler: player scores in the panels
+	['brawlerscore'] = function(t, item, cursorPosY, moveTxt)
+		if getInput(-1, motif.option_info.menu.add.key, motif.option_info.menu.subtract.key, motif.option_info.menu.done.key) then
+			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
+			modifyGameOption('Brawler.Score', not gameOption('Brawler.Score'))
+			t.items[item].vardisplay = options.t_vardisplay['brawlerscore']()
+			options.modified = true
+		end
+		return true
+	end,
+	--Brawler: depth guide in levels without lanes
+	['brawlerdepthguide'] = function(t, item, cursorPosY, moveTxt)
+		if getInput(-1, motif.option_info.menu.add.key, motif.option_info.menu.subtract.key, motif.option_info.menu.done.key) then
+			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
+			modifyGameOption('Brawler.DepthGuide', not gameOption('Brawler.DepthGuide'))
+			t.items[item].vardisplay = options.t_vardisplay['brawlerdepthguide']()
 			options.modified = true
 		end
 		return true
@@ -1616,6 +1638,12 @@ options.t_vardisplay = {
 	['brawlermovenames'] = function()
 		return options.f_boolDisplay(gameOption('Brawler.MoveNames'))
 	end,
+	['brawlerscore'] = function()
+		return options.f_boolDisplay(gameOption('Brawler.Score'))
+	end,
+	['brawlerdepthguide'] = function()
+		return options.f_boolDisplay(gameOption('Brawler.DepthGuide'))
+	end,
 	['brawlerdirectorinfo'] = function()
 		return options.f_boolDisplay(gameOption('Brawler.DirectorInfo'))
 	end,
@@ -1818,9 +1846,11 @@ function options.f_start()
 	-- Beat 'em up mode settings, unless the screenpack already defines (or hides) them
 	main.f_appendItemname(motif.option_info.menu, '', 'menubrawler', {
 		__value = 'Brawler Settings',
-		__order = {'brawlerdifficulty', 'brawlermovenames', 'brawlerdirectorinfo', 'brawlerdirectortalk', 'back'},
+		__order = {'brawlerdifficulty', 'brawlermovenames', 'brawlerdirectorinfo', 'brawlerdirectortalk', 'brawlerscore', 'brawlerdepthguide', 'back'},
 		brawlerdifficulty = 'Difficulty',
 		brawlermovenames = 'Show Move Names',
+		brawlerscore = 'Show Score',
+		brawlerdepthguide = 'Depth Guide',
 		brawlerdirectorinfo = 'Show Director Decisions',
 		brawlerdirectortalk = 'Director Announcements',
 		back = 'Back',
