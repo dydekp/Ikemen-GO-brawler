@@ -155,3 +155,23 @@ func TestBrawlerPropsFreeDepth(t *testing.T) {
 		t.Fatalf("items %+v", b.items)
 	}
 }
+
+// A level without items of its own gets the library's most filling item for the director's help
+func TestBrawlerHelpLibraryFallback(t *testing.T) {
+	// No drops for the enemy, no props: the level uses no items
+	lib := strings.Replace(brawlerTestPropLibrary, "drop = apple, 25\n", "", 1)
+	lv, err := brawlerTestPropFiles(t, lib, "[Level]\nname = x\n[Enemies]\nenemy = thug\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := lv.helpDrops()
+	if len(d) != 1 || lv.itemTypes[d[0].idx].id != "meat" || len(lv.itemTypes) != 1 {
+		t.Fatalf("help %+v, items %v", d, len(lv.itemTypes))
+	}
+	if lv, err = brawlerTestPropFiles(t, lib, "[Level]\nname = x\nhelp = none\n[Enemies]\nenemy = thug\n"); err != nil || len(lv.helpDrops()) != 0 {
+		t.Fatalf("help = none: %v %+v", err, lv.helpDrops())
+	}
+	if id := brawlerBestLifeItem(map[string]*BrawlerItemType{}); id != "" {
+		t.Fatalf("no items: %q", id)
+	}
+}

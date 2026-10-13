@@ -39,6 +39,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"slices"
 	"strings"
 )
 
@@ -366,7 +367,34 @@ func (p *brawlerLevelParser) finishProps() error {
 			return fmt.Errorf("enemy '%v': %w", e.alias, err)
 		}
 	}
+	// A level without life items of its own gets the director's help from the shared library: its item that
+	// restores the most life (unless the level says help = none)
+	if !lv.hasHelp && len(lv.helpDrops()) == 0 && p.lib != nil {
+		if id := brawlerBestLifeItem(p.lib.items); id != "" {
+			idx, err := item(id)
+			if err != nil {
+				return err
+			}
+			lv.help, lv.hasHelp = []BrawlerDrop{{item: id, chance: brawlerDropChanceFull, idx: idx}}, true
+		}
+	}
 	return nil
+}
+
+// The id of the item with a picture that restores the most life, "" if none does
+func brawlerBestLifeItem(items map[string]*BrawlerItemType) string {
+	ids := make([]string, 0, len(items))
+	for id := range items {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	best := ""
+	for _, id := range ids {
+		if t := items[id]; t.image != nil && t.life > 0 && (best == "" || brawlerItemLifeRank(t) > brawlerItemLifeRank(items[best])) {
+			best = id
+		}
+	}
+	return best
 }
 
 // ---------------------------------------------------------------------------------------------------

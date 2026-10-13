@@ -226,7 +226,8 @@ endx      = 900                  ; Optional: after the last wave, a player
 help      = chicken              ; Optional: what the director drops for a
                                  ; player in trouble (a drop list, section
                                  ; 13, or none). Default: the level's item
-                                 ; that restores the most life
+                                 ; that restores the most life, or the enemy
+                                 ; library's if the level uses no items
 ; Stage overrides, in the stage's coordinates (section 6):
 topbound   = -60                 ; depth range of the lanes
 botbound   = 60
