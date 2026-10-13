@@ -873,8 +873,8 @@ Balance:   Difficulty, Difficulties, AttackersPerPlayer, Director,
            EnemyLife, DespawnTime,
            BowlDamage, BowlSlowdown, GetUpGrace
 Intros:    Intros, IntroTime
-Display:   MoveNames, DirectorInfo, DirectorTalk, Score (also in Options > Brawler
-           Settings), DirectorLines
+Display:   MoveNames, DirectorInfo, DirectorTalk (also in Options > Brawler
+           Settings), DirectorLines, Score, DepthGuide
 See the comments in the default config for details.
 
 
