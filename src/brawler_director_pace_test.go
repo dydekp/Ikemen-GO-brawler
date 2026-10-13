@@ -226,3 +226,51 @@ func TestBrawlerLastStand(t *testing.T) {
 		t.Fatal("last stand with everybody down")
 	}
 }
+
+// [Wave] director overrides the level's style while that wave runs
+func TestBrawlerDirectorWaveStyle(t *testing.T) {
+	lv, err := brawlerTestPropFiles(t, brawlerTestPropLibrary,
+		"[Level]\nname = x\n[Enemies]\nenemy = thug\n[Wave 1]\nspawn = thug, right, 0, 30, 1\n[Wave 2]\ndirector = classic\nspawn = thug, right, 0, 30, 1\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lv.waves[0].hasDirector || !lv.waves[1].hasDirector || lv.waves[1].director != bdsClassic {
+		t.Fatalf("waves %+v", lv.waves)
+	}
+	if _, err := brawlerTestPropFiles(t, brawlerTestPropLibrary,
+		"[Level]\nname = x\n[Enemies]\nenemy = thug\n[Wave 1]\ndirector = loud\n"); err == nil {
+		t.Error("director = loud accepted")
+	}
+
+	b, _ := brawlerPaceTest(t)
+	b.level.director = bdsBalance
+	b.level.waves = []BrawlerWave{{}, {director: bdsClassic, hasDirector: true}, {director: bdsPacing, hasDirector: true}}
+	for _, c := range []struct {
+		wave   int
+		active bool
+		want   brawlerDirectorStyle
+	}{{0, true, bdsBalance}, {1, true, bdsClassic}, {2, true, bdsPacing}, {1, false, bdsBalance}} {
+		b.wave, b.waveActive = c.wave, c.active
+		if got := b.directorStyle(); got != c.want {
+			t.Errorf("wave %v active %v: %v, want %v", c.wave, c.active, got, c.want)
+		}
+	}
+	b.wave, b.waveActive = 1, true
+	if b.directorOn() {
+		t.Error("director on in a classic wave")
+	}
+	// Auto difficulty doesn't rate a classic wave: the director measured nothing in it
+	brawlerAutoTestFile(t)
+	b.diff, b.auto = brawlerDifficultySetup()
+	b.waveActive = false // endWave clears it before rating
+	b.waveKills, b.director.waveHurt = 5, 0
+	b.autoWaveEnd()
+	if b.auto.skill != 0.5 {
+		t.Fatalf("rated a classic wave: %v", b.auto.skill)
+	}
+	b.wave = 2
+	b.autoWaveEnd()
+	if b.auto.skill == 0.5 {
+		t.Fatal("didn't rate a pacing wave")
+	}
+}

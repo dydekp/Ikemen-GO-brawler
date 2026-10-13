@@ -71,8 +71,8 @@ func (b *Brawler) directorPace(inWave bool) {
 	if d.buildTime > 0 {
 		d.buildTime--
 	}
-	// No breathers without pacing: off in the difficulty, or a level with director = balance
-	if diff.relax <= 0 || b.level != nil && b.level.director != bdsPacing {
+	// No breathers without pacing: off in the difficulty, or a level or wave with another director style
+	if diff.relax <= 0 || b.directorStyle() != bdsPacing {
 		d.relaxTime = 0
 		return
 	}

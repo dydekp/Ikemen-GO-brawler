@@ -280,6 +280,8 @@ maxalive = 6     ; Max enemies alive at once (default 6). Spawning waits
 kills    = 20    ; Optional: stop spawning after this many defeats
 time     = 3600  ; Optional: stop spawning after this many frames
 attackers = 2   ; Optional: overrides the level's attackers in this wave
+director  = balance ; Optional: how the director runs this wave (pacing,
+                    ; balance, classic), overriding [Level] director
 spawn    = alias, side, lane, delay, count
 
 spawn parameters:

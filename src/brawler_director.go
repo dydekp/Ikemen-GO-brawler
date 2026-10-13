@@ -91,9 +91,28 @@ func parseBrawlerDirectorStyle(v string) (brawlerDirectorStyle, error) {
 	return 0, fmt.Errorf("invalid director: %v (pacing, balance or classic)", v)
 }
 
-// The director runs: on in the config ([Brawler] Director) and not turned off by the level
+// How the director runs now: the current wave's [Wave] director, or the level's
+func (b *Brawler) directorStyle() brawlerDirectorStyle {
+	if b.level == nil {
+		return bdsPacing
+	}
+	if b.waveActive {
+		return b.waveStyle(b.wave)
+	}
+	return b.level.director
+}
+
+// How the director runs wave i: its own style, or the level's
+func (b *Brawler) waveStyle(i int) brawlerDirectorStyle {
+	if i >= 0 && i < len(b.level.waves) && b.level.waves[i].hasDirector {
+		return b.level.waves[i].director
+	}
+	return b.level.director
+}
+
+// The director runs: on in the config ([Brawler] Director) and not turned off by the level or wave
 func (b *Brawler) directorOn() bool {
-	return sys.cfg.Brawler.Director && (b.level == nil || b.level.director != bdsClassic)
+	return sys.cfg.Brawler.Director && b.directorStyle() != bdsClassic
 }
 
 var brawlerStressDecay = float32(math.Pow(0.5, 1/float64(brawlerStressHalfLife)))

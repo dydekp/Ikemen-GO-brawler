@@ -20,13 +20,15 @@ type BrawlerSpawn struct {
 }
 
 type BrawlerWave struct {
-	trigger   float32 // Stage X coordinate the leading player must reach to start the wave
-	lock      bool    // Lock the camera until the wave is cleared
-	maxAlive  int32   // Enemies alive at the same time. Spawning waits while the limit is reached
-	kills     int32   // Stop spawning after this many defeats (0 = no limit)
-	time      int32   // Stop spawning after this many frames (0 = no limit)
-	attackers int32   // Enemies that may attack the same player at once in this wave (0 = the level's)
-	spawns    []BrawlerSpawn
+	trigger     float32              // Stage X coordinate the leading player must reach to start the wave
+	lock        bool                 // Lock the camera until the wave is cleared
+	maxAlive    int32                // Enemies alive at the same time. Spawning waits while the limit is reached
+	kills       int32                // Stop spawning after this many defeats (0 = no limit)
+	time        int32                // Stop spawning after this many frames (0 = no limit)
+	attackers   int32                // Enemies that may attack the same player at once in this wave (0 = the level's)
+	director    brawlerDirectorStyle // How the director runs this wave, if hasDirector (else the level's)
+	hasDirector bool
+	spawns      []BrawlerSpawn
 }
 
 type BrawlerEnemy struct {
@@ -578,10 +580,15 @@ func (p *brawlerLevelParser) waveKey(l brawlerIniLine) error {
 		if w.attackers, err = brawlerParseI(l.val); err != nil || w.attackers < 1 {
 			return fmt.Errorf("invalid attackers: %v", l.val)
 		}
+	case "director":
+		if w.director, err = parseBrawlerDirectorStyle(l.val); err != nil {
+			return err
+		}
+		w.hasDirector = true
 	case "spawn":
 		return p.spawn(l.args)
 	default:
-		return fmt.Errorf("unknown wave parameter '%v' (trigger, lock, maxalive, kills, time, attackers, spawn)", l.key)
+		return fmt.Errorf("unknown wave parameter '%v' (trigger, lock, maxalive, kills, time, attackers, director, spawn)", l.key)
 	}
 	return nil
 }

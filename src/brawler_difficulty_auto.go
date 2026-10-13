@@ -132,7 +132,8 @@ func brawlerAutoRate(hurt float32, players int, kills int32, par float32) float3
 // A wave ended: rate it and move the skill
 func (b *Brawler) autoWaveEnd() {
 	a := &b.auto
-	if !a.on || !b.directorOn() || b.waveKills == 0 {
+	// The wave just ended (endWave): its own style tells whether the director measured it
+	if !a.on || !sys.cfg.Brawler.Director || b.waveStyle(b.wave) == bdsClassic || b.waveKills == 0 {
 		return
 	}
 	old := a.skill
