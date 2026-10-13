@@ -229,7 +229,8 @@ func (b *Brawler) drawDirectorTalk(txt brawlerHudText) {
 	if t.topic.challenging() {
 		col = 0xff6a3a
 	}
-	const y, w = 44, 170
+	const w = 170
+	y := brawlerHudPanelsBottom() + 12
 	brawlerHudFill(160-w/2, y-9, w, 13, 0x000000, int32(150*a))
 	brawlerHudFill(160-w/2, y+3, w, 1, col, int32(255*a))
 	txt.drawFaded(160, y, brawlerShorten(t.text, 40), 0, 0.75, a)

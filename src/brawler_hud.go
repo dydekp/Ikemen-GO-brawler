@@ -63,6 +63,13 @@ func brawlerHudLayout(i, n int) brawlerHudPanel {
 	return p
 }
 
+// Bottom of what the panels show under them (enemy bar, move names): the director's announcement and log
+// go below it
+func brawlerHudPanelsBottom() float32 {
+	l := brawlerHudLayout(0, 2)
+	return l.targetY + l.targetH + 12
+}
+
 // The HUD is designed in a virtual space 320 units wide. It is scaled to the fight screen's
 // localcoord, so it looks the same with 320x240 and 1280x720 screenpacks
 func brawlerHudUnit() float32 {

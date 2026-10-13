@@ -236,7 +236,8 @@ func (b *Brawler) drawDirectorLog(txt brawlerHudText) {
 		return
 	}
 	l := &brawlerDirectorLog
-	y := brawlerHudHeight() * 0.3
+	// Below the announcement
+	y := brawlerHudPanelsBottom() + 29
 	for i := len(l.entries) - 1; i >= 0; i-- {
 		e := l.entries[i]
 		col := uint32(0x9a9aa8)
