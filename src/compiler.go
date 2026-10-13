@@ -10,8 +10,6 @@ import (
 
 const specialSymbols = " !=<>()|&+-*/%,[]^:;{}#\"\t\r\n"
 
-type expFunc func(out *BytecodeExp, in *string) (BytecodeValue, error)
-
 type scFunc func(is IniSection, sc *StateControllerBase) (StateController, error)
 
 type CharCompiler struct {
@@ -694,7 +692,23 @@ func (c *CharCompiler) integer2(in *string) (int32, error) {
 	return i, nil
 }
 
+// The token can parse as a number: it starts with a digit, a sign or a dot, or is one of the words
+// ParseFloat takes (inf, infinity, nan). Most tokens are names, and a failed parse allocates an error
+func mayBeNumber(token string) bool {
+	if token == "" {
+		return true
+	}
+	switch c := token[0]; {
+	case c >= '0' && c <= '9', c == '.', c == '+', c == '-', c == 'i', c == 'I', c == 'n', c == 'N':
+		return true
+	}
+	return false
+}
+
 func (c *CharCompiler) number(token string) BytecodeValue {
+	if !mayBeNumber(token) {
+		return bvNone()
+	}
 	f, err := strconv.ParseFloat(token, 64)
 	if err != nil && f == 0 {
 		return bvNone()
@@ -5451,13 +5465,13 @@ func (c *CharCompiler) expMldv(out *BytecodeExp, in *string) (BytecodeValue, err
 		switch c.token {
 		case "*":
 			c.token = c.tokenizer(in)
-			err = c.expOneOpSub(out, in, &bv, c.expPow, out.mul, OC_mul)
+			err = c.expOneOpSub(out, in, &bv, expLvPow, OC_mul)
 		case "/":
 			c.token = c.tokenizer(in)
-			err = c.expOneOpSub(out, in, &bv, c.expPow, out.div, OC_div)
+			err = c.expOneOpSub(out, in, &bv, expLvPow, OC_div)
 		case "%":
 			c.token = c.tokenizer(in)
-			err = c.expOneOpSub(out, in, &bv, c.expPow, out.mod, OC_mod)
+			err = c.expOneOpSub(out, in, &bv, expLvPow, OC_mod)
 		default:
 			return bv, nil
 		}
@@ -5479,10 +5493,10 @@ func (c *CharCompiler) expAdsb(out *BytecodeExp, in *string) (BytecodeValue, err
 		switch c.token {
 		case "+":
 			c.token = c.tokenizer(in)
-			err = c.expOneOpSub(out, in, &bv, c.expMldv, out.add, OC_add)
+			err = c.expOneOpSub(out, in, &bv, expLvMldv, OC_add)
 		case "-":
 			c.token = c.tokenizer(in)
-			err = c.expOneOpSub(out, in, &bv, c.expMldv, out.sub, OC_sub)
+			err = c.expOneOpSub(out, in, &bv, expLvMldv, OC_sub)
 		default:
 			return bv, nil
 		}
@@ -5504,16 +5518,16 @@ func (c *CharCompiler) expGrls(out *BytecodeExp, in *string) (BytecodeValue, err
 		switch c.token {
 		case ">":
 			c.token = c.tokenizer(in)
-			err = c.expOneOpSub(out, in, &bv, c.expAdsb, out.gt, OC_gt)
+			err = c.expOneOpSub(out, in, &bv, expLvAdsb, OC_gt)
 		case ">=":
 			c.token = c.tokenizer(in)
-			err = c.expOneOpSub(out, in, &bv, c.expAdsb, out.ge, OC_ge)
+			err = c.expOneOpSub(out, in, &bv, expLvAdsb, OC_ge)
 		case "<":
 			c.token = c.tokenizer(in)
-			err = c.expOneOpSub(out, in, &bv, c.expAdsb, out.lt, OC_lt)
+			err = c.expOneOpSub(out, in, &bv, expLvAdsb, OC_lt)
 		case "<=":
 			c.token = c.tokenizer(in)
-			err = c.expOneOpSub(out, in, &bv, c.expAdsb, out.le, OC_le)
+			err = c.expOneOpSub(out, in, &bv, expLvAdsb, OC_le)
 		default:
 			return bv, nil
 		}
@@ -5643,12 +5657,7 @@ func (c *CharCompiler) expEqne(out *BytecodeExp, in *string) (BytecodeValue, err
 			}
 			fallthrough
 		default:
-			switch opc {
-			case OC_eq:
-				err = c.expOneOpSub(out, in, &bv, c.expGrls, out.eq, opc)
-			case OC_ne:
-				err = c.expOneOpSub(out, in, &bv, c.expGrls, out.ne, opc)
-			}
+			err = c.expOneOpSub(out, in, &bv, expLvGrls, opc)
 			if err != nil {
 				return bvNone(), err
 			}
@@ -5656,11 +5665,97 @@ func (c *CharCompiler) expEqne(out *BytecodeExp, in *string) (BytecodeValue, err
 	}
 }
 
-func (*CharCompiler) expOneOpSub(out *BytecodeExp, in *string, bv *BytecodeValue,
-	ef expFunc, opf func(v1 *BytecodeValue, v2 BytecodeValue),
-	opc OpCode) error {
+// Precedence levels of binary operators, from the tightest. expOneOp and expOneOpSub parse their operands at
+// a level (expAt) and fold constant operands by opcode (foldConst), with direct calls: passed as function
+// values, everything handed to them escaped to the heap, one allocation per value and operator, and a
+// character's compilation spent much of its time allocating
+type expLevel int8
+
+const (
+	expLvPow expLevel = iota
+	expLvMldv
+	expLvAdsb
+	expLvGrls
+	expLvEqne
+	expLvAnd
+	expLvXor
+	expLvOr
+	expLvBoolAnd
+	expLvBoolXor
+)
+
+// Parse an expression at a precedence level
+func (c *CharCompiler) expAt(lv expLevel, out *BytecodeExp, in *string) (BytecodeValue, error) {
+	switch lv {
+	case expLvPow:
+		return c.expPow(out, in)
+	case expLvMldv:
+		return c.expMldv(out, in)
+	case expLvAdsb:
+		return c.expAdsb(out, in)
+	case expLvGrls:
+		return c.expGrls(out, in)
+	case expLvEqne:
+		return c.expEqne(out, in)
+	case expLvAnd:
+		return c.expAnd(out, in)
+	case expLvXor:
+		return c.expXor(out, in)
+	case expLvOr:
+		return c.expOr(out, in)
+	case expLvBoolAnd:
+		return c.expBoolAnd(out, in)
+	}
+	return c.expBoolXor(out, in)
+}
+
+// Compute a binary operator on two constants at compile time, as it would run
+func foldConst(opc OpCode, v1 *BytecodeValue, v2 BytecodeValue) {
 	var be BytecodeExp
-	bv2, err := ef(&be, in)
+	switch opc {
+	case OC_mul:
+		be.mul(v1, v2)
+	case OC_div:
+		be.div(v1, v2)
+	case OC_mod:
+		be.mod(v1, v2)
+	case OC_add:
+		be.add(v1, v2)
+	case OC_sub:
+		be.sub(v1, v2)
+	case OC_gt:
+		be.gt(v1, v2)
+	case OC_ge:
+		be.ge(v1, v2)
+	case OC_lt:
+		be.lt(v1, v2)
+	case OC_le:
+		be.le(v1, v2)
+	case OC_eq:
+		be.eq(v1, v2)
+	case OC_ne:
+		be.ne(v1, v2)
+	case OC_and:
+		be.and(v1, v2)
+	case OC_xor:
+		be.xor(v1, v2)
+	case OC_or:
+		be.or(v1, v2)
+	case OC_bland:
+		be.bland(v1, v2)
+	case OC_blxor:
+		be.blxor(v1, v2)
+	case OC_blor:
+		be.blor(v1, v2)
+	default:
+		panic(fmt.Sprintf("no constant folding for opcode %v", opc))
+	}
+}
+
+func (c *CharCompiler) expOneOpSub(out *BytecodeExp, in *string, bv *BytecodeValue,
+	lv expLevel, opc OpCode) error {
+	var be BytecodeExp
+	bv2, err := c.expAt(lv, &be, in)
 	if err != nil {
 		return err
 	}
@@ -5671,15 +5766,14 @@ func (*CharCompiler) expOneOpSub(out *BytecodeExp, in *string, bv *BytecodeValue
 		out.append(opc)
 		*bv = bvNone()
 	} else {
-		opf(bv, bv2)
+		foldConst(opc, bv, bv2)
 	}
 	return nil
 }
 
-func (c *CharCompiler) expOneOp(out *BytecodeExp, in *string, ef expFunc,
-	opt string, opf func(v1 *BytecodeValue, v2 BytecodeValue),
-	opc OpCode) (BytecodeValue, error) {
-	bv, err := ef(out, in)
+func (c *CharCompiler) expOneOp(out *BytecodeExp, in *string, lv expLevel,
+	opt string, opc OpCode) (BytecodeValue, error) {
+	bv, err := c.expAt(lv, out, in)
 	if err != nil {
 		return bvNone(), err
 	}
@@ -5689,7 +5783,7 @@ func (c *CharCompiler) expOneOp(out *BytecodeExp, in *string, ef expFunc,
 		}
 		if c.token == opt {
 			c.token = c.tokenizer(in)
-			if err := c.expOneOpSub(out, in, &bv, ef, opf, opc); err != nil {
+			if err := c.expOneOpSub(out, in, &bv, lv, opc); err != nil {
 				return bvNone(), err
 			}
 		} else {
@@ -5699,20 +5793,20 @@ func (c *CharCompiler) expOneOp(out *BytecodeExp, in *string, ef expFunc,
 }
 
 func (c *CharCompiler) expAnd(out *BytecodeExp, in *string) (BytecodeValue, error) {
-	return c.expOneOp(out, in, c.expEqne, "&", out.and, OC_and)
+	return c.expOneOp(out, in, expLvEqne, "&", OC_and)
 }
 
 func (c *CharCompiler) expXor(out *BytecodeExp, in *string) (BytecodeValue, error) {
-	return c.expOneOp(out, in, c.expAnd, "^", out.xor, OC_xor)
+	return c.expOneOp(out, in, expLvAnd, "^", OC_xor)
 }
 
 func (c *CharCompiler) expOr(out *BytecodeExp, in *string) (BytecodeValue, error) {
-	return c.expOneOp(out, in, c.expXor, "|", out.or, OC_or)
+	return c.expOneOp(out, in, expLvXor, "|", OC_or)
 }
 
 func (c *CharCompiler) expBoolAnd(out *BytecodeExp, in *string) (BytecodeValue, error) {
 	if c.block != nil {
-		return c.expOneOp(out, in, c.expOr, "&&", out.bland, OC_bland)
+		return c.expOneOp(out, in, expLvOr, "&&", OC_bland)
 	}
 	bv, err := c.expOr(out, in)
 	if err != nil {
@@ -5751,13 +5845,13 @@ func (c *CharCompiler) expBoolAnd(out *BytecodeExp, in *string) (BytecodeValue, 
 }
 
 func (c *CharCompiler) expBoolXor(out *BytecodeExp, in *string) (BytecodeValue, error) {
-	return c.expOneOp(out, in, c.expBoolAnd, "^^", out.blxor, OC_blxor)
+	return c.expOneOp(out, in, expLvBoolAnd, "^^", OC_blxor)
 }
 
 func (c *CharCompiler) expBoolOr(out *BytecodeExp, in *string) (BytecodeValue, error) {
 	defer func(omp string) { c.previousOperator = omp }(c.previousOperator)
 	if c.block != nil {
-		return c.expOneOp(out, in, c.expBoolXor, "||", out.blor, OC_blor)
+		return c.expOneOp(out, in, expLvBoolXor, "||", OC_blor)
 	}
 	bv, err := c.expBoolXor(out, in)
 	if err != nil {
@@ -5795,11 +5889,10 @@ func (c *CharCompiler) expBoolOr(out *BytecodeExp, in *string) (BytecodeValue, e
 	return bv, nil
 }
 
-func (c *CharCompiler) typedExp(ef expFunc, in *string,
-	vt ValueType) (BytecodeExp, error) {
+func (c *CharCompiler) typedExp(in *string, vt ValueType) (BytecodeExp, error) {
 	c.token = c.tokenizer(in)
 	var be BytecodeExp
-	bv, err := ef(&be, in)
+	bv, err := c.expBoolOr(&be, in)
 	if err != nil {
 		return nil, err
 	}
@@ -5818,7 +5911,7 @@ func (c *CharCompiler) typedExp(ef expFunc, in *string,
 }
 
 func (c *CharCompiler) argExpression(in *string, vt ValueType) (BytecodeExp, error) {
-	be, err := c.typedExp(c.expBoolOr, in, vt)
+	be, err := c.typedExp(in, vt)
 	if err != nil {
 		return nil, err
 	}
@@ -5837,7 +5930,7 @@ func (c *CharCompiler) argExpression(in *string, vt ValueType) (BytecodeExp, err
 }
 
 func (c *CharCompiler) fullExpression(in *string, vt ValueType) (BytecodeExp, error) {
-	be, err := c.typedExp(c.expBoolOr, in, vt)
+	be, err := c.typedExp(in, vt)
 	if err != nil {
 		return nil, err
 	}
@@ -7731,7 +7824,7 @@ func (c *CharCompiler) callFunc(line *string, root bool, ctrls *[]StateControlle
 	} else {
 		for {
 			// Parse arguments
-			be, err := c.typedExp(c.expBoolOr, &expr, VT_Undefined)
+			be, err := c.typedExp(&expr, VT_Undefined)
 			if err != nil {
 				return err
 			}
