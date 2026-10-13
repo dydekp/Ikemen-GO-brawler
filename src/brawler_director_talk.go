@@ -296,10 +296,8 @@ func (b *Brawler) drawDirectorTalk(txt brawlerHudText) {
 		col = 0xff6a3a
 	}
 	// The band fits the line (brawlerTalkBand), a long line gets smaller text
-	text, k := brawlerShorten(t.text, 72), float32(0.75)
-	if tw := txt.width(text, k); tw > brawlerTalkBand[1]-20 {
-		k *= (brawlerTalkBand[1] - 20) / tw
-	}
+	text := brawlerShorten(t.text, 72)
+	k := txt.fit(text, 0.75, brawlerTalkBand[1]-20)
 	w := Clamp(txt.width(text, k)+20, brawlerTalkBand[0], brawlerTalkBand[1])
 	y := brawlerHudPanelsBottom() + 12
 	brawlerHudFill(160-w/2, y-9, w, 13, 0x000000, int32(150*a))

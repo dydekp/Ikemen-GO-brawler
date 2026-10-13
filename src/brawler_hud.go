@@ -195,6 +195,14 @@ func (t brawlerHudText) width(text string, k float32) float32 {
 	return float32(t.fnt.TextWidth(text, t.bank, 0)) * k / brawlerHudUnit()
 }
 
+// Scale k, made smaller if the text would be wider than w HUD units
+func (t brawlerHudText) fit(text string, k, w float32) float32 {
+	if tw := t.width(text, k); tw > w {
+		return k * w / tw
+	}
+	return k
+}
+
 // Text scaled by k and drawn with opacity alpha (0-1)
 func (t brawlerHudText) drawFaded(x, y float32, text string, align int32, k, alpha float32) {
 	if t.fnt == nil || text == "" || k <= 0 || alpha <= 0 {

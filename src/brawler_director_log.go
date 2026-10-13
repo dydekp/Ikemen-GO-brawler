@@ -255,8 +255,10 @@ func (b *Brawler) drawDirectorLog(txt brawlerHudText) {
 		}
 		brawlerHudFill(176, y-6, 144, 14, 0x000000, 140)
 		brawlerHudFill(317, y-6, 3, 14, col, 255)
-		txt.drawScaled(315, y, brawlerShorten(e.what, 48), -1, 0.55)
-		txt.drawScaled(315, y+6, brawlerShorten(e.why, 52), -1, 0.48)
+		// Long lines get smaller text to fit the box
+		what, why := brawlerShorten(e.what, 80), brawlerShorten(e.why, 90)
+		txt.drawScaled(315, y, what, -1, txt.fit(what, 0.55, 136))
+		txt.drawScaled(315, y+6, why, -1, txt.fit(why, 0.48, 136))
 		y += 16
 	}
 }

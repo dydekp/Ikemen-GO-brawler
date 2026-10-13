@@ -220,3 +220,11 @@ func TestBrawlerContinueShown(t *testing.T) {
 		t.Fatalf("shown after the round (state %v)", sys.roundState())
 	}
 }
+
+// Without a font nothing has a width, so nothing shrinks
+func TestBrawlerHudFitNoFont(t *testing.T) {
+	var txt brawlerHudText
+	if k := txt.fit("a long line", 0.7, 10); k != 0.7 {
+		t.Fatalf("scale %v", k)
+	}
+}
