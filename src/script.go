@@ -1986,6 +1986,9 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError("batchDraw requires a table as its first argument")
 			return 0
 		}
+		// The items are queued in one draw per layer instead of one per item (two closures and a copy of
+		// the Anim each), in the same order. The select screen draws all its cells with one batchDraw
+		var groups []batchDrawGroup
 
 		tbl.ForEach(func(_, val lua.LValue) {
 			item, ok := val.(*lua.LTable)
@@ -2063,11 +2066,11 @@ func systemScriptInit(l *lua.LState) {
 				layer = int16(lua.LVAsNumber(layerVal))
 			}
 
-			layerLocal := layer
-			sys.luaQueueLayerDraw(int(layerLocal), func() {
-				(&aSnap).Draw(layerLocal)
-			})
+			groups = addBatchDraw(groups, layer, aSnap, tbl.Len())
 		})
+		for _, g := range groups {
+			sys.luaQueueLayerDraw(int(g.layer), g.draw)
+		}
 		return 0
 	})
 	luaRegister(l, "bgDebug", func(*lua.LState) int {
@@ -10888,4 +10891,30 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(ln)
 		return 1
 	})
+}
+
+// Anims of a batchDraw call on one layer, drawn in order
+type batchDrawGroup struct {
+	layer int16
+	anims []Anim
+}
+
+func (g batchDrawGroup) draw() {
+	for i := range g.anims {
+		g.anims[i].Draw(g.layer)
+	}
+}
+
+// Add an anim to the group of its layer. A new group has room for size anims (Anims are large: growing
+// the slice would copy them again and again)
+func addBatchDraw(groups []batchDrawGroup, layer int16, a Anim, size int) []batchDrawGroup {
+	for i := range groups {
+		if groups[i].layer == layer {
+			groups[i].anims = append(groups[i].anims, a)
+			return groups
+		}
+	}
+	anims := make([]Anim, 1, max(size, 1))
+	anims[0] = a
+	return append(groups, batchDrawGroup{layer: layer, anims: anims})
 }
