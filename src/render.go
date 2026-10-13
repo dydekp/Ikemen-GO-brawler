@@ -254,7 +254,7 @@ type RenderParams struct {
 	blendAlpha     [2]int32
 	mask           int32 // Mask for transparency
 	pfx            *PalFX
-	window         *[4]int32
+	window         [4]int32   // Scissor rectangle. A value: as a pointer it escaped with the rest of RenderParams (one allocation per sprite)
 	rcx, rcy       float32    // Rotation center
 	rcOffset       [2]float32 // Offset for rotation center (AngleDraw pivot)
 	projectionMode int32      // Perspective projection

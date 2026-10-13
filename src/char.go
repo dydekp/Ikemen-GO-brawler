@@ -260,7 +260,7 @@ func (dc *DebugClsn) draw(color uint32, blendAlpha [2]int32) {
 			blendAlpha:     blendAlpha,
 			mask:           -1,
 			pfx:            nil,
-			window:         drawwindow,
+			window:         *drawwindow,
 			rcx:            (c[4] + sys.gameWidth/2) * sys.widthScale,
 			rcy:            c[5] * sys.heightScale,
 			projectionMode: 0,

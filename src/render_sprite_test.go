@@ -78,7 +78,7 @@ func withRecordingGfx(tb testing.TB) *recordingRenderer {
 
 // Sprites of each kind: plain, palettized with PalFX and subtractive blending, rotated, tiled
 func testSprites() []RenderParams {
-	window := &[4]int32{0, 0, 640, 480}
+	window := [4]int32{0, 0, 640, 480}
 	base := RenderParams{
 		tex: validTexture{}, size: [2]uint16{40, 60}, x: 100, y: -200,
 		xts: 1, xbs: 1, ys: 1, vs: 1, xas: 1, yas: 1,
