@@ -900,7 +900,7 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 		ai.comboLeft = brawlerRand(beh.combo)
 	}
 	// Harder AI levels attack more often, a player under pressure gets more time between attacks
-	ai.cooldown = int32(float32(brawlerRand(beh.cooldown)) * brawlerCooldownScale(brawlerSkill(c)) * brawlerPressureCooldown(b.pressureOn(f.t)))
+	ai.cooldown = int32(float32(brawlerRand(beh.cooldown)) * brawlerCooldownScale(brawlerSkill(c)) * brawlerPressureCooldown(b.pressureOn(f.t)) * b.difficulty().cooldown / 100)
 	switch {
 	case beh.tactic == BT_HitRun:
 		ai.setPhase(bpRetreat, brawlerRand(beh.retreat))
@@ -1026,7 +1026,7 @@ func (b *Brawler) attackersPerPlayer() int32 {
 	if b.level != nil && b.teamSize() > 1 {
 		n += b.level.players.attackers
 	}
-	return n
+	return Max(1, n+b.difficulty().attackers)
 }
 
 func (b *Brawler) baseAttackers() int32 {

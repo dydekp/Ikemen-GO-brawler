@@ -248,6 +248,8 @@ type Config struct {
 		DirectorInfo        bool    `ini:"DirectorInfo"`
 		DirectorTalk        bool    `ini:"DirectorTalk"`
 		DirectorLines       string  `ini:"DirectorLines"`
+		Difficulty          string  `ini:"Difficulty" sync:"host"`
+		Difficulties        string  `ini:"Difficulties" sync:"host"`
 	} `ini:"Brawler"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`

@@ -1,0 +1,40 @@
+; Brawler mode difficulty profiles ([Brawler] Difficulty picks one by id,
+; [Brawler] Difficulties is this file). See README section 7.
+;
+; Percentages are of the normal value; missing keys keep it:
+;   enemylife = 100   enemy life
+;   damage    = 100   damage enemies deal
+;   attackers = 0     attack turns per player added (at least 1 stays)
+;   cooldown  = 100   time between an enemy's attacks
+;   alive     = 100   enemies alive at once (at least 1 stays)
+;   ease      = 100   how strongly the director reacts to pressure (recent
+;                     damage, low life): higher eases off sooner and more
+;   getup     = 100   [Brawler] GetUpGrace
+;   help      = 1     the director drops food for a player in trouble
+; The game's AI level (Options > Difficulty) still scales the enemies'
+; attack and guard rates on top.
+
+[Difficulty easy]
+name      = Easy
+enemylife = 80
+damage    = 70
+attackers = -1
+cooldown  = 130
+alive     = 80
+ease      = 150
+getup     = 150
+help      = 1
+
+[Difficulty normal]
+name      = Normal
+
+[Difficulty hard]
+name      = Hard
+enemylife = 125
+damage    = 130
+attackers = 1
+cooldown  = 80
+alive     = 125
+ease      = 60
+getup     = 50
+help      = 0

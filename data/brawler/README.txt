@@ -525,8 +525,32 @@ nearest player, AttackersPerPlayer turns per player.
 The director works with positions in continuous depth and only turns them
 into lanes at the end, so it works with any number of lanes.
 
-Profiles are tuned for the default difficulty. The AI level of the game options
-scales them: harder levels shorten the cooldown between attacks (x1.3 at
+DIFFICULTY ([Brawler] Difficulty, also in Options > Brawler Settings)
+Easy, Normal and Hard are profiles in data/brawler/difficulty.def ([Brawler]
+Difficulties): each changes enemy life and damage, attack turns per player,
+the time between attacks, how many enemies are alive at once (with
+MaxEnemiesPerPlayer), how strongly the director eases off under pressure,
+the get-up grace, and whether the director drops food for a player in
+trouble:
+
+  [Difficulty easy]
+  name      = Easy  ; shown in the options
+  enemylife = 80    ; percent of the normal enemy life
+  damage    = 70    ; percent of the damage enemies deal
+  attackers = -1    ; attack turns per player added (at least 1 stays)
+  cooldown  = 130   ; percent of the time between an enemy's attacks
+  alive     = 80    ; percent of the enemies alive at once (at least 1)
+  ease      = 150   ; percent of the pressure the director sees
+  getup     = 150   ; percent of GetUpGrace
+  help      = 1     ; director help (food drops)
+
+Missing keys keep the normal value. The profile is taken when a level
+starts. More profiles can be added and chosen in the config; the options
+menu cycles easy, normal and hard.
+
+Behavior profiles are tuned for the default AI level. The AI level of the game
+options (Options > Difficulty, 1-8) scales them on top of the brawler
+difficulty: harder levels shorten the cooldown between attacks (x1.3 at
 level 1, x0.6 at level 8) and raise the guard chance (x0.4 to x1.8).
 
 
@@ -737,7 +761,8 @@ Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 Content:   Campaigns (comma separated folders), FreePlay, Enemies, Behaviors
 Controls:  LaneButton, FacingButton, FacingMode, TurnDelay, TurnBuffer,
            LaneSelectWindow, LaneSnapSpeed
-Balance:   AttackersPerPlayer, Director, ExtraPlayerEnemies, MaxEnemiesPerPlayer,
+Balance:   Difficulty, Difficulties, AttackersPerPlayer, Director,
+           ExtraPlayerEnemies, MaxEnemiesPerPlayer,
            EnemyLife, DespawnTime,
            BowlDamage, BowlSlowdown, GetUpGrace
 Intros:    Intros, IntroTime

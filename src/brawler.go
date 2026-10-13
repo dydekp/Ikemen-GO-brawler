@@ -137,6 +137,7 @@ type Brawler struct {
 	props        []brawlerProp     // Breakable objects on the lanes, see brawler_props.go
 	items        []brawlerItem     // Items on the ground
 	propGfx      *brawlerPropGfx   // Their pictures, made with the stage. Shared by save states, never changed
+	diff         BrawlerDifficulty // Difficulty profile, taken when the level starts, see brawler_difficulty.go
 }
 
 func (b *Brawler) active() bool {
@@ -316,6 +317,7 @@ func (b *Brawler) roundInit() {
 	b.goTime = 0
 	b.downTime = 0
 	b.director = brawlerDirector{}
+	b.diff = brawlerDifficultyNow()
 	b.introOn = false
 	b.introShown = nil
 	brawlerFinishJoinLoads()
@@ -488,6 +490,7 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 		// Characters are balanced for 1v1. Scale their own life down for crowds of enemies
 		h.lifeMax = Max(1, int32(float32(h.lifeMax)*sys.cfg.Brawler.EnemyLife/100))
 	}
+	b.difficulty().scaleEnemy(h)
 	h.lifeMax = brawlerPlayerScale(h.lifeMax, b.teamSize(), b.level.players.lifeFor(e.boss))
 	h.life = h.lifeMax
 	h.redLife = h.lifeMax
@@ -708,7 +711,13 @@ func (b *Brawler) maxAliveUncapped(w BrawlerWave) int32 {
 		}
 		n = brawlerPlayerScale(n, players, pct)
 	}
+	// The difficulty scales the limit and the cap per player alike
+	alive := b.difficulty().alive
+	if n > 0 {
+		n = Max(1, brawlerPct(n, alive))
+	}
 	if per := sys.cfg.Brawler.MaxEnemiesPerPlayer; per > 0 {
+		per = Max(1, brawlerPct(per, alive))
 		n = Min(n, per*players)
 	}
 	return n

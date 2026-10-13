@@ -116,6 +116,7 @@ options.t_itemname = {
 			modifyGameOption('Brawler.MoveNames', true)
 			modifyGameOption('Brawler.DirectorInfo', true)
 			modifyGameOption('Brawler.DirectorTalk', true)
+			modifyGameOption('Brawler.Difficulty', 'normal')
 			modifyGameOption('Options.AutoGuard', false)
 			modifyGameOption('Options.GuardBreak', false)
 			modifyGameOption('Options.Dizzy', false)
@@ -456,6 +457,28 @@ options.t_itemname = {
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
 			modifyGameOption('Brawler.DirectorInfo', not gameOption('Brawler.DirectorInfo'))
 			t.items[item].vardisplay = options.t_vardisplay['brawlerdirectorinfo']()
+			options.modified = true
+		end
+		return true
+	end,
+	--Brawler: difficulty profile (data/brawler/difficulty.def)
+	['brawlerdifficulty'] = function(t, item, cursorPosY, moveTxt)
+		local list = {'easy', 'normal', 'hard'}
+		local step = 0
+		if getInput(-1, motif.option_info.menu.add.key) then
+			step = 1
+		elseif getInput(-1, motif.option_info.menu.subtract.key) then
+			step = -1
+		end
+		if step ~= 0 then
+			local cur = 2
+			for i, v in ipairs(list) do
+				if v == string.lower(gameOption('Brawler.Difficulty')) then cur = i end
+			end
+			cur = (cur - 1 + step) % #list + 1
+			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
+			modifyGameOption('Brawler.Difficulty', list[cur])
+			t.items[item].vardisplay = options.t_vardisplay['brawlerdifficulty']()
 			options.modified = true
 		end
 		return true
@@ -1595,6 +1618,10 @@ options.t_vardisplay = {
 	['brawlerdirectorinfo'] = function()
 		return options.f_boolDisplay(gameOption('Brawler.DirectorInfo'))
 	end,
+	['brawlerdifficulty'] = function()
+		local v = string.lower(gameOption('Brawler.Difficulty'))
+		return v:sub(1, 1):upper() .. v:sub(2)
+	end,
 	['brawlerdirectortalk'] = function()
 		return options.f_boolDisplay(gameOption('Brawler.DirectorTalk'))
 	end,
@@ -1790,7 +1817,8 @@ function options.f_start()
 	-- Beat 'em up mode settings, unless the screenpack already defines (or hides) them
 	main.f_appendItemname(motif.option_info.menu, '', 'menubrawler', {
 		__value = 'Brawler Settings',
-		__order = {'brawlermovenames', 'brawlerdirectorinfo', 'brawlerdirectortalk', 'back'},
+		__order = {'brawlerdifficulty', 'brawlermovenames', 'brawlerdirectorinfo', 'brawlerdirectortalk', 'back'},
+		brawlerdifficulty = 'Difficulty',
 		brawlermovenames = 'Show Move Names',
 		brawlerdirectorinfo = 'Show Director Decisions',
 		brawlerdirectortalk = 'Director Announcements',

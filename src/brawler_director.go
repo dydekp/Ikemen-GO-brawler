@@ -67,7 +67,7 @@ func (b *Brawler) directorOn() bool {
 var brawlerStressDecay = float32(math.Pow(0.5, 1/float64(brawlerStressHalfLife)))
 
 // Track a player's damage. Life going up (recovery, rejoin) isn't damage
-func (d *brawlerDirector) observe(pn int, life, lifeMax int32, alive bool) {
+func (d *brawlerDirector) observe(pn int, life, lifeMax int32, alive bool, ease float32) {
 	d.stress[pn] *= brawlerStressDecay
 	if alive && d.lastLife[pn] > 0 && life < d.lastLife[pn] {
 		d.stress[pn] += float32(d.lastLife[pn]-life) / float32(Max(1, lifeMax))
@@ -77,11 +77,11 @@ func (d *brawlerDirector) observe(pn int, life, lifeMax int32, alive bool) {
 		d.pressure[pn] = 0
 		return
 	}
-	p := Clamp(d.stress[pn]/brawlerStressFull, 0, 1)
+	p := d.stress[pn] / brawlerStressFull
 	if ratio := float32(life) / float32(Max(1, lifeMax)); ratio < brawlerLowLife {
 		p = Max(p, (brawlerLowLife-ratio)/brawlerLowLife*0.7)
 	}
-	d.pressure[pn] = p
+	d.pressure[pn] = Clamp(p*ease, 0, 1)
 }
 
 // Enemies allowed alive at once: the level's limit, lowered by up to half while the team is under pressure
@@ -229,7 +229,7 @@ func (b *Brawler) directorStep() {
 			d.stress[pn], d.lastLife[pn], d.pressure[pn] = 0, 0, 0
 			continue
 		}
-		d.observe(pn, c.life, c.lifeMax, alive[pn])
+		d.observe(pn, c.life, c.lifeMax, alive[pn], b.difficulty().ease/100)
 	}
 	for _, p := range players {
 		if p.scf(SCF_standby) {
@@ -470,7 +470,7 @@ func (b *Brawler) trackGetUp() {
 		}
 		lying := p.ss.stateType == ST_L
 		if st.lying && !lying && p.alive() {
-			st.getUpTime = brawlerGetUpGrace(sys.cfg.Brawler.GetUpGrace, b.pressureOn(p))
+			st.getUpTime = brawlerGetUpGrace(brawlerPct(sys.cfg.Brawler.GetUpGrace, b.difficulty().getUp), b.pressureOn(p))
 		}
 		st.lying = lying
 	}

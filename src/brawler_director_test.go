@@ -45,37 +45,37 @@ func directorFight(t *testing.T, playerX map[int]float32, enemyX []float32, lane
 
 func TestBrawlerDirectorPressure(t *testing.T) {
 	var d brawlerDirector
-	d.observe(0, 1000, 1000, true)
+	d.observe(0, 1000, 1000, true, 1)
 	if d.pressure[0] != 0 {
 		t.Fatalf("fresh player under pressure: %v", d.pressure[0])
 	}
 	// 30% of the life lost at once is full pressure
-	d.observe(0, 700, 1000, true)
+	d.observe(0, 700, 1000, true, 1)
 	if d.pressure[0] < 0.99 {
 		t.Errorf("after a big hit: %v", d.pressure[0])
 	}
 	// It wears off: half the stress after the half-life
 	for i := 0; i < brawlerStressHalfLife; i++ {
-		d.observe(0, 700, 1000, true)
+		d.observe(0, 700, 1000, true, 1)
 	}
 	if s := d.stress[0]; s < 0.14 || s > 0.16 {
 		t.Errorf("stress after the half-life: %v, want about 0.15", s)
 	}
 	// Getting life back (rejoin, recovery) isn't damage
 	stress := d.stress[0]
-	d.observe(0, 1000, 1000, true)
+	d.observe(0, 1000, 1000, true, 1)
 	if d.stress[0] > stress {
 		t.Error("life gain added stress")
 	}
 	// Low life alone puts a player under pressure
 	var low brawlerDirector
-	low.observe(2, 100, 1000, true)
-	low.observe(2, 100, 1000, true)
+	low.observe(2, 100, 1000, true, 1)
+	low.observe(2, 100, 1000, true, 1)
 	if low.pressure[2] < 0.4 {
 		t.Errorf("low life pressure: %v", low.pressure[2])
 	}
 	// Players who are down aren't under pressure
-	low.observe(2, 0, 1000, false)
+	low.observe(2, 0, 1000, false, 1)
 	if low.pressure[2] != 0 {
 		t.Error("KO'd player under pressure")
 	}

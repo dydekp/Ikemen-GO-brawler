@@ -80,7 +80,7 @@ func (b *Brawler) directorHelp() {
 		}
 	}
 	drops := b.level.helpDrops()
-	if len(drops) == 0 || b.propGfx == nil {
+	if len(drops) == 0 || b.propGfx == nil || !b.difficulty().help {
 		return
 	}
 	for _, c := range b.players(true) {
