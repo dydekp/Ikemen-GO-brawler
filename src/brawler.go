@@ -901,9 +901,22 @@ func (b *Brawler) spaceEnemies() {
 // A knocked down or thrown enemy flying into other enemies knocks them down too. Each enemy hit takes
 // damage based on the body's speed and slows it down
 func (b *Brawler) bowlBodies() {
+	b.bowlBodiesWith(b.knockDown)
+}
+
+// bowlBodies with the knock-down to apply to every enemy hit
+func (b *Brawler) bowlBodiesWith(knock func(e *Char, dir, speed float32, damage int32)) {
 	enemies := b.instances()
 	for _, c := range enemies {
-		b.bowlBody(c, enemies, b.knockDown)
+		before := c.bw.bowledN
+		b.bowlBody(c, enemies, func(e *Char, dir, speed float32, damage int32) {
+			knock(e, dir, speed, damage)
+			// Knocked over by a body a player launched: the damage and the defeat are that player's
+			e.ghv.playerid = c.ghv.playerid
+		})
+		if before < 2 && c.bw.bowledN >= 2 {
+			b.strike(c)
+		}
 	}
 }
 

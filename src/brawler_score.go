@@ -90,3 +90,18 @@ func (b *Brawler) teamScore() int32 {
 	}
 	return sum
 }
+
+const brawlerScoreStrike = 1000 // Bonus for knocking over two or more enemies with one body
+
+// A body a player launched knocked over a second enemy: bonus points, and the director cheers
+func (b *Brawler) strike(body *Char) {
+	pn := b.attackerSlot(body)
+	if pn < 0 {
+		return
+	}
+	b.stats.score[pn] += brawlerScoreStrike
+	if b.directorTalkOn() {
+		t := &brawlerDirectorTalk
+		t.say(t.linesNow(), btStrike, fmt.Sprintf("%vP", b.charSeat(b.root(pn))+1))
+	}
+}

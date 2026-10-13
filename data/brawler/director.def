@@ -158,3 +158,11 @@ line = They can't even touch you, {player}!
 line = Rest up and come back stronger!
 line = Not this time. Shake it off and try again.
 line = They won this round. Only this round.
+
+[Strike]
+; A thrown or knocked down enemy knocked over another one or more
+; ({player}: who sent it flying)
+line = Strike!
+line = Bowled them over, {player}!
+line = Two for the price of one!
+line = Look out below!

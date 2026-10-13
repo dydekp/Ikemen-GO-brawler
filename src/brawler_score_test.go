@@ -64,3 +64,39 @@ func TestBrawlerComboBonus(t *testing.T) {
 		}
 	}
 }
+
+// A body a player launched: the enemies it knocks over count for that player, and a second one is a strike
+func TestBrawlerStrike(t *testing.T) {
+	b := brawlerTestMode(t, -30, 0, 30)
+	brawlerTestChars(t)
+	oldTalk, oldCarry, oldSeats := brawlerDirectorTalk, brawlerScoreCarry, brawlerJoin.slotSeat
+	t.Cleanup(func() { brawlerDirectorTalk, brawlerScoreCarry, brawlerJoin.slotSeat = oldTalk, oldCarry, oldSeats })
+	var lines brawlerTalkLines
+	for tp := range lines {
+		lines[tp] = []string{brawlerTalkSections[tp] + " {player}"}
+	}
+	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test"}
+	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = 1, "test"
+	p := brawlerTestPlayer(b, 0, -200, 1)
+	p.id = 56
+	sys.charList.idMap[p.id] = p
+	brawlerJoin.slotSeat[0] = 0
+	body := brawlerTestEnemy(b, 11, 0, 1)
+	near := brawlerTestEnemy(b, 12, 20, 1)
+	next := brawlerTestEnemy(b, 13, 30, 1)
+	body.ss.moveType, body.ghv.fallflag, body.facing = MT_H, true, 1
+	body.vel[0] = 10
+	body.ghv.playerid = p.id
+	b.bowlBodiesWith(func(e *Char, dir, speed float32, damage int32) { e.ghv.playerid = -1 })
+	if near.ghv.playerid != p.id || next.ghv.playerid != p.id {
+		t.Fatalf("knocked over enemies not credited: %v %v", near.ghv.playerid, next.ghv.playerid)
+	}
+	if b.stats.score[0] != brawlerScoreStrike || brawlerDirectorTalk.text != "strike 1P" {
+		t.Fatalf("strike: score %v, said %q", b.stats.score[0], brawlerDirectorTalk.text)
+	}
+	// Only once per flight
+	b.bowlBodiesWith(func(e *Char, dir, speed float32, damage int32) { e.ghv.playerid = -1 })
+	if b.stats.score[0] != brawlerScoreStrike {
+		t.Fatalf("strike twice: %v", b.stats.score[0])
+	}
+}
