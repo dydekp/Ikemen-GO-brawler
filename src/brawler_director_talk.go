@@ -21,6 +21,7 @@ package main
 //   [BossDown]  ; a boss is defeated
 //   [Combo]     ; a combo of at least "hits = 8" hits (a key of this section)
 //   [Streak]    ; "defeats = 5" enemies defeated in a row without a player taking damage
+//   [GameOver]  ; nobody continued: the level is lost
 //   [Back]      ; a player who was down is back (continue, rejoin)
 //   [Join]      ; a player joins during the level
 //   [Relax]     ; the director gives the team a breather (brawler_director_pace.go)
@@ -76,11 +77,12 @@ const (
 	btBossDown
 	btCombo
 	btStreak
+	btGameOver
 	btCount
 )
 
 // The director.def section of each topic
-var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand", "bosslow", "bossdown", "combo", "streak"}
+var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand", "bosslow", "bossdown", "combo", "streak", "gameover"}
 
 // Topics that challenge the players (shown with a red edge); the others encourage them (green)
 func (tp brawlerTalkTopic) challenging() bool {
@@ -131,6 +133,7 @@ var brawlerTalkDefault = brawlerTalkLines{
 	btBossDown:  {"The big one's down!"},
 	btCombo:     {"Nice combo!", "What a combo, {player}!"},
 	btStreak:    {"Untouchable!"},
+	btGameOver:  {"Rest up and come back stronger!"},
 }
 
 type brawlerDirectorTalkState struct {
@@ -501,4 +504,13 @@ func (b *Brawler) talkStreak() {
 		who = fmt.Sprintf("%vP", b.charSeat(players[0])+1)
 	}
 	t.say(t.lines, btStreak, who)
+}
+
+// Nobody continued and the level is lost: the director's last word
+func (b *Brawler) talkGameOver() {
+	if !b.directorTalkOn() {
+		return
+	}
+	t := &brawlerDirectorTalk
+	t.say(t.linesNow(), btGameOver, "")
 }

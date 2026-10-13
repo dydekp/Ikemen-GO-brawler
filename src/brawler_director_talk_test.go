@@ -588,3 +588,34 @@ func TestBrawlerTalkStreak(t *testing.T) {
 		t.Fatalf("shipped defeats %v", h)
 	}
 }
+
+// The continue time runs out: the director's last word, once
+func TestBrawlerTalkGameOver(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	oldTalk := brawlerDirectorTalk
+	t.Cleanup(func() { brawlerDirectorTalk = oldTalk })
+	var lines brawlerTalkLines
+	for tp := range lines {
+		lines[tp] = []string{brawlerTalkSections[tp]}
+	}
+	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test"}
+	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = 1, "test"
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	p.setSCF(SCF_ko)
+	tk := &brawlerDirectorTalk
+	b.downTime = brawlerContinueTime - 1
+	b.stepContinue()
+	if tk.text != "" {
+		t.Fatalf("said %q before the time ran out", tk.text)
+	}
+	b.stepContinue()
+	if tk.text != "gameover" {
+		t.Fatalf("said %q", tk.text)
+	}
+	tk.text = ""
+	b.stepContinue()
+	if tk.text != "" {
+		t.Fatal("said twice")
+	}
+}

@@ -605,9 +605,9 @@ func (b *Brawler) rosterPortrait(ref int) *Sprite {
 	return spr
 }
 
-// The continue countdown is up: every player down for a moment, nobody joining
+// The continue countdown is up: every player down for a moment, nobody joining, the round not decided yet
 func (b *Brawler) continueShown() bool {
-	return b.downTime > brawlerJoinRejoinWait && !b.joinBusy() && len(b.players(true)) == 0
+	return sys.roundState() == 2 && b.downTime > brawlerJoinRejoinWait && !b.joinBusy() && len(b.players(true)) == 0
 }
 
 // Arcade continue countdown while every player is down

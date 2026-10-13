@@ -815,6 +815,8 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   a character introduction is shown again in full afterwards. Bosses get
   their own lines: [BossLow] at a quarter of their life, [BossDown] when
   they fall (instead of the wave or level line when they were the last).
+  When nobody continues and the level is lost, the director has a last
+  word ([GameOver]).
   A combo of at least 8 hits gets a [Combo] line ("hits = 8" in that
   section sets the number).
   Five enemies defeated in a row without a player taking damage get a

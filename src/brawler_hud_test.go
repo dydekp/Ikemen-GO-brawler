@@ -213,4 +213,10 @@ func TestBrawlerContinueShown(t *testing.T) {
 	if b.continueShown() {
 		t.Fatal("shown right away")
 	}
+	// The round is over (K.O., YOU LOSE): gone
+	b.downTime = brawlerJoinRejoinWait + 1
+	sys.intro, sys.finishType = -1, FT_KO
+	if sys.roundState() == 2 || b.continueShown() {
+		t.Fatalf("shown after the round (state %v)", sys.roundState())
+	}
 }

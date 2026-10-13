@@ -212,6 +212,10 @@ func (b *Brawler) stepContinue() {
 	}
 	if len(b.players(true)) == 0 && !b.complete && !b.joinBusy() {
 		b.downTime++
+		// Nobody continued: the level is lost (roundKO). The director has a last word
+		if b.downTime == brawlerContinueTime+1 {
+			b.talkGameOver()
+		}
 	} else {
 		b.downTime = 0
 	}

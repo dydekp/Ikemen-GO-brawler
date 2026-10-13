@@ -152,3 +152,9 @@ line = Untouchable!
 line = Nobody can lay a finger on you!
 line = Flawless so far, {player}!
 line = They can't even touch you, {player}!
+
+[GameOver]
+; Nobody continued: the level is lost
+line = Rest up and come back stronger!
+line = Not this time. Shake it off and try again.
+line = They won this round. Only this round.
