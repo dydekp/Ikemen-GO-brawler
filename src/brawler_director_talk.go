@@ -18,6 +18,7 @@ package main
 //   [LastStand] ; a player goes down and leaves one player standing alone ({player}: that one)
 //   [BossLow]   ; a boss is down to brawlerTalkBossLow of its life
 //   [BossDown]  ; a boss is defeated
+//   [Combo]     ; a combo of at least "hits = 8" hits (a key of this section)
 //   [Back]      ; a player who was down is back (continue, rejoin)
 //   [Join]      ; a player joins during the level
 //   [Relax]     ; the director gives the team a breather (brawler_director_pace.go)
@@ -68,11 +69,12 @@ const (
 	btLastStand
 	btBossLow
 	btBossDown
+	btCombo
 	btCount
 )
 
 // The director.def section of each topic
-var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand", "bosslow", "bossdown"}
+var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand", "bosslow", "bossdown", "combo"}
 
 // Topics that challenge the players (shown with a red edge); the others encourage them (green)
 func (tp brawlerTalkTopic) challenging() bool {
@@ -111,20 +113,23 @@ var brawlerTalkDefault = brawlerTalkLines{
 	btLastStand: {"{player}, you're on your own!"},
 	btBossLow:   {"It's almost done! Finish it!"},
 	btBossDown:  {"The big one's down!"},
+	btCombo:     {"Nice combo!", "What a combo, {player}!"},
 }
 
 type brawlerDirectorTalkState struct {
-	text     string
-	topic    brawlerTalkTopic
-	time     int32 // Frames left on screen
-	wait     int32 // Frames until the next announcement of a decision may come
-	last     [btCount]string
-	lines    *brawlerTalkLines
-	linesFor string // Path the lines were read from
-	rng      *rand.Rand
-	seen     [MaxSimul * 2]brawlerTalkSeen // The players as last seen, see talkPlayers
-	bossSaid map[int32]brawlerTalkTopic    // Per boss (player ID): the last boss topic said, see talkBosses
-	watching bool                          // seen is filled in
+	text      string
+	topic     brawlerTalkTopic
+	time      int32 // Frames left on screen
+	wait      int32 // Frames until the next announcement of a decision may come
+	last      [btCount]string
+	lines     *brawlerTalkLines
+	linesFor  string // Path the lines were read from
+	rng       *rand.Rand
+	seen      [MaxSimul * 2]brawlerTalkSeen // The players as last seen, see talkPlayers
+	bossSaid  map[int32]brawlerTalkTopic    // Per boss (player ID): the last boss topic said, see talkBosses
+	comboHits int32                         // Hits a combo needs for a [Combo] line, from the lines file
+	comboSaid bool                          // Said for the current combo
+	watching  bool                          // seen is filled in
 }
 
 var brawlerDirectorTalk brawlerDirectorTalkState
@@ -171,6 +176,7 @@ func loadBrawlerTalkLines(path string) *brawlerTalkLines {
 func (t *brawlerDirectorTalkState) linesNow() *brawlerTalkLines {
 	if path := sys.cfg.Brawler.DirectorLines; t.lines == nil || t.linesFor != path {
 		t.lines, t.linesFor = loadBrawlerTalkLines(path), path
+		t.comboHits = loadBrawlerTalkComboHits(path)
 	}
 	return t.lines
 }
@@ -391,4 +397,43 @@ func (b *Brawler) talkBosses() {
 // A boss went down this very frame: its line stays instead of a wave or level line said in the same frame
 func (t *brawlerDirectorTalkState) bossJustDown() bool {
 	return t.topic == btBossDown && t.time == brawlerTalkTime
+}
+
+const brawlerTalkComboHits = 8 // Default hits a combo needs for a [Combo] line
+
+// "hits" of the [Combo] section of a lines file, or the default
+func loadBrawlerTalkComboHits(path string) int32 {
+	hits := int32(brawlerTalkComboHits)
+	if text, err := os.ReadFile(path); err == nil {
+		readBrawlerIni(string(text), func(l brawlerIniLine) error {
+			if !l.header && l.section == "combo" && l.key == "hits" {
+				if v, err := brawlerParseI(l.val); err == nil && v > 1 {
+					hits = v
+				}
+			}
+			return nil
+		})
+	}
+	return hits
+}
+
+// A big combo by the players: the director praises it, once per combo, about the player when only one
+// plays. It doesn't cut off a line said less than a second ago. Runs every frame with the announcements on
+func (b *Brawler) talkCombo() {
+	t := &brawlerDirectorTalk
+	t.linesNow()
+	hits := sys.comboCount[0]
+	if hits == 0 {
+		t.comboSaid = false
+		return
+	}
+	if t.comboSaid || hits < t.comboHits || t.time > brawlerTalkTime-60 {
+		return
+	}
+	t.comboSaid = true
+	who := ""
+	if players := b.players(true); len(b.players(false)) == 1 && len(players) == 1 {
+		who = fmt.Sprintf("%vP", b.charSeat(players[0])+1)
+	}
+	t.say(t.lines, btCombo, who)
 }

@@ -417,3 +417,69 @@ func TestBrawlerTalkBosses(t *testing.T) {
 		t.Fatal("bosses kept over a reset")
 	}
 }
+
+// A big combo: praised once, about the player when one plays, not over a line said a moment ago
+func TestBrawlerTalkCombo(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	oldTalk, oldSeats, oldCombo := brawlerDirectorTalk, brawlerJoin.slotSeat, sys.comboCount
+	t.Cleanup(func() { brawlerDirectorTalk, brawlerJoin.slotSeat, sys.comboCount = oldTalk, oldSeats, oldCombo })
+	var lines brawlerTalkLines
+	for tp := range lines {
+		lines[tp] = []string{brawlerTalkSections[tp] + " {player}"}
+	}
+	lines[btCombo] = []string{"combo {player}"}
+	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test", comboHits: 5}
+	sys.cfg.Brawler.DirectorLines = "test"
+	tk := &brawlerDirectorTalk
+	brawlerTestPlayer(b, 0, 0, 0)
+	brawlerJoin.slotSeat[0] = 0
+	combo := func(hits int32) string {
+		tk.text = ""
+		sys.comboCount[0] = hits
+		b.talkCombo()
+		return tk.text
+	}
+	if s := combo(4); s != "" {
+		t.Fatalf("4 hits: %q", s)
+	}
+	if s := combo(5); s != "combo 1P" {
+		t.Fatalf("5 hits: %q", s)
+	}
+	tk.time = 0
+	if s := combo(9); s != "" {
+		t.Fatalf("praised twice: %q", s)
+	}
+	// The combo ends; the next one is praised again, but not over a fresh line
+	combo(0)
+	tk.say(&lines, btWave, "1P")
+	if s := combo(6); s != "" {
+		t.Fatalf("over a fresh line: %q", s)
+	}
+	tk.time = brawlerTalkTime - 61
+	if s := combo(7); s == "" {
+		t.Fatal("not praised after the line")
+	}
+	// Two players: a line for the team
+	brawlerTestPlayer(b, 2, 50, 0)
+	lines[btCombo] = []string{"combo {player}", "combo"}
+	combo(0)
+	tk.time = 0
+	if s := combo(5); s != "combo" {
+		t.Fatalf("co-op: %q", s)
+	}
+}
+
+func TestBrawlerTalkComboHits(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "director.def")
+	os.WriteFile(path, []byte("[Combo]\nhits = 12\nline = Wow!\n"), 0o644)
+	if h := loadBrawlerTalkComboHits(path); h != 12 {
+		t.Fatalf("hits %v", h)
+	}
+	if h := loadBrawlerTalkComboHits(filepath.Join(t.TempDir(), "none.def")); h != brawlerTalkComboHits {
+		t.Fatalf("default %v", h)
+	}
+	if l := loadBrawlerTalkLines(path); l[btCombo][0] != "Wow!" {
+		t.Fatalf("lines %q", l[btCombo])
+	}
+}

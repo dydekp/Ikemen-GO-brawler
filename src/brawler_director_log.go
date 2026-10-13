@@ -159,6 +159,7 @@ func (b *Brawler) directorLogStep() {
 	if b.directorTalkOn() {
 		b.talkPlayers()
 		b.talkBosses()
+		b.talkCombo()
 	} else {
 		t.watching = false
 	}

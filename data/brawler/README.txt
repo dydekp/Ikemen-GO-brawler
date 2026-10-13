@@ -803,6 +803,8 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   a character introduction is shown again in full afterwards. Bosses get
   their own lines: [BossLow] at a quarter of their life, [BossDown] when
   they fall (instead of the wave or level line when they were the last).
+  A combo of at least 8 hits gets a [Combo] line ("hits = 8" in that
+  section sets the number).
 - Level summary: when a level is cleared, a panel shows the time it took,
   the enemies defeated, the life lost per player (with the director) and
   the difficulty, and the director comments: [Victory] lines when the

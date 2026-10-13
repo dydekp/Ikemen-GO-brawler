@@ -134,3 +134,12 @@ line = It's wobbling. Take it down!
 line = The big one's down!
 line = Boss down! Who's next?
 line = And stay down!
+
+[Combo]
+; A combo of at least "hits" hits by the players. Named after the player
+; when only one plays
+hits = 8
+line = Nice combo!
+line = Now that's a combo!
+line = What a combo, {player}!
+line = Keep it rolling, {player}!
