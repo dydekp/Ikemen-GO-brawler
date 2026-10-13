@@ -74,3 +74,14 @@ func (b *Brawler) drawScore(p *Char, l brawlerHudPanel, txt brawlerHudText) {
 	}
 	txt.drawScaled(l.x+l.w-4, l.nameY, fmt.Sprintf("%07d", b.stats.score[p.playerNo]), -1, 0.8)
 }
+
+// The players' scores added up
+func (b *Brawler) teamScore() int32 {
+	var sum int32
+	for _, p := range b.players(false) {
+		if p.playerNo >= 0 && p.playerNo < len(b.stats.score) {
+			sum += b.stats.score[p.playerNo]
+		}
+	}
+	return sum
+}

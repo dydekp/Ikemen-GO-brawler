@@ -32,7 +32,8 @@ func TestBrawlerSummary(t *testing.T) {
 		b.stepStats()
 	}
 	b.stats.kills, b.director.levelHurt = 10, 0.5
-	if l := b.summaryLines(); l[0] != "TIME 2:05   DEFEATED 10" || l[1] != "LIFE LOST 50%   DIFFICULTY normal" {
+	b.stats.score[0] = 1234
+	if l := b.summaryLines(); l[0] != "TIME 2:05   DEFEATED 10   SCORE 1234" || l[1] != "LIFE LOST 50%   DIFFICULTY normal" {
 		t.Fatalf("lines %q", l)
 	}
 	b.complete = true

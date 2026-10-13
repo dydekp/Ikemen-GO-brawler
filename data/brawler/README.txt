@@ -853,7 +853,7 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
 - Title card: as the fight starts, the level's name and difficulty fade
   in at the bottom of the screen for 2.5 seconds.
 - Level summary: when a level is cleared, a panel shows the time it took,
-  the enemies defeated, the life lost per player (with the director) and
+  the enemies defeated, the team's score, the life lost per player (with the director) and
   the difficulty (in co-op also each player's defeats: the player whose
   hit knocked the enemy out), and the director comments: [Victory] lines when the
   team lost less than 8% life per defeat, [Survived] lines otherwise.

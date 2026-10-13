@@ -60,6 +60,9 @@ func brawlerClock(frames int32) string {
 // The summary lines: time and defeats, then life lost per player and the difficulty
 func (b *Brawler) summaryLines() [2]string {
 	lines := [2]string{fmt.Sprintf("TIME %v   DEFEATED %v", brawlerClock(b.stats.time), b.stats.kills)}
+	if sys.cfg.Brawler.Score {
+		lines[0] += fmt.Sprintf("   SCORE %v", b.teamScore())
+	}
 	if b.directorOn() {
 		lines[1] = fmt.Sprintf("LIFE LOST %.0f%%   ", b.director.levelHurt/float32(b.teamSize())*100)
 	}
@@ -83,10 +86,10 @@ func (b *Brawler) drawSummary(txt brawlerHudText) {
 	brawlerHudFill(70, y-26, 180, 1.5, 0x3fd36a, int32(255*a))
 	txt.drawFaded(160, y-10, "LEVEL CLEAR", 0, 1.6, a)
 	lines := b.summaryLines()
-	txt.drawFaded(160, y+6, lines[0], 0, 0.7, a)
-	txt.drawFaded(160, y+17, lines[1], 0, 0.7, a)
+	txt.drawFaded(160, y+6, lines[0], 0, txt.fit(lines[0], 0.7, 172), a)
+	txt.drawFaded(160, y+17, lines[1], 0, txt.fit(lines[1], 0.7, 172), a)
 	if defeats != "" {
-		txt.drawFaded(160, y+28, "DEFEATS  "+defeats, 0, 0.7, a)
+		txt.drawFaded(160, y+28, "DEFEATS  "+defeats, 0, txt.fit("DEFEATS  "+defeats, 0.7, 172), a)
 	}
 }
 
