@@ -415,6 +415,7 @@ type brawlerItem struct {
 	typ   int
 	x, z  float32
 	since int32 // Game time it appeared
+	fall  bool  // Dropped during the fight: falls into place (brawlerItemFall)
 }
 
 func (p *brawlerProp) broken() bool { return p.brokeTime != brawlerPropNever }
@@ -523,7 +524,7 @@ func (b *Brawler) setProp(i int, p brawlerProp) {
 // Leave an item at a spot, if the drop list gives one
 func (b *Brawler) dropItem(drops []BrawlerDrop, x, z float32) {
 	if i := brawlerRollDrop(drops); i >= 0 {
-		b.items = append(append([]brawlerItem(nil), b.items...), brawlerItem{typ: i, x: x, z: z, since: sys.gameTime()})
+		b.items = append(append([]brawlerItem(nil), b.items...), brawlerItem{typ: i, x: x, z: z, since: sys.gameTime(), fall: true})
 	}
 }
 
@@ -820,18 +821,22 @@ func (b *Brawler) cueDrawProps() {
 		} else if now-p.hitTime < brawlerPropShakeTime {
 			x += float32(1 - 2*((now-p.hitTime)&1))
 		}
-		b.cueProp(anim, x, p.z, scale, pics.w, alpha)
+		b.cueProp(anim, x, p.z, 0, scale, pics.w, alpha)
 	}
 	for _, it := range b.items {
 		t := b.level.itemTypes[it.typ]
 		if t.time > 0 && t.time-(now-it.since) < brawlerItemBlinkTime && (now/4)&1 == 0 {
 			continue
 		}
-		b.cueProp(gfx.items[it.typ], it.x, it.z, t.scale, gfx.itemsW[it.typ], 255)
+		h := float32(0)
+		if it.fall {
+			h = brawlerItemFall(now - it.since)
+		}
+		b.cueProp(gfx.items[it.typ], it.x, it.z, h, t.scale, gfx.itemsW[it.typ], 255)
 	}
 }
 
-func (b *Brawler) cueProp(anim *Animation, x, z, scale, w float32, alpha int32) {
+func (b *Brawler) cueProp(anim *Animation, x, z, h, scale, w float32, alpha int32) {
 	if anim == nil || alpha <= 0 {
 		return
 	}
@@ -839,7 +844,8 @@ func (b *Brawler) cueProp(anim *Animation, x, z, scale, w float32, alpha int32) 
 	pos := sys.drawposXYfromZ([2]float32{x, 0}, 1, z, zscale)
 	sd := newSpriteData()
 	sd.anim = anim
-	sd.pos = pos
+	// h above the floor; the shadow stays on it
+	sd.pos = sys.drawposXYfromZ([2]float32{x, -h}, 1, z, zscale)
 	sd.scl = [2]float32{scale * zscale, scale * zscale}
 	// Behind characters on the same lane
 	sd.priority = int32(z) - 1
@@ -948,4 +954,21 @@ func (b *Brawler) drawPickupTexts(txt brawlerHudText) {
 		a := Clamp(float32(p.time)/15, 0, 1)
 		txt.drawFaded(x, y-up*0.4, p.text, 0, 0.8, a)
 	}
+}
+
+const brawlerItemFallTime = 30 // Frames a dropped item takes to fall into place and bounce
+
+// Height (world units) of a dropped item t frames after it appeared: it falls from 50 units, bounces once
+// and lies still
+func brawlerItemFall(t int32) float32 {
+	switch {
+	case t < 0:
+		return 50
+	case t < 18:
+		f := float32(t) / 18
+		return 50 * (1 - f*f)
+	case t < brawlerItemFallTime:
+		return 8 * float32(math.Sin(math.Pi*float64(t-18)/float64(brawlerItemFallTime-18)))
+	}
+	return 0
 }

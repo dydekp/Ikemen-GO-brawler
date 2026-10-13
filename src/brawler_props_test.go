@@ -296,7 +296,7 @@ func TestBrawlerPropsSaveStates(t *testing.T) {
 	}
 	savedItems = b.items
 	b.dropItem([]BrawlerDrop{{chance: 100, idx: 1}}, 50, 10)
-	if len(b.items) != 3 || len(savedItems) != 2 || b.items[2] != (brawlerItem{typ: 1, x: 50, z: 10, since: now}) {
+	if len(b.items) != 3 || len(savedItems) != 2 || b.items[2] != (brawlerItem{typ: 1, x: 50, z: 10, since: now, fall: true}) {
 		t.Errorf("dropped item: %+v (saved %v)", b.items, len(savedItems))
 	}
 }
@@ -388,5 +388,26 @@ func TestBrawlerPickupLabel(t *testing.T) {
 	brawlerStepPickupTexts()
 	if brawlerPickupTexts[0].time != 0 {
 		t.Fatalf("time %v", brawlerPickupTexts[0].time)
+	}
+}
+
+// A dropped item falls from 50 units, bounces once and lies still
+func TestBrawlerItemFall(t *testing.T) {
+	if h := brawlerItemFall(0); h != 50 {
+		t.Fatalf("start %v", h)
+	}
+	prev := float32(51)
+	for f := int32(0); f < 18; f++ {
+		h := brawlerItemFall(f)
+		if h >= prev {
+			t.Fatalf("not falling at %v: %v", f, h)
+		}
+		prev = h
+	}
+	if h := brawlerItemFall(24); h <= 0 || h > 8 {
+		t.Fatalf("bounce %v", h)
+	}
+	if brawlerItemFall(brawlerItemFallTime) != 0 || brawlerItemFall(500) != 0 {
+		t.Fatal("still moving")
 	}
 }

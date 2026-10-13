@@ -100,7 +100,7 @@ func (b *Brawler) directorHelp() {
 			continue
 		}
 		x, z := b.helpSpot(c)
-		b.items = append(append([]brawlerItem(nil), b.items...), brawlerItem{typ: i, x: x, z: z, since: sys.gameTime()})
+		b.items = append(append([]brawlerItem(nil), b.items...), brawlerItem{typ: i, x: x, z: z, since: sys.gameTime(), fall: true})
 		who := fmt.Sprintf("%vP", b.charSeat(c)+1)
 		brawlerDirectorLog.add(fmt.Sprintf("help%v", pn), bdlEasier, fmt.Sprintf("HELP for %v: %v", who, b.level.itemTypes[i].id), b.pressureReason(pn))
 		if b.directorTalkOn() {
