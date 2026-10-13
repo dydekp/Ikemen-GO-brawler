@@ -56,6 +56,8 @@ type brawlerDirector struct {
 	ringCount [MaxSimul * 2]int32   // Enemies on each ring last frame
 	helpTime  [MaxSimul * 2]int32   // Frames each player has been in trouble, see brawler_director_help.go
 	helpGap   [MaxSimul * 2]int32   // Frames until each player may get help again
+	peak      float32               // Highest pressure on a player in the current wave
+	peakPn    int32                 // That player
 }
 
 func (b *Brawler) directorOn() bool {
@@ -234,6 +236,9 @@ func (b *Brawler) directorStep() {
 			continue
 		}
 		d.tension += d.pressure[p.playerNo]
+		if d.pressure[p.playerNo] > d.peak {
+			d.peak, d.peakPn = d.pressure[p.playerNo], int32(p.playerNo)
+		}
 		dirPlayers = append(dirPlayers, brawlerDirPlayer{p.playerNo, brawlerX(p), brawlerZ(p), d.pressure[p.playerNo]})
 	}
 	if len(dirPlayers) > 0 {

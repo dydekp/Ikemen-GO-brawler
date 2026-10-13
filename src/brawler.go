@@ -618,6 +618,8 @@ func (b *Brawler) startWave() {
 		b.locked = true
 		b.lockX = sys.cam.Pos[0]
 	}
+	b.director.peak = 0
+	b.talkWaveStart(w)
 }
 
 func (b *Brawler) stepWave() {
@@ -665,12 +667,14 @@ func (b *Brawler) stepWave() {
 
 func (b *Brawler) endWave() {
 	b.waveActive = false
+	goesOn := b.wave+1 < len(b.level.waves) || b.level.hasEndX
+	b.talkWaveCleared(goesOn)
 	if b.locked {
 		b.locked = false
 		// Don't let the camera scroll back behind the locked area
 		b.camMin = Max(b.camMin, b.lockX)
 		// Tell the players to move on, unless the level ends here
-		if b.wave+1 < len(b.level.waves) || b.level.hasEndX {
+		if goesOn {
 			b.goTime = brawlerGoTime
 		}
 	}

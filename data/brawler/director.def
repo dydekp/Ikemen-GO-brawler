@@ -1,7 +1,8 @@
 ; Brawler mode director announcements ([Brawler] DirectorLines in the config)
 ;
-; When the director makes the fight easier or harder, or drops an item for a
-; player in trouble, it says so with a short line in the upper center of the screen ([Brawler] DirectorTalk = 1).
+; When the director makes the fight easier or harder, drops an item for a
+; player in trouble, or a wave starts or is cleared, it says so with a short
+; line in the upper center of the screen ([Brawler] DirectorTalk = 1).
 ; One line is picked at random, never the same one twice in a row.
 ; {player} is replaced by the player the decision is about (1P, 2P...).
 ; Lines with {player} are only used for decisions about one player.
@@ -36,3 +37,31 @@ line = Here, {player}, eat up!
 line = Hang on, {player}! Take this.
 line = {player}, grab that and get back up!
 line = Don't quit on me, {player}! Food's here.
+
+[Wave]
+; A wave starts: get the players going
+line = Here they come!
+line = Heads up!
+line = Company's here. Show them out!
+line = Look alive, they're coming!
+
+[Boss]
+; A wave with a boss starts
+line = Here comes the big one!
+line = This one won't go down easy.
+line = Now the real fight begins!
+
+[Cleared]
+; A wave is cleared
+line = Nicely done.
+line = Area clear!
+line = That's how it's done!
+line = Not bad. Keep moving!
+
+[Close]
+; A wave is cleared after a player was in real trouble in it
+; ({player}: that player)
+line = That was close!
+line = Still standing? Impressive.
+line = Phew! You made it, {player}.
+line = Close one, {player}. Breathe.

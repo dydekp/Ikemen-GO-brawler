@@ -51,7 +51,7 @@ func brawlerHelpTest(t *testing.T, lanes ...float32) (*Brawler, *Char) {
 		brawlerDirectorLog, brawlerDirectorTalk, brawlerJoin.slotSeat, sys.matchTime = oldLog, oldTalk, oldSeats, oldTime
 	})
 	brawlerDirectorLog.reset()
-	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &brawlerTalkLines{help: []string{"Eat, {player}!"}}, linesFor: "test"}
+	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &brawlerTalkLines{btHelp: []string{"Eat, {player}!"}}, linesFor: "test"}
 	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = true, "test"
 	b.level.itemTypes = []*BrawlerItemType{{id: "chicken", life: 35, lifePct: true}}
 	b.propGfx = &brawlerPropGfx{itemsW: []float32{10}}
@@ -80,7 +80,7 @@ func TestBrawlerHelpDrop(t *testing.T) {
 	if it := b.items[0]; it.typ != 0 || Abs(it.x-brawlerX(p)) != brawlerHelpDist || it.z != brawlerZ(p) {
 		t.Fatalf("item %+v", it)
 	}
-	if tk := brawlerDirectorTalk; tk.text != "Eat, 1P!" || tk.kind != bdlHelp {
+	if tk := brawlerDirectorTalk; tk.text != "Eat, 1P!" || tk.topic != btHelp {
 		t.Fatalf("announcement %+v", tk)
 	}
 	if e := brawlerDirectorLog.entries; len(e) != 1 || e[0].what != "HELP for 1P: chicken" || e[0].kind != bdlEasier {

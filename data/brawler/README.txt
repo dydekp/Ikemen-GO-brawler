@@ -713,8 +713,12 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   data/brawler/director.def ([Easier] and [Harder], "line = ..."; {player}
   is the player a decision is about). [Brawler] DirectorLines sets another
   file.
-  When it drops an item for a player in trouble (DIRECTOR in section 7),
-  it always says so, with a [Help] line.
+  It always comments on its help for a player in trouble (DIRECTOR in
+  section 7, [Help] lines) and on the waves: one starting ([Wave], or
+  [Boss] when a boss is in its spawn lines) and one cleared ([Cleared], or
+  [Close] when a player was in real trouble in it; not when the level
+  ends with the wave). Challenging lines (harder, waves, bosses) have a
+  red edge, the others a green one.
 The options are in Options > Brawler Settings ([Brawler] MoveNames,
 DirectorInfo and DirectorTalk in the config).
 The HUD uses the fight screen's name font and scales to its localcoord.

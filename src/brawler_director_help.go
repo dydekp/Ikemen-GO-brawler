@@ -105,7 +105,7 @@ func (b *Brawler) directorHelp() {
 		brawlerDirectorLog.add(fmt.Sprintf("help%v", pn), bdlEasier, fmt.Sprintf("HELP for %v: %v", who, b.level.itemTypes[i].id), b.pressureReason(pn))
 		if b.directorTalkOn() {
 			t := &brawlerDirectorTalk
-			t.say(t.linesNow(), bdlHelp, who)
+			t.say(t.linesNow(), btHelp, who)
 		}
 	}
 }
