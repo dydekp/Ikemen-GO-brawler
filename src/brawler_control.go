@@ -302,7 +302,7 @@ func (b *Brawler) laneUpdate(c *Char) {
 }
 
 // Free depth movement: a player holding the lane button and up or down walks in depth at [Brawler]
-// DepthSpeed, while standing or walking with control. Straight in depth, the walk forward it was given
+// DepthSpeed percent of its walk speed, while standing or walking with control. Straight in depth, the walk forward it was given
 // (processInput) is taken back, so it walks in place in x
 func (b *Brawler) depthWalk(c *Char) {
 	st := b.charState(c)
@@ -313,11 +313,23 @@ func (b *Brawler) depthWalk(c *Char) {
 		return
 	}
 	z := brawlerZ(c)
-	b.moveZ(c, b.clampDepth(z+st.depthDir*sys.cfg.Brawler.DepthSpeed)-z)
+	b.moveZ(c, b.clampDepth(z+st.depthDir*brawlerDepthSpeed(c))-z)
 	if st.depthOnly {
 		c.setPosX(c.oldPos[0], false)
 	}
 }
+
+// Speed (world units per frame) of a character walking in depth: [Brawler] DepthSpeed percent of its walk
+// speed, or of brawlerDepthWalkDefault for a character without one
+func brawlerDepthSpeed(c *Char) float32 {
+	walk := Abs(c.gi().velocity.walk.fwd) * c.localscl
+	if walk <= 0 {
+		walk = brawlerDepthWalkDefault
+	}
+	return walk * sys.cfg.Brawler.DepthSpeed / 100
+}
+
+const brawlerDepthWalkDefault = 2.4 // World units per frame, Kung Fu Man's walk
 
 // Move in depth by dz world units, keeping interpolation smooth
 func (b *Brawler) moveZ(c *Char, dz float32) {

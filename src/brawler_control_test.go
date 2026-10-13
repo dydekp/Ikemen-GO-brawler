@@ -295,7 +295,7 @@ func TestBrawlerDepthWalk(t *testing.T) {
 	p.bw.depthDir, p.bw.depthOnly = -1, true
 	p.pos[0] = 12 // The walk forward moved it
 	b.depthWalk(p)
-	if p.pos[2] != -2 || p.pos[0] != 10 {
+	if p.pos[2] != -brawlerDepthSpeed(p) || p.pos[0] != 10 {
 		t.Fatalf("walk: z %v, x %v", p.pos[2], p.pos[0])
 	}
 	for i := 0; i < 40; i++ {
@@ -310,5 +310,24 @@ func TestBrawlerDepthWalk(t *testing.T) {
 	b.depthWalk(p)
 	if p.pos[2] != -40 {
 		t.Fatal("walked while attacking")
+	}
+}
+
+// Depth walking speed: DepthSpeed percent of the character's walk speed, or of the default walk
+func TestBrawlerDepthSpeed(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	old := sys.cgi[0].velocity.walk.fwd
+	t.Cleanup(func() { sys.cgi[0].velocity.walk.fwd = old })
+	sys.cfg.Brawler.DepthSpeed = 50
+	sys.cgi[0].velocity.walk.fwd = 0
+	if s := brawlerDepthSpeed(p); Abs(s-brawlerDepthWalkDefault/2) > 0.001 {
+		t.Fatalf("without a walk speed: %v", s)
+	}
+	sys.cgi[0].velocity.walk.fwd = 4
+	p.localscl = 0.5
+	if s := brawlerDepthSpeed(p); s != 1 {
+		t.Fatalf("half of 4 at scale 0.5: %v", s)
 	}
 }

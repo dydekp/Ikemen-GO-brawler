@@ -29,7 +29,7 @@ func brawlerTestMode(t *testing.T, lanes ...float32) *Brawler {
 	sys.cfg.Brawler.Director, sys.cfg.Brawler.ExtraPlayerEnemies = true, 50
 	sys.cfg.Brawler.Intros, sys.cfg.Brawler.IntroTime = true, 480
 	sys.cfg.Brawler.DespawnTime, sys.cfg.Brawler.GetUpGrace = 90, 30
-	sys.cfg.Brawler.DepthSpeed = 2
+	sys.cfg.Brawler.DepthSpeed = 75
 	sys.cfg.Brawler.BowlDamage, sys.cfg.Brawler.BowlSlowdown = 10, 0.6
 	// In the fight: roundState() == 2
 	if sys.fightScreen.round == nil {
