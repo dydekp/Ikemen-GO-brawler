@@ -863,8 +863,8 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   player whose hit it was scores; damage in a combo scores 10% more per
   hit, up to double). Enemies knocked over by a thrown or knocked down
   enemy count for the player who sent it flying; knocking over two with
-  one body is a strike: 1000 points and a [Strike] line. It adds up over the levels of a campaign and starts
-  over when the mode ends.
+  one body is a strike: 1000 points and a [Strike] line. The score adds
+  up over the levels of a campaign and starts over when the mode ends.
 - Title card: as the fight starts, the level's name and difficulty fade
   in at the bottom of the screen for 2.5 seconds. With a hint line
   ([Level] hint, or how to walk in depth in a level without lanes) it
