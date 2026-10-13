@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -547,6 +548,10 @@ func decodeShiftJIS(input string) string {
 	return string(decodedBytes)
 }
 
+// File names on this system may differ in case only. Windows file systems are case-insensitive (except
+// folders explicitly made case-sensitive, for WSL)
+var caseSensitiveFiles = runtime.GOOS != "windows"
+
 func FileExist(filename string) string {
 	filename = filepath.ToSlash(filename)
 	isZip, zipFilePath, pathInZip := IsZipPath(filename)
@@ -614,6 +619,11 @@ func FileExist(filename string) string {
 			return ""
 		}
 		return filepath.ToSlash(filename)
+	}
+	if !caseSensitiveFiles {
+		// The case-insensitive search below can't find what Stat didn't. It lists every directory of the path,
+		// and SearchFile tries several candidates per file: about 100 such misses and 180 ms per match load
+		return ""
 	}
 	var pattern string
 	for _, r := range filename {
