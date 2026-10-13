@@ -449,10 +449,7 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 	}
 
 	lane, z := b.spawnDepth(s.lane)
-	side := s.side
-	if side == 0 {
-		side = Rand(0, 1)*2 - 1
-	}
+	side := b.spawnSide(s.side)
 	x := sys.xmax + brawlerSpawnMargin
 	if side < 0 {
 		x = sys.xmin - brawlerSpawnMargin
@@ -506,6 +503,25 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 	h.bw.ai.init(e.behavior)
 	sys.charList.enemyNearChanged = true
 	return true
+}
+
+// The side a spawn line sends its enemy from: its own (-1 left, 1 right), or for random lines (0) a random
+// side. With the director, while the team is under pressure, random lines send it from the side most
+// players face, so they see it coming
+func (b *Brawler) spawnSide(side int32) int32 {
+	if side != 0 {
+		return side
+	}
+	if b.directorOn() && b.director.tension >= brawlerFairSpawnTension {
+		facing := float32(0)
+		for _, p := range b.players(true) {
+			facing += p.facing
+		}
+		if facing != 0 {
+			return int32(Sign(facing))
+		}
+	}
+	return Rand(0, 1)*2 - 1
 }
 
 // Where a spawn line puts an enemy in depth: its lane (a number, -1 random, -2 the lane of the player closest

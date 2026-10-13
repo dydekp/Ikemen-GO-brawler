@@ -507,6 +507,9 @@ looks at all players and enemies together:
   MaxEnemiesPerPlayer). While the team is under pressure, up to half of
   that is held back. While there are fewer enemies than players, spawns
   come three times as fast.
+  Spawn lines with side "random" send their enemies from the side most
+  players face while the team is under pressure (they see them coming),
+  from either side otherwise.
 - Who fights whom: enemies are spread over the players in fair shares, the
   closest enemies first. A player under pressure gets a smaller share, so
   the others take more of the crowd.

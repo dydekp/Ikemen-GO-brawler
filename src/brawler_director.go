@@ -31,21 +31,22 @@ import (
 )
 
 const (
-	brawlerStressHalfLife = 240   // Frames after which half of the recent damage is forgotten
-	brawlerStressFull     = 0.3   // Recent damage (fraction of max life) that counts as full pressure
-	brawlerLowLife        = 0.35  // Life ratio from which low life adds pressure
-	brawlerTargetStick    = 60    // Distance bonus for keeping the current target (avoids flip-flopping)
-	brawlerTargetLoad     = 40    // Extra distance per enemy already fighting a player
-	brawlerTargetOverload = 500   // Extra distance per enemy beyond a player's fair share
-	brawlerTargetPressure = 140   // Extra distance for a player under full pressure
-	brawlerRingSpeed      = 0.008 // Radians per frame the waiting ring turns: about 13 seconds per turn
-	brawlerLineSpacing    = 35    // Distance between rows of waiting enemies on a single lane
-	brawlerTokenStick     = 25    // Distance bonus for keeping an attack turn (avoids flip-flopping)
-	brawlerFighterClear   = 45    // Distance waiting spots keep from a fighting enemy in its lane
-	brawlerRefillPace     = 3     // Spawn delay countdown speed while there are fewer enemies than players
-	brawlerLastStandEase  = 0.5   // Tension the enemy limit assumes at least for the last player standing
-	brawlerRecoverHover   = 1.5   // An enemy recovering from low life waits this much further back
-	brawlerRecoverGuard   = 2     // and guards this much more often
+	brawlerStressHalfLife   = 240   // Frames after which half of the recent damage is forgotten
+	brawlerStressFull       = 0.3   // Recent damage (fraction of max life) that counts as full pressure
+	brawlerLowLife          = 0.35  // Life ratio from which low life adds pressure
+	brawlerTargetStick      = 60    // Distance bonus for keeping the current target (avoids flip-flopping)
+	brawlerTargetLoad       = 40    // Extra distance per enemy already fighting a player
+	brawlerTargetOverload   = 500   // Extra distance per enemy beyond a player's fair share
+	brawlerTargetPressure   = 140   // Extra distance for a player under full pressure
+	brawlerRingSpeed        = 0.008 // Radians per frame the waiting ring turns: about 13 seconds per turn
+	brawlerLineSpacing      = 35    // Distance between rows of waiting enemies on a single lane
+	brawlerTokenStick       = 25    // Distance bonus for keeping an attack turn (avoids flip-flopping)
+	brawlerFighterClear     = 45    // Distance waiting spots keep from a fighting enemy in its lane
+	brawlerRefillPace       = 3     // Spawn delay countdown speed while there are fewer enemies than players
+	brawlerLastStandEase    = 0.5   // Tension the enemy limit assumes at least for the last player standing
+	brawlerRecoverHover     = 1.5   // An enemy recovering from low life waits this much further back
+	brawlerRecoverGuard     = 2     // and guards this much more often
+	brawlerFairSpawnTension = 0.4   // Team tension from which random spawns come from the side the players face
 )
 
 // Part of the Brawler state (fixed size arrays only, so save states copy it)

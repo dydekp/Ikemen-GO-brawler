@@ -617,3 +617,40 @@ func TestBrawlerSpawnDepth(t *testing.T) {
 		}
 	}
 }
+
+// Random spawn lines: a random side, but under pressure the side the players face
+func TestBrawlerSpawnSide(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	p.facing = -1
+	if b.spawnSide(1) != 1 || b.spawnSide(-1) != -1 {
+		t.Fatal("fixed sides changed")
+	}
+	sides := func() map[int32]int {
+		m := map[int32]int{}
+		for i := 0; i < 60; i++ {
+			m[b.spawnSide(0)]++
+		}
+		return m
+	}
+	if m := sides(); m[1] == 0 || m[-1] == 0 {
+		t.Fatalf("relaxed team: %v", m)
+	}
+	b.director.tension = 0.6
+	if m := sides(); m[-1] != 60 {
+		t.Fatalf("under pressure, facing left: %v", m)
+	}
+	// Two players facing away from each other: no side to prefer
+	q := brawlerTestPlayer(b, 2, 50, 0)
+	q.facing = 1
+	if m := sides(); m[1] == 0 || m[-1] == 0 {
+		t.Fatalf("facing both ways: %v", m)
+	}
+	// Without the director: random
+	q.facing = -1
+	sys.cfg.Brawler.Director = false
+	if m := sides(); m[1] == 0 || m[-1] == 0 {
+		t.Fatalf("without the director: %v", m)
+	}
+}
