@@ -16,6 +16,8 @@ package main
 //   [Close]     ; a wave is cleared after a player was in real trouble in it
 //   [Down]      ; a player goes down while others fight on
 //   [LastStand] ; a player goes down and leaves one player standing alone ({player}: that one)
+//   [BossLow]   ; a boss is down to brawlerTalkBossLow of its life
+//   [BossDown]  ; a boss is defeated
 //   [Back]      ; a player who was down is back (continue, rejoin)
 //   [Join]      ; a player joins during the level
 //   [Relax]     ; the director gives the team a breather (brawler_director_pace.go)
@@ -64,11 +66,13 @@ const (
 	btVictory
 	btSurvived
 	btLastStand
+	btBossLow
+	btBossDown
 	btCount
 )
 
 // The director.def section of each topic
-var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand"}
+var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand", "bosslow", "bossdown"}
 
 // Topics that challenge the players (shown with a red edge); the others encourage them (green)
 func (tp brawlerTalkTopic) challenging() bool {
@@ -105,6 +109,8 @@ var brawlerTalkDefault = brawlerTalkLines{
 	btVictory:   {"Level clear! Nicely done."},
 	btSurvived:  {"Made it. Barely."},
 	btLastStand: {"{player}, you're on your own!"},
+	btBossLow:   {"It's almost done! Finish it!"},
+	btBossDown:  {"The big one's down!"},
 }
 
 type brawlerDirectorTalkState struct {
@@ -117,6 +123,7 @@ type brawlerDirectorTalkState struct {
 	linesFor string // Path the lines were read from
 	rng      *rand.Rand
 	seen     [MaxSimul * 2]brawlerTalkSeen // The players as last seen, see talkPlayers
+	bossSaid map[int32]brawlerTalkTopic    // Per boss (player ID): the last boss topic said, see talkBosses
 	watching bool                          // seen is filled in
 }
 
@@ -130,6 +137,7 @@ func (b *Brawler) directorTalkOn() bool {
 func (t *brawlerDirectorTalkState) reset() {
 	t.text, t.time, t.wait, t.last = "", 0, 0, [btCount]string{}
 	t.watching = false
+	t.bossSaid = nil
 }
 
 // Read the lines of a director.def file. Topics without lines (or a missing file) use the built-in ones
@@ -282,7 +290,7 @@ func (b *Brawler) talkWaveStart(w BrawlerWave) {
 // A wave is cleared: the director praises the players, more so when one of them was in real trouble in it
 // (about that player). Not when the level ends with it: its own screen follows
 func (b *Brawler) talkWaveCleared(levelGoesOn bool) {
-	if !b.directorTalkOn() || !levelGoesOn {
+	if !b.directorTalkOn() || !levelGoesOn || brawlerDirectorTalk.bossJustDown() {
 		return
 	}
 	d := &b.director
@@ -350,4 +358,37 @@ func (b *Brawler) talkPlayers() {
 		}
 	}
 	t.seen, t.watching = now, true
+}
+
+// Life (fraction of max) at which a boss counts as almost defeated
+const brawlerTalkBossLow = 0.25
+
+// Bosses almost defeated, and defeated: the director cheers the players on. Once per boss and topic.
+// Runs every frame with the announcements on
+func (b *Brawler) talkBosses() {
+	t := &brawlerDirectorTalk
+	for _, c := range b.instances() {
+		if !b.isBoss(c) {
+			continue
+		}
+		topic := btCount
+		switch said := t.bossSaid[c.id]; {
+		case !c.alive() && said != btBossDown:
+			topic = btBossDown
+		case c.alive() && said != btBossLow && said != btBossDown && float32(c.life) <= brawlerTalkBossLow*float32(c.lifeMax):
+			topic = btBossLow
+		}
+		if topic < btCount {
+			if t.bossSaid == nil {
+				t.bossSaid = map[int32]brawlerTalkTopic{}
+			}
+			t.bossSaid[c.id] = topic
+			t.say(t.linesNow(), topic, "")
+		}
+	}
+}
+
+// A boss went down this very frame: its line stays instead of a wave or level line said in the same frame
+func (t *brawlerDirectorTalkState) bossJustDown() bool {
+	return t.topic == btBossDown && t.time == brawlerTalkTime
 }

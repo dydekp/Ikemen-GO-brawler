@@ -795,7 +795,9 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   until they are back), and to its breathers ([Relax], [Resume]).
   Challenging lines (harder, waves, bosses, a player down, a breather
   ending) have a red edge, the others a green one. A line hidden by
-  a character introduction is shown again in full afterwards.
+  a character introduction is shown again in full afterwards. Bosses get
+  their own lines: [BossLow] at a quarter of their life, [BossDown] when
+  they fall (instead of the wave or level line when they were the last).
 - Level summary: when a level is cleared, a panel shows the time it took,
   the enemies defeated, the life lost per player (with the director) and
   the difficulty, and the director comments: [Victory] lines when the

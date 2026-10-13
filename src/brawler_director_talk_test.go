@@ -363,3 +363,57 @@ func TestBrawlerTalkShowAgain(t *testing.T) {
 		t.Fatal("an ended line came back")
 	}
 }
+
+// A boss at a quarter of its life and a defeated boss: one line each, which stays over a wave line said in the
+// same frame
+func TestBrawlerTalkBosses(t *testing.T) {
+	_, list := directorFight(t, map[int]float32{0: 0}, []float32{40, 80}, nil)
+	b := brawlerTestMode(t)
+	oldTalk := brawlerDirectorTalk
+	t.Cleanup(func() { brawlerDirectorTalk = oldTalk })
+	var lines brawlerTalkLines
+	for tp := range lines {
+		lines[tp] = []string{brawlerTalkSections[tp]}
+	}
+	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test"}
+	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = true, "test"
+	b.level.enemies = []BrawlerEnemy{{alias: "thug"}, {alias: "master", boss: true}}
+	thug, boss := list[0], list[1]
+	thug.bw.entry, boss.bw.entry = 0, 1
+	thug.life, thug.lifeMax, boss.life, boss.lifeMax = 100, 1000, 1000, 1000
+	tk := &brawlerDirectorTalk
+	step := func() string {
+		tk.text = ""
+		b.talkBosses()
+		return tk.text
+	}
+	if s := step(); s != "" {
+		t.Fatalf("said %q (a hurt thug isn't a boss)", s)
+	}
+	boss.life = 250
+	if s := step(); s != "bosslow" {
+		t.Fatalf("low: %q", s)
+	}
+	if s := step(); s != "" {
+		t.Fatalf("said %q again", s)
+	}
+	boss.life = 0
+	boss.setSCF(SCF_ko)
+	if s := step(); s != "bossdown" {
+		t.Fatalf("down: %q", s)
+	}
+	// The wave ends in the same frame: the boss line stays
+	b.level.waves = []BrawlerWave{{}, {}}
+	b.talkWaveCleared(true)
+	if tk.text != "bossdown" {
+		t.Fatalf("wave line over the boss line: %q", tk.text)
+	}
+	if s := step(); s != "" {
+		t.Fatalf("said %q again", s)
+	}
+	// A new level forgets
+	tk.reset()
+	if tk.bossSaid != nil {
+		t.Fatal("bosses kept over a reset")
+	}
+}

@@ -34,7 +34,7 @@ func (b *Brawler) stepStats() {
 
 // The level was cleared: the director comments on how it went
 func (b *Brawler) talkLevelCleared() {
-	if !b.directorTalkOn() {
+	if !b.directorTalkOn() || brawlerDirectorTalk.bossJustDown() {
 		return
 	}
 	topic := btSurvived
