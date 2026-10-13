@@ -314,6 +314,10 @@ func (s *brawlerControlsState) buttonAction(i int) string {
 	}
 	switch brawlerLayoutButtons[i] {
 	case 'd':
+		// Without lanes the button walks in depth with up and down
+		if sys.brawler.active() && sys.brawler.freeDepth() {
+			return "Hold + up/down: walk in depth"
+		}
 		return "Switch lane"
 	case 'w':
 		return "Keep facing"

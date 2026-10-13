@@ -20,6 +20,9 @@ endx       = 1200
 ; A short level ending in a boss fight: the director balances it, but gives
 ; no breathers (pacing is the default, classic turns the director off)
 director   = balance
+; Free movement: no lanes. Hold the lane button and press up or down to walk in
+; depth (without it, up and down jump and crouch as usual)
+lanes      = 0
 
 [Enemies]
 ; Library NPCs
@@ -67,11 +70,11 @@ spawn    = thug|ninja, random, random, 40, 5
 
 [Wave 3]
 trigger  = 900
-spawn    = sensei, right, 1, 30
+spawn    = sensei, right, player, 30
 spawn    = thug, left, random, 120, 2
 
 [Props]
 ; In this hires stage's coordinates (1280x720)
-prop = crate, 250, 0
-prop = barrel, 650, 2
-prop = crate, 1000, 1, chicken
+prop = crate, 250, random
+prop = barrel, 650, random
+prop = crate, 1000, random, chicken

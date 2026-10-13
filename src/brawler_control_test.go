@@ -248,3 +248,67 @@ func TestBrawlerControlAirTicks(t *testing.T) {
 		t.Errorf("no gravity: %v", n)
 	}
 }
+
+// Free movement (no lanes): the lane button held turns up/down into walking in depth; without it, or with
+// lanes, up and down reach the character as usual
+func TestBrawlerDepthWalkInput(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	lane := brawlerButtonIndex(sys.cfg.Brawler.LaneButton)
+	press := func(up, down, left, right, laneHeld bool) [14]bool {
+		var in [14]bool
+		in[0], in[1], in[2], in[3], in[lane] = up, down, left, right, laneHeld
+		return b.processInput(p, in)
+	}
+	// Up without the lane button: a jump as always
+	if in := press(true, false, false, false, false); !in[0] || p.bw.depthDir != 0 {
+		t.Fatalf("plain up: %v, depth %v", in[0], p.bw.depthDir)
+	}
+	// Lane button + up: deeper, no jump, walking forward in place
+	in := press(true, false, false, false, true)
+	if in[0] || in[1] || p.bw.depthDir != -1 || !p.bw.depthOnly || !in[3] {
+		t.Fatalf("lane+up: in %v, depth %v only %v", in[:4], p.bw.depthDir, p.bw.depthOnly)
+	}
+	// Lane button + down + left: closer and left, a real walk
+	in = press(false, true, true, false, true)
+	if in[1] || p.bw.depthDir != 1 || p.bw.depthOnly || !in[2] || in[3] {
+		t.Fatalf("lane+down+left: in %v, depth %v only %v", in[:4], p.bw.depthDir, p.bw.depthOnly)
+	}
+	// With lanes the lane button doesn't change up and down
+	b.lanesZ = []float32{-30, 0, 30}
+	if in := press(true, false, false, false, true); !in[0] || p.bw.depthDir != 0 {
+		t.Fatalf("lanes: %v, depth %v", in[0], p.bw.depthDir)
+	}
+}
+
+// The depth walk: only standing or walking with control, within the depth range, in place in x when
+// walking straight in depth
+func TestBrawlerDepthWalk(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	sys.zmin, sys.zmax = -40, 40
+	p := brawlerTestPlayer(b, 0, 10, 0)
+	p.pos[2] = 0
+	p.ss.moveType = MT_I
+	p.oldPos = p.pos
+	p.bw.depthDir, p.bw.depthOnly = -1, true
+	p.pos[0] = 12 // The walk forward moved it
+	b.depthWalk(p)
+	if p.pos[2] != -2 || p.pos[0] != 10 {
+		t.Fatalf("walk: z %v, x %v", p.pos[2], p.pos[0])
+	}
+	for i := 0; i < 40; i++ {
+		b.depthWalk(p)
+	}
+	if p.pos[2] != -40 {
+		t.Fatalf("past the depth range: %v", p.pos[2])
+	}
+	// Not while attacking
+	p.ss.moveType = MT_A
+	p.bw.depthDir = 1
+	b.depthWalk(p)
+	if p.pos[2] != -40 {
+		t.Fatal("walked while attacking")
+	}
+}

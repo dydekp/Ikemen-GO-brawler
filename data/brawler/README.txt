@@ -205,7 +205,10 @@ music     = sound/level1.mp3     ; Optional
 library   = ../enemies.def        ; Optional: a content pack's own enemy
                                  ; library, added to the shared one. Its
                                  ; ids replace shared ones with the same id
-lanes     = 3                    ; Number of lanes (default 3)
+lanes     = 3                    ; Number of lanes (default 3). 0 = free
+                                 ; movement: no lanes, players walk in depth
+                                 ; (section 9); props, items and spawns use
+                                 ; random (anywhere) or 0 (the middle)
 lanepos   = -60, 0, 60           ; Optional: explicit lane depths
 backtrack = 0                    ; 1 = the camera may scroll back to the left
 director  = pacing               ; Optional: how the director runs this level:
@@ -669,6 +672,12 @@ for example o and p.
     from the middle: 1 press = up,     2 presses = down
     from the top:    1 press = bottom, 2 presses = middle
     from the bottom: 1 press = middle, 2 presses = top
+  Free movement levels ([Level] lanes = 0) have no lanes: holding the
+  button turns up and down into walking in depth (diagonals with left or
+  right too), at [Brawler] DepthSpeed. Without the button, up and down jump
+  and crouch as usual, so every move and motion input keeps working. A
+  character walks in depth while standing or walking with control; attacks
+  can start from the walk.
 
 FacingButton (default "w")
   FacingMode = lock: the character turns towards the direction it walks.
@@ -843,7 +852,7 @@ Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 ------------------------------
 Content:   Campaigns (comma separated folders), FreePlay, Enemies, Behaviors
 Controls:  LaneButton, FacingButton, FacingMode, TurnDelay, TurnBuffer,
-           LaneSelectWindow, LaneSnapSpeed
+           LaneSelectWindow, LaneSnapSpeed, DepthSpeed
 Balance:   Difficulty, Difficulties, AttackersPerPlayer, Director,
            ExtraPlayerEnemies, MaxEnemiesPerPlayer,
            EnemyLife, DespawnTime,

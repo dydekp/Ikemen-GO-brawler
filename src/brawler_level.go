@@ -357,8 +357,8 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 		}
 		return p.lib.load(path, lv.behaviors)
 	case "lanes":
-		if lv.lanes, err = brawlerParseI(l.val); err != nil || lv.lanes < 1 {
-			return fmt.Errorf("invalid lanes: %v", l.val)
+		if lv.lanes, err = brawlerParseI(l.val); err != nil || lv.lanes < 0 {
+			return fmt.Errorf("invalid lanes: %v (a number of lanes, or 0 for free movement)", l.val)
 		}
 	case "lanepos":
 		lv.lanePos = nil

@@ -86,12 +86,30 @@ func (b *Brawler) processInput(c *Char, in [14]bool) [14]bool {
 	}
 	st.laneHeld = lane
 
+	// Free depth movement: with the lane button held, up and down walk in depth instead of jumping and
+	// crouching (brawlerDepthWalk)
+	st.depthDir, st.depthOnly = 0, false
+	if b.freeDepth() && c.controller >= 0 && lane {
+		switch {
+		case in[0] && !in[1]:
+			st.depthDir = -1
+		case in[1] && !in[0]:
+			st.depthDir = 1
+		}
+		in[0], in[1] = false, false
+	}
+
 	facePressed := face && !st.facingHeld
 	st.facingHeld = face
 
 	// Facing is only overridden for human players. AI characters keep facing P2
 	if c.controller >= 0 {
 		b.updateFacing(c, st, facePressed, in[2], in[3])
+	}
+	// Straight in depth: hold forward too, so the character walks, and depthWalk keeps it in place in x
+	if st.depthDir != 0 && !in[2] && !in[3] {
+		st.depthOnly = true
+		in[brawlerDirIndex(c.facing)] = true
 	}
 	return in
 }
@@ -226,8 +244,13 @@ func (b *Brawler) startLaneJump(st *brawlerChar, target int32) {
 	st.laneWindow = sys.cfg.Brawler.LaneSelectWindow
 }
 
-// Move a character in depth towards its lane. Called right after the position update
+// Move a character in depth towards its lane, or with free depth movement as its player walks. Called right
+// after the position update
 func (b *Brawler) laneUpdate(c *Char) {
+	if b.active() && b.freeDepth() {
+		b.depthWalk(c)
+		return
+	}
 	if !b.lanesActive() {
 		return
 	}
@@ -275,6 +298,24 @@ func (b *Brawler) laneUpdate(c *Char) {
 	if z != target {
 		spd := sys.cfg.Brawler.LaneSnapSpeed
 		b.moveZ(c, Clamp(target-z, -spd, spd))
+	}
+}
+
+// Free depth movement: a player holding the lane button and up or down walks in depth at [Brawler]
+// DepthSpeed, while standing or walking with control. Straight in depth, the walk forward it was given
+// (processInput) is taken back, so it walks in place in x
+func (b *Brawler) depthWalk(c *Char) {
+	st := b.charState(c)
+	if st == nil || st.depthDir == 0 || c.scf(SCF_disabled) || c.bindTime != 0 {
+		return
+	}
+	if !c.ctrl() || c.ss.stateType != ST_S || c.ss.moveType != MT_I {
+		return
+	}
+	z := brawlerZ(c)
+	b.moveZ(c, b.clampDepth(z+st.depthDir*sys.cfg.Brawler.DepthSpeed)-z)
+	if st.depthOnly {
+		c.setPosX(c.oldPos[0], false)
 	}
 }
 

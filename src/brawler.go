@@ -69,6 +69,10 @@ type brawlerChar struct {
 	aiLane      int32 // Lane requested by the AI. -1 if none
 	laneHeld    bool
 
+	// Free depth movement (no lanes): walking in depth while the lane button is held
+	depthDir  float32 // -1 deeper (up), 1 closer (down), 0 not this frame
+	depthOnly bool    // Walking straight in depth: the walk animation plays in place
+
 	// Facing (players)
 	facingHeld  bool
 	desiredFace float32
@@ -398,6 +402,8 @@ func (b *Brawler) setupLanes() {
 		for _, z := range lv.lanePos {
 			lanes = append(lanes, z*stg.localscl)
 		}
+	case lv.lanes == 0:
+		// Free movement: no lanes, players walk in depth (brawler_control.go depthWalk)
 	case lv.lanes <= 1 || sys.zmin == sys.zmax:
 		lanes = append(lanes, (sys.zmin+sys.zmax)/2)
 	default:

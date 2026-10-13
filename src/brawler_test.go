@@ -551,6 +551,10 @@ func TestBrawlerLibraryAndOverrides(t *testing.T) {
 	if lv.director != bdsBalance {
 		t.Errorf("dojo director %v, want balance", lv.director)
 	}
+	// and is the demo's free movement level
+	if lv.lanes != 0 {
+		t.Errorf("dojo lanes %v, want 0 (free movement)", lv.lanes)
+	}
 	get := func(alias string) BrawlerEnemy {
 		i := lv.enemyIndex(alias)
 		if i < 0 {

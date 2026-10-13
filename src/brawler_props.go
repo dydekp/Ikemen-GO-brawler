@@ -261,6 +261,14 @@ func (lv *BrawlerLevel) laneCount() int32 {
 	return Max(lv.lanes, 1)
 }
 
+// For lane errors in a level without lanes: what to use instead
+func (lv *BrawlerLevel) freeLaneHint() string {
+	if lv.lanes == 0 && len(lv.lanePos) == 0 {
+		return " (free movement: random, or 0 for the middle)"
+	}
+	return ""
+}
+
 // Stage X and lane (a number, or random = -1)
 func parseBrawlerSpot(xs, lanes string) (float32, int32, error) {
 	x, err := brawlerParseF(xs)
@@ -346,7 +354,7 @@ func (p *brawlerLevelParser) finishProps() error {
 			pl.drops = lv.propTypes[idx].drops
 		}
 		if pl.lane >= lv.laneCount() {
-			return fmt.Errorf("prop '%v' at x %v: no lane %v", pl.id, pl.x, pl.lane)
+			return fmt.Errorf("prop '%v' at x %v: no lane %v%v", pl.id, pl.x, pl.lane, lv.freeLaneHint())
 		}
 	}
 	for i := range lv.items {
@@ -355,7 +363,7 @@ func (p *brawlerLevelParser) finishProps() error {
 			return err
 		}
 		if it.lane >= lv.laneCount() {
-			return fmt.Errorf("item '%v' at x %v: no lane %v", it.id, it.x, it.lane)
+			return fmt.Errorf("item '%v' at x %v: no lane %v%v", it.id, it.x, it.lane, lv.freeLaneHint())
 		}
 	}
 	if lv.help, err = drops(lv.help); err != nil {

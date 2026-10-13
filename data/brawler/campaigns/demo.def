@@ -4,6 +4,6 @@
 
 [Campaign]
 name  = Demo Campaign
-text  = Two levels on the default screenpack's stages
+text  = Two levels on the default screenpack's stages: lanes, then free movement
 level = ../levels/street.def
 level = ../levels/dojo.def
