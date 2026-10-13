@@ -934,6 +934,8 @@ How they play:
   walk through them, so they never get stuck behind one.
 - Items are picked up by a player on its lane, on the ground and not being
   hit, by walking over it.
+- What a player picks up floats above them for a moment ("+35% LIFE",
+  "+POWER").
 - Props and items belong to the level: they're placed again when it
   starts, and survive save states and rollback.
 

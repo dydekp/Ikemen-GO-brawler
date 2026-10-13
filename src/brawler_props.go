@@ -726,6 +726,9 @@ func (b *Brawler) pickUpItems(now int32) {
 		}
 		if c := b.itemTaker(it, b.propGfx.itemsW[it.typ]*t.scale); c != nil {
 			brawlerApplyItem(c, t)
+			if c.playerNo >= 0 && c.playerNo < len(brawlerPickupTexts) {
+				brawlerPickupTexts[c.playerNo] = brawlerPickupText{brawlerPickupLabel(c, t), brawlerPickupTextTime}
+			}
 			changed = true
 			continue
 		}
@@ -873,4 +876,48 @@ func brawlerShadowImage() *image.RGBA {
 		}
 	}
 	return img
+}
+
+// What a player just picked up, floating above them for a moment. Display only: not part of the save state
+type brawlerPickupText struct {
+	text string
+	time int32 // Frames left
+}
+
+const brawlerPickupTextTime = 50
+
+var brawlerPickupTexts [MaxSimul * 2]brawlerPickupText
+
+// The text for an item a player picked up: "+35% LIFE", "+POWER"
+func brawlerPickupLabel(c *Char, t *BrawlerItemType) string {
+	var parts []string
+	if life := brawlerItemAmount(t.life, t.lifePct, float32(c.lifeMax)); life > 0 {
+		parts = append(parts, fmt.Sprintf("+%.0f%% LIFE", life/float32(Max(1, c.lifeMax))*100))
+	}
+	if brawlerItemAmount(t.power, t.powerPct, float32(c.powerMax)) > 0 {
+		parts = append(parts, "+POWER")
+	}
+	return strings.Join(parts, " ")
+}
+
+func brawlerStepPickupTexts() {
+	for i := range brawlerPickupTexts {
+		if brawlerPickupTexts[i].time > 0 {
+			brawlerPickupTexts[i].time--
+		}
+	}
+}
+
+// The texts above their players, rising and fading out
+func (b *Brawler) drawPickupTexts(txt brawlerHudText) {
+	for _, c := range b.players(true) {
+		p := brawlerPickupTexts[c.playerNo]
+		if p.time <= 0 || p.text == "" {
+			continue
+		}
+		up := float32(brawlerPickupTextTime - p.time)
+		x, y := brawlerHudPos(c, c.size.head.pos[1]*c.localscl-10)
+		a := Clamp(float32(p.time)/15, 0, 1)
+		txt.drawFaded(x, y-up*0.4, p.text, 0, 0.8, a)
+	}
 }

@@ -362,3 +362,31 @@ func TestBrawlerShippedProps(t *testing.T) {
 		}
 	}
 }
+
+// The floating text of a pickup: life in percent of the player's max, power as a word
+func TestBrawlerPickupLabel(t *testing.T) {
+	c := &Char{lifeMax: 1000, powerMax: 3000}
+	for _, x := range []struct {
+		item BrawlerItemType
+		want string
+	}{
+		{BrawlerItemType{life: 35, lifePct: true}, "+35% LIFE"},
+		{BrawlerItemType{life: 300}, "+30% LIFE"},
+		{BrawlerItemType{power: 50, powerPct: true}, "+POWER"},
+		{BrawlerItemType{life: 10, lifePct: true, power: 500}, "+10% LIFE +POWER"},
+		{BrawlerItemType{}, ""},
+	} {
+		if got := brawlerPickupLabel(c, &x.item); got != x.want {
+			t.Errorf("%+v: %q, want %q", x.item, got, x.want)
+		}
+	}
+	old := brawlerPickupTexts
+	t.Cleanup(func() { brawlerPickupTexts = old })
+	brawlerPickupTexts[0] = brawlerPickupText{"+35% LIFE", 2}
+	brawlerStepPickupTexts()
+	brawlerStepPickupTexts()
+	brawlerStepPickupTexts()
+	if brawlerPickupTexts[0].time != 0 {
+		t.Fatalf("time %v", brawlerPickupTexts[0].time)
+	}
+}

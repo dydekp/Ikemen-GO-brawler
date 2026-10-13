@@ -329,6 +329,7 @@ func (b *Brawler) roundInit() {
 	brawlerDirectorLog.reset()
 	brawlerDirectorTalk.reset()
 	brawlerCallouts = [MaxSimul * 2]brawlerCallout{}
+	brawlerPickupTexts = [MaxSimul * 2]brawlerPickupText{}
 
 	// Players start on the lane closest to their stage start position (without lanes, where they stand)
 	for _, c := range b.players(false) {
@@ -595,6 +596,7 @@ func (b *Brawler) step() {
 	}
 	b.trackHudTargets()
 	b.trackGetUp()
+	brawlerStepPickupTexts()
 	b.stepCallouts()
 
 	if sys.roundState() != 2 || b.complete {

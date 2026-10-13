@@ -251,6 +251,7 @@ func (b *Brawler) drawHUD(layerno int16) {
 	txt := b.hudFont(brawlerHudLayer)
 	b.drawSeats(txt)
 	b.drawSpawnMarkers(txt)
+	b.drawPickupTexts(txt)
 	b.drawBossBars(txt)
 	b.drawGoSign(txt)
 	b.drawContinue(txt)
