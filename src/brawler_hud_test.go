@@ -183,3 +183,15 @@ func TestBrawlerHudPulse(t *testing.T) {
 		t.Fatalf("pulse %v..%v", lo, hi)
 	}
 }
+
+// Enemies outside the screen, by side; dead ones and those on the screen don't count
+func TestBrawlerOffscreenEnemies(t *testing.T) {
+	_, list := directorFight(t, map[int]float32{0: 0}, []float32{-1200, 500, 1100, 1300, -1100}, nil)
+	b := brawlerTestMode(t)
+	sys.xmin, sys.xmax = -1000, 1000
+	list[4].setSCF(SCF_ko)
+	left, right := b.offscreenEnemies()
+	if len(left) != 1 || left[0] != list[0] || len(right) != 2 {
+		t.Fatalf("left %v, right %v", len(left), len(right))
+	}
+}

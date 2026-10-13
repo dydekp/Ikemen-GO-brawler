@@ -819,6 +819,8 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   section sets the number).
   Five enemies defeated in a row without a player taking damage get a
   [Streak] line ("defeats = 5" in that section).
+- Incoming enemies: red arrows at the screen edges where enemies are about
+  to walk in, with their number when there are several.
 - Low life: at a quarter of their life or less, a player's life bar gets
   a pulsing red frame.
 - Title card: as the fight starts, the level's name and difficulty fade

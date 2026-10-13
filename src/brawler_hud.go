@@ -273,6 +273,7 @@ func (b *Brawler) drawHUD(layerno int16) {
 	b.drawPickupTexts(txt)
 	b.drawBossBars(txt)
 	b.drawGoSign(txt)
+	b.drawIncoming(txt)
 	b.drawContinue(txt)
 	b.drawSummary(txt)
 	b.drawTitleCard(txt)
@@ -647,5 +648,65 @@ func (b *Brawler) drawDirectorDebug(txt brawlerHudText) {
 		}
 		x, y := brawlerHudWorldPos(ai.anchorX, 0, ai.anchorZ, sys.updateZScale(ai.anchorZ, 1))
 		brawlerHudFill(x-2, y-2, 4, 4, 0xffd23a, 200)
+	}
+}
+
+// Alive enemies outside the screen, on the left and the right
+func (b *Brawler) offscreenEnemies() (left, right []*Char) {
+	for _, c := range b.instances() {
+		if !c.alive() {
+			continue
+		}
+		switch x := brawlerX(c); {
+		case x < sys.xmin:
+			left = append(left, c)
+		case x > sys.xmax:
+			right = append(right, c)
+		}
+	}
+	return
+}
+
+// Red arrows at the screen edges where enemies are about to come in, with their number when there are several,
+// at the height of the closest one
+func (b *Brawler) drawIncoming(txt brawlerHudText) {
+	if b.complete {
+		return
+	}
+	left, right := b.offscreenEnemies()
+	for _, side := range []struct {
+		list []*Char
+		dir  float32
+	}{{left, -1}, {right, 1}} {
+		if len(side.list) == 0 {
+			continue
+		}
+		// Distance past the screen edge
+		past := func(c *Char) float32 {
+			if side.dir < 0 {
+				return sys.xmin - brawlerX(c)
+			}
+			return brawlerX(c) - sys.xmax
+		}
+		closest := side.list[0]
+		for _, c := range side.list[1:] {
+			if past(c) < past(closest) {
+				closest = c
+			}
+		}
+		_, y := brawlerHudPos(closest, closest.size.head.pos[1]*closest.localscl*0.5)
+		y = Clamp(y, brawlerHudPanelsBottom()+40, brawlerHudHeight()-30)
+		x := float32(6)
+		if side.dir > 0 {
+			x = 314
+		}
+		// A head made of narrowing columns, pointing out of the screen
+		for i := float32(0); i < 7; i++ {
+			h := 14 - i*1.8
+			brawlerHudFill(x+side.dir*(i-6)*1.2-0.6, y-h/2, 1.2, h, 0xff3a3a, 230)
+		}
+		if n := len(side.list); n > 1 {
+			txt.drawScaled(x-side.dir*10, y+2, fmt.Sprintf("x%v", n), int32(-side.dir), 0.7)
+		}
 	}
 }
