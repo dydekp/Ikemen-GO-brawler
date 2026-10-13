@@ -291,18 +291,12 @@ func (b *Brawler) talkHeld() bool {
 	return b.complete && b.stats.endTime < brawlerSummaryDelay
 }
 
-// The fight screen shows its winner announcement (YOU WIN), where the level-clear comment would be
-func brawlerWinShown() bool {
-	ro := sys.fightScreen.round
-	return ro != nil && ro.winDisplayPhase < 2 && sys.intro < -ro.over_waittime && ro.winDisplayTimer >= ro.win_time
-}
-
 // The announcement where the fight screen shows FIGHT!, in its look but smaller (brawler_hud_shout.go): in
 // fire colors when it challenges the players, green when it encourages them. When the level is cleared,
-// it goes under the summary, until the winner announcement
+// it goes under the summary
 func (b *Brawler) drawDirectorTalk() {
 	t := &brawlerDirectorTalk
-	if !b.directorTalkOn() || !t.shown() || b.talkHeld() || (b.complete && brawlerWinShown()) {
+	if !b.directorTalkOn() || !t.shown() || b.talkHeld() {
 		return
 	}
 	txt := b.shoutFont(brawlerHudLayer)

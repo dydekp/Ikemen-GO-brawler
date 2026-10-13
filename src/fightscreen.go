@@ -3867,8 +3867,8 @@ func (ro *FightScreenRound) handleRoundOutro() {
 		ro.koDisplayTimer++
 	}
 
-	// Skip winner announcement
-	if sys.gsf(GSF_skipwindisplay) {
+	// Skip winner announcement. A cleared beat 'em up level shows its own summary instead
+	if sys.gsf(GSF_skipwindisplay) || sys.brawler.levelCleared() {
 		ro.winDisplayPhase = 2
 	}
 

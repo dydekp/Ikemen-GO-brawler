@@ -85,6 +85,11 @@ func (b *Brawler) summaryBottom() float32 {
 	return top + h
 }
 
+// The level is cleared: its summary replaces the fight screen's winner announcement (YOU WIN)
+func (b *Brawler) levelCleared() bool {
+	return b.active() && b.complete
+}
+
 // The panel, fading in a moment after the level was cleared
 func (b *Brawler) drawSummary(txt brawlerHudText) {
 	if !b.complete || b.stats.endTime < brawlerSummaryDelay {

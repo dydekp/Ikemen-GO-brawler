@@ -139,3 +139,19 @@ func TestBrawlerCardHint(t *testing.T) {
 		t.Fatalf("parsed %q %v", lv.hint, err)
 	}
 }
+
+// A cleared level's summary replaces the winner announcement; only in beat 'em up mode
+func TestBrawlerLevelClearedSkipsWin(t *testing.T) {
+	b := brawlerTestMode(t)
+	if b.levelCleared() {
+		t.Fatal("cleared during the level")
+	}
+	b.complete = true
+	if !b.levelCleared() {
+		t.Fatal("not cleared")
+	}
+	sys.gameMode = "arcade"
+	if b.levelCleared() {
+		t.Fatal("cleared outside beat 'em up mode")
+	}
+}
