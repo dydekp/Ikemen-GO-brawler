@@ -50,6 +50,9 @@ const (
 	brawlerTalkGap  = 360 // Frames from one announcement to the next at least
 )
 
+// Width of the announcement band in HUD units: at least, and at most (the text shrinks to fit)
+var brawlerTalkBand = [2]float32{170, 300}
+
 // What the director talks about
 type brawlerTalkTopic int
 
@@ -289,11 +292,16 @@ func (b *Brawler) drawDirectorTalk(txt brawlerHudText) {
 	if t.topic.challenging() {
 		col = 0xff6a3a
 	}
-	const w = 170
+	// The band fits the line (brawlerTalkBand), a long line gets smaller text
+	text, k := brawlerShorten(t.text, 72), float32(0.75)
+	if tw := txt.width(text, k); tw > brawlerTalkBand[1]-20 {
+		k *= (brawlerTalkBand[1] - 20) / tw
+	}
+	w := Clamp(txt.width(text, k)+20, brawlerTalkBand[0], brawlerTalkBand[1])
 	y := brawlerHudPanelsBottom() + 12
 	brawlerHudFill(160-w/2, y-9, w, 13, 0x000000, int32(150*a))
 	brawlerHudFill(160-w/2, y+3, w, 1, col, int32(255*a))
-	txt.drawFaded(160, y, brawlerShorten(t.text, 40), 0, 0.75, a)
+	txt.drawFaded(160, y, text, 0, k, a)
 }
 
 // Pressure on a player in a wave from which clearing it counts as a close call

@@ -7,7 +7,8 @@
 ; One line is picked at random, never the same one twice in a row.
 ; {player} is replaced by the player the decision is about (1P, 2P...).
 ; Lines with {player} are only used for decisions about one player.
-; Keep lines short: about 40 characters fit.
+; Keep lines short: the band grows with longer lines and their text shrinks,
+; up to 72 characters.
 
 [Easier]
 ; The director gives the players room: be encouraging
