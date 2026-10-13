@@ -483,3 +483,30 @@ func TestBrawlerTalkComboHits(t *testing.T) {
 		t.Fatalf("lines %q", l[btCombo])
 	}
 }
+
+// [Level] lines: the level's own lines file, relative to the level; otherwise [Brawler] DirectorLines
+func TestBrawlerTalkLevelLines(t *testing.T) {
+	brawlerTestMode(t)
+	lv, err := brawlerTestPropFiles(t, brawlerTestPropLibrary, "[Level]\nname = x\nlines = voice.def\n[Enemies]\nenemy = thug\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Not next to the level: as given, from the game folder (like stage)
+	if lv.lines != "voice.def" {
+		t.Fatalf("lines %q", lv.lines)
+	}
+	oldLevel, oldTalk := sys.brawler.level, brawlerDirectorTalk
+	t.Cleanup(func() { sys.brawler.level, brawlerDirectorTalk = oldLevel, oldTalk })
+	sys.cfg.Brawler.DirectorLines = "config.def"
+	sys.brawler.level = &BrawlerLevel{}
+	if p := brawlerTalkPath(); p != "config.def" {
+		t.Fatalf("without level lines: %q", p)
+	}
+	path := filepath.Join(t.TempDir(), "voice.def")
+	os.WriteFile(path, []byte("[Easier]\nline = Steady, warrior.\n"), 0o644)
+	sys.brawler.level = &BrawlerLevel{lines: path}
+	brawlerDirectorTalk = brawlerDirectorTalkState{}
+	if l := brawlerDirectorTalk.linesNow(); l[btEasier][0] != "Steady, warrior." || brawlerDirectorTalk.linesFor != path {
+		t.Fatalf("level lines %q from %q", l[btEasier], brawlerDirectorTalk.linesFor)
+	}
+}

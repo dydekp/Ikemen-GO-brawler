@@ -172,9 +172,17 @@ func loadBrawlerTalkLines(path string) *brawlerTalkLines {
 	return lines
 }
 
-// The lines, read again when the configured file changes
+// The lines file: the level's ([Level] lines), or [Brawler] DirectorLines
+func brawlerTalkPath() string {
+	if lv := sys.brawler.level; lv != nil && lv.lines != "" {
+		return lv.lines
+	}
+	return sys.cfg.Brawler.DirectorLines
+}
+
+// The lines, read again when the file to use changes
 func (t *brawlerDirectorTalkState) linesNow() *brawlerTalkLines {
-	if path := sys.cfg.Brawler.DirectorLines; t.lines == nil || t.linesFor != path {
+	if path := brawlerTalkPath(); t.lines == nil || t.linesFor != path {
 		t.lines, t.linesFor = loadBrawlerTalkLines(path), path
 		t.comboHits = loadBrawlerTalkComboHits(path)
 	}

@@ -211,6 +211,9 @@ backtrack = 0                    ; 1 = the camera may scroll back to the left
 director  = pacing               ; Optional: how the director runs this level:
                                  ; pacing (default, with breathers), balance
                                  ; (no breathers), classic (no director)
+lines     = director.def         ; Optional: the director's lines for this
+                                 ; level (default: [Brawler] DirectorLines),
+                                 ; e.g. a content pack's own voice
 startx    = -2000                ; Optional: stage X the team starts at (e.g.
                                  ; in a stage extension, see section 6)
 extend    = left, street.png     ; Optional: a picture added to the stage,
@@ -788,7 +791,8 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   every 6 seconds, never the same line twice in a row. The lines are in
   data/brawler/director.def ([Easier] and [Harder], "line = ..."; {player}
   is the player a decision is about). [Brawler] DirectorLines sets another
-  file.
+  file, and a level can use its own with [Level] lines (a content pack
+  gives its director its own voice that way).
   It always comments on its help for a player in trouble (DIRECTOR in
   section 7, [Help] lines) and on the waves: one starting ([Wave], or
   [Boss] when a boss is in its spawn lines) and one cleared ([Cleared], or

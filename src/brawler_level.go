@@ -64,6 +64,7 @@ type BrawlerLevel struct {
 	hasZScale bool                 // zScale is set
 	backtrack bool                 // Camera may scroll back to the left
 	director  brawlerDirectorStyle // How the level uses the director (brawler_director.go)
+	lines     string               // The director's lines file for this level, "" = [Brawler] DirectorLines
 	attackers int32                // Enemies that may attack the same player at once (0 = [Brawler] AttackersPerPlayer)
 	endX      float32
 	hasEndX   bool
@@ -421,6 +422,8 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 		}
 	case "backtrack":
 		lv.backtrack = brawlerParseB(l.val)
+	case "lines":
+		lv.lines = p.resolve(l.val)
 	case "director":
 		if lv.director, err = parseBrawlerDirectorStyle(l.val); err != nil {
 			return err
@@ -444,7 +447,7 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 		lv.hasEndX = true
 	default:
 		return fmt.Errorf("unknown level parameter '%v' (name, stage, music, library, lanes, lanepos, topbound, botbound, "+
-			"boundleft, boundright, leftbound, rightbound, zscale, attackers, backtrack, director, endx, startx, extend, help)", l.key)
+			"boundleft, boundright, leftbound, rightbound, zscale, attackers, backtrack, director, lines, endx, startx, extend, help)", l.key)
 	}
 	return nil
 }
