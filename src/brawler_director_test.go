@@ -228,12 +228,12 @@ func TestBrawlerDirectorDepth(t *testing.T) {
 	if free.sameDepth(a, c) {
 		t.Error("far in free depth")
 	}
-	// Free depth movement glides towards the wanted depth
+	// Free depth movement walks towards the wanted depth at the depth walking speed
 	e := &Char{localscl: 1}
 	e.setSCF(SCF_ctrl)
 	f := &brawlerAIFrame{c: e, st: &e.bw, ai: &e.bw.ai, beh: newBrawlerBehavior("x"), grounded: true}
 	free.aiDepth(f, 20, false)
-	if e.pos[2] != 3 {
+	if e.pos[2] != brawlerDepthSpeed(e) || e.pos[2] <= 0 {
 		t.Errorf("free depth step: %v", e.pos[2])
 	}
 	if free.clampDepth(80) != 50 {

@@ -698,8 +698,8 @@ func (b *Brawler) flankSide(t *Char) float32 {
 }
 
 // Move towards a wanted depth. With lanes: switch to the closest lane after a reaction delay (force:
-// even if the profile doesn't follow its target through the lanes). With free depth movement: glide
-// there like a lane snap, while standing or walking
+// even if the profile doesn't follow its target through the lanes). With free depth movement: walk there
+// at the depth walking speed of players, while standing or walking
 func (b *Brawler) aiDepth(f *brawlerAIFrame, z float32, force bool) {
 	if !b.freeDepth() {
 		b.aiLane(f, b.depthLane(z), force)
@@ -709,7 +709,8 @@ func (b *Brawler) aiDepth(f *brawlerAIFrame, z float32, force bool) {
 	if Abs(dz) < 2 || !f.grounded || !f.c.ctrl() {
 		return
 	}
-	speed := sys.cfg.Brawler.LaneSnapSpeed
+	// Like a player walking in depth: [Brawler] DepthSpeed percent of its walk speed
+	speed := brawlerDepthSpeed(f.c)
 	b.moveZ(f.c, Clamp(dz, -speed, speed))
 }
 

@@ -326,10 +326,15 @@ func brawlerDepthSpeed(c *Char) float32 {
 	if walk <= 0 {
 		walk = brawlerDepthWalkDefault
 	}
-	return walk * sys.cfg.Brawler.DepthSpeed / 100
+	pct := sys.cfg.Brawler.DepthSpeed
+	if pct <= 0 {
+		pct = brawlerDepthSpeedDefault
+	}
+	return walk * pct / 100
 }
 
 const brawlerDepthWalkDefault = 2.4 // World units per frame, Kung Fu Man's walk
+const brawlerDepthSpeedDefault = 75 // [Brawler] DepthSpeed when it's missing or 0
 
 // Move in depth by dz world units, keeping interpolation smooth
 func (b *Brawler) moveZ(c *Char, dz float32) {
