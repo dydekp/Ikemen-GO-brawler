@@ -241,6 +241,7 @@ type Config struct {
 		BowlSlowdown        float32 `ini:"BowlSlowdown" sync:"host"`
 		GetUpGrace          int32   `ini:"GetUpGrace" sync:"host"`
 		DepthSpeed          float32 `ini:"DepthSpeed" sync:"host"`
+		DepthGuide          bool    `ini:"DepthGuide"`
 		EnemyLife           float32 `ini:"EnemyLife" sync:"host"`
 		MaxEnemiesPerPlayer int32   `ini:"MaxEnemiesPerPlayer" sync:"host"`
 		Intros              bool    `ini:"Intros" sync:"host"`

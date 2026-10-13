@@ -831,6 +831,9 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   section sets the number).
   Five enemies defeated in a row without a player taking damage get a
   [Streak] line ("defeats = 5" in that section).
+- Depth guide (levels without lanes, [Brawler] DepthGuide): a short bar in
+  the player's color at the feet of every enemy the player's attacks reach
+  in depth right now.
 - Incoming enemies: red arrows at the screen edges where enemies are about
   to walk in, with their number when there are several.
 - Low life: at a quarter of their life or less, a player's life bar gets
@@ -852,7 +855,7 @@ Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 ------------------------------
 Content:   Campaigns (comma separated folders), FreePlay, Enemies, Behaviors
 Controls:  LaneButton, FacingButton, FacingMode, TurnDelay, TurnBuffer,
-           LaneSelectWindow, LaneSnapSpeed, DepthSpeed
+           LaneSelectWindow, LaneSnapSpeed, DepthSpeed, DepthGuide
 Balance:   Difficulty, Difficulties, AttackersPerPlayer, Director,
            ExtraPlayerEnemies, MaxEnemiesPerPlayer,
            EnemyLife, DespawnTime,

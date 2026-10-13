@@ -290,6 +290,7 @@ func (b *Brawler) drawHUD(layerno int16) {
 	b.drawBossBars(txt)
 	b.drawGoSign(txt)
 	b.drawIncoming(txt)
+	b.drawDepthGuides()
 	b.drawContinue(txt)
 	b.drawSummary(txt)
 	b.drawTitleCard(txt)
@@ -728,6 +729,36 @@ func (b *Brawler) drawIncoming(txt brawlerHudText) {
 		}
 		if n := len(side.list); n > 1 {
 			txt.drawScaled(x-side.dir*10, y+2, fmt.Sprintf("x%v", n), int32(-side.dir), 0.7)
+		}
+	}
+}
+
+// Enemies on the screen that a player's attacks reach in depth right now (free depth movement)
+func (b *Brawler) depthAligned(p *Char) []*Char {
+	var list []*Char
+	for _, e := range b.instances() {
+		if x := brawlerX(e); e.alive() && x >= sys.xmin && x <= sys.xmax && b.sameDepth(p, e) {
+			list = append(list, e)
+		}
+	}
+	return list
+}
+
+// Free depth movement: a short bar in each player's color at the feet of the enemies it's lined up with, so
+// players see whom their attacks reach in depth. [Brawler] DepthGuide
+func (b *Brawler) drawDepthGuides() {
+	if !b.freeDepth() || !sys.cfg.Brawler.DepthGuide || b.complete {
+		return
+	}
+	for i, p := range b.players(true) {
+		k := b.charSeat(p)
+		if k < 0 {
+			continue
+		}
+		accent := brawlerHudColors[k%len(brawlerHudColors)]
+		for _, e := range b.depthAligned(p) {
+			x, y := brawlerHudPos(e, 0)
+			brawlerHudFill(x-16, y+1+float32(i)*3.5, 32, 2.5, accent, 230)
 		}
 	}
 }

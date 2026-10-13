@@ -228,3 +228,18 @@ func TestBrawlerHudFitNoFont(t *testing.T) {
 		t.Fatalf("scale %v", k)
 	}
 }
+
+// The enemies a player is lined up with in depth: alive, on the screen, within the depth reach
+func TestBrawlerDepthAligned(t *testing.T) {
+	b, list := directorFight(t, map[int]float32{0: 0}, []float32{100, 120, 140, 160, 5000}, nil)
+	sys.zmin, sys.zmax = -40, 40
+	p := b.root(0)
+	for i, z := range []float32{0, 10, 30, 0, 0} {
+		list[i].pos[2] = z
+	}
+	list[3].setSCF(SCF_ko)
+	got := b.depthAligned(p)
+	if len(got) != 2 || got[0] != list[0] || got[1] != list[1] {
+		t.Fatalf("aligned %v", len(got))
+	}
+}
