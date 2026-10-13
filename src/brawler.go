@@ -327,14 +327,16 @@ func (b *Brawler) roundInit() {
 	brawlerDirectorTalk.reset()
 	brawlerCallouts = [MaxSimul * 2]brawlerCallout{}
 
-	// Players start on the lane closest to their stage start position
+	// Players start on the lane closest to their stage start position (without lanes, where they stand)
 	for _, c := range b.players(false) {
 		c.bw = brawlerChar{initialized: true, aiLane: -1}
 		c.bw.spawnTime = brawlerSpawnBlink
 		c.bw.lane = b.nearestLane(c.pos[2] * c.localscl)
 		c.bw.targetLane = c.bw.lane
 		c.bw.desiredFace = c.facing
-		c.setPosZ(b.lanesZ[c.bw.lane]/c.localscl, true)
+		if len(b.lanesZ) > 0 {
+			c.setPosZ(b.lanesZ[c.bw.lane]/c.localscl, true)
+		}
 	}
 	b.startPending = b.level.hasStartX
 	b.moveToStart()
@@ -443,21 +445,7 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 		return false
 	}
 
-	lane := s.lane
-	switch {
-	case lane == -2:
-		// Lane of the player closest to the screen center
-		lane = 0
-		best := float32(math.MaxFloat32)
-		for _, p := range b.players(true) {
-			if d := Abs(brawlerX(p) - (sys.xmin+sys.xmax)/2); d < best {
-				best = d
-				lane = p.bw.targetLane
-			}
-		}
-	case lane < 0 || lane >= int32(len(b.lanesZ)):
-		lane = Rand(0, int32(len(b.lanesZ))-1)
-	}
+	lane, z := b.spawnDepth(s.lane)
 	side := s.side
 	if side == 0 {
 		side = Rand(0, 1)*2 - 1
@@ -496,7 +484,7 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 	h.redLife = h.lifeMax
 	h.setPosX(x/h.localscl, true)
 	h.setPosY(0, true)
-	h.setPosZ(b.lanesZ[lane]/h.localscl, true)
+	h.setPosZ(z/h.localscl, true)
 	h.vel = [3]float32{}
 	if (h.facing < 0) != (side > 0) {
 		h.setFacing(-h.facing)
@@ -515,6 +503,39 @@ func (b *Brawler) spawn(ei int, s BrawlerSpawn) bool {
 	h.bw.ai.init(e.behavior)
 	sys.charList.enemyNearChanged = true
 	return true
+}
+
+// Where a spawn line puts an enemy in depth: its lane (a number, -1 random, -2 the lane of the player closest
+// to the screen center) and that lane's depth. Without lanes (free depth movement) the lane is 0 and the
+// depth is that player's, random anywhere in the depth, or the middle for a lane number
+func (b *Brawler) spawnDepth(spot int32) (lane int32, z float32) {
+	var closest *Char
+	best := float32(math.MaxFloat32)
+	for _, p := range b.players(true) {
+		if d := Abs(brawlerX(p) - (sys.xmin+sys.xmax)/2); d < best {
+			best, closest = d, p
+		}
+	}
+	if b.freeDepth() {
+		switch {
+		case spot == -2 && closest != nil:
+			return 0, b.clampDepth(brawlerZ(closest))
+		case spot < 0 && sys.zmax > sys.zmin:
+			return 0, sys.zmin + float32(Rand(0, 1000))/1000*(sys.zmax-sys.zmin)
+		}
+		return 0, (sys.zmin + sys.zmax) / 2
+	}
+	lane = spot
+	switch {
+	case lane == -2:
+		lane = 0
+		if closest != nil {
+			lane = closest.bw.targetLane
+		}
+	case lane < 0 || lane >= int32(len(b.lanesZ)):
+		lane = Rand(0, int32(len(b.lanesZ))-1)
+	}
+	return lane, b.lanesZ[lane]
 }
 
 // Level progression. Runs once per game tick after the characters acted

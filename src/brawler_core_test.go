@@ -581,3 +581,39 @@ func TestBrawlerCoreEnemyTriggers(t *testing.T) {
 		t.Errorf("outside the mode: %v", n)
 	}
 }
+
+// Spawn lines' depth: lanes, or real depths without them (free depth movement)
+func TestBrawlerSpawnDepth(t *testing.T) {
+	b := brawlerTestMode(t, -30, 0, 30)
+	brawlerTestChars(t)
+	far := brawlerTestPlayer(b, 0, 150, 2)
+	near := brawlerTestPlayer(b, 2, 10, 0)
+	far.bw.targetLane, near.bw.targetLane = 2, 0
+	if lane, z := b.spawnDepth(-2); lane != 0 || z != -30 {
+		t.Errorf("lanes, player: %v %v", lane, z)
+	}
+	if lane, z := b.spawnDepth(1); lane != 1 || z != 0 {
+		t.Errorf("lanes, lane 1: %v %v", lane, z)
+	}
+	for i := 0; i < 50; i++ {
+		if lane, z := b.spawnDepth(7); lane < 0 || lane > 2 || z != b.lanesZ[lane] {
+			t.Fatalf("lanes, random: %v %v", lane, z)
+		}
+	}
+
+	// No lanes: the player's own depth, anywhere in the depth, or the middle
+	b.lanesZ = nil
+	sys.zmin, sys.zmax = -40, 40
+	near.pos[2] = 17
+	if lane, z := b.spawnDepth(-2); lane != 0 || z != 17 {
+		t.Errorf("free, player: %v %v", lane, z)
+	}
+	if _, z := b.spawnDepth(1); z != 0 {
+		t.Errorf("free, lane number: %v", z)
+	}
+	for i := 0; i < 50; i++ {
+		if lane, z := b.spawnDepth(-1); lane != 0 || z < -40 || z > 40 {
+			t.Fatalf("free, random: %v %v", lane, z)
+		}
+	}
+}
