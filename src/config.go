@@ -245,6 +245,8 @@ type Config struct {
 		IntroTime           int32   `ini:"IntroTime" sync:"host"`
 		MoveNames           bool    `ini:"MoveNames"`
 		DirectorInfo        bool    `ini:"DirectorInfo"`
+		DirectorTalk        bool    `ini:"DirectorTalk"`
+		DirectorLines       string  `ini:"DirectorLines"`
 	} `ini:"Brawler"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`

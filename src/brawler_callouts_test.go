@@ -80,26 +80,26 @@ func TestBrawlerDirectorLogWatch(t *testing.T) {
 		return kind, "changed", "because"
 	}
 	// The first value is the baseline, nothing is written
-	l.watch("k", 4, true, write)
+	l.watch("k", "", 4, true, write)
 	// A change is written once it held for the settle time; a blip back isn't written
 	for i := 0; i < brawlerDirLogSettle-1; i++ {
-		l.watch("k", 3, true, write)
+		l.watch("k", "", 3, true, write)
 	}
-	l.watch("k", 4, true, write)
+	l.watch("k", "", 4, true, write)
 	if writes != 0 {
 		t.Fatalf("blip written")
 	}
 	for i := 0; i < brawlerDirLogSettle+1; i++ {
-		l.watch("k", 3, true, write)
+		l.watch("k", "", 3, true, write)
 	}
 	if writes != 1 || len(l.entries) != 1 || l.entries[0].kind != bdlEasier || l.entries[0].why != "because" {
 		t.Fatalf("writes %v entries %+v", writes, l.entries)
 	}
 	// While it doesn't apply it's forgotten: coming back is a new baseline
-	l.watch("k", 3, false, write)
-	l.watch("k", 5, true, write)
+	l.watch("k", "", 3, false, write)
+	l.watch("k", "", 5, true, write)
 	for i := 0; i < brawlerDirLogSettle+1; i++ {
-		l.watch("k", 5, true, write)
+		l.watch("k", "", 5, true, write)
 	}
 	if writes != 1 {
 		t.Fatalf("written after not applying: %v", writes)

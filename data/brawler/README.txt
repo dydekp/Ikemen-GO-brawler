@@ -696,8 +696,16 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   with the reason: damage a player took recently, or low life. A change is
   only reported once it held for 1.5 seconds; each topic shows its latest
   change.
-Both options are in Options > Brawler Settings ([Brawler] MoveNames and
-DirectorInfo in the config).
+- Director announcements (option "Director Announcements", needs
+  Director = 1): when the director makes the fight easier or harder, it
+  says so with a short line in the upper center, encouraging (green edge)
+  when it eases off, challenging (red edge) when it pushes. At most one
+  every 6 seconds, never the same line twice in a row. The lines are in
+  data/brawler/director.def ([Easier] and [Harder], "line = ..."; {player}
+  is the player a decision is about). [Brawler] DirectorLines sets another
+  file.
+The options are in Options > Brawler Settings ([Brawler] MoveNames,
+DirectorInfo and DirectorTalk in the config).
 The HUD uses the fight screen's name font and scales to its localcoord.
 Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 
@@ -711,7 +719,8 @@ Balance:   AttackersPerPlayer, Director, ExtraPlayerEnemies, MaxEnemiesPerPlayer
            EnemyLife, DespawnTime,
            BowlDamage, BowlSlowdown
 Intros:    Intros, IntroTime
-Display:   MoveNames, DirectorInfo (also in Options > Brawler Settings)
+Display:   MoveNames, DirectorInfo, DirectorTalk (also in Options > Brawler
+           Settings), DirectorLines
 See the comments in the default config for details.
 
 

@@ -318,6 +318,7 @@ func (b *Brawler) roundInit() {
 	brawlerInitSeats()
 	brawlerControls.open = false
 	brawlerDirectorLog.reset()
+	brawlerDirectorTalk.reset()
 	brawlerCallouts = [MaxSimul * 2]brawlerCallout{}
 
 	// Players start on the lane closest to their stage start position

@@ -162,6 +162,17 @@ func (t brawlerHudText) draw(x, y float32, text string, align int32) {
 }
 
 // Text scaled by k, positioned in HUD coordinates
+// Text scaled by k and drawn with opacity alpha (0-1)
+func (t brawlerHudText) drawFaded(x, y float32, text string, align int32, k, alpha float32) {
+	if t.fnt == nil || text == "" || k <= 0 || alpha <= 0 {
+		return
+	}
+	u := brawlerHudUnit()
+	fs := &sys.fightScreen
+	newLayout(t.layer).DrawText((x*u+fs.offsetX)/k, y*u/k, fs.scale*k, t.layer,
+		text, t.fnt, t.bank, align, t.palfx, [4]float32{1, 1, 1, alpha})
+}
+
 func (t brawlerHudText) drawScaled(x, y float32, text string, align int32, k float32) {
 	if t.fnt == nil || text == "" || k <= 0 {
 		return
@@ -238,6 +249,7 @@ func (b *Brawler) drawHUD(layerno int16) {
 	b.drawContinue(txt)
 	b.drawCallouts(txt)
 	b.drawDirectorLog(txt)
+	b.drawDirectorTalk(txt)
 	b.drawDirectorDebug(txt)
 }
 

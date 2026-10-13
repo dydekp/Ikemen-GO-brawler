@@ -50,6 +50,7 @@ type brawlerDirLogValue struct {
 type brawlerDirectorLogState struct {
 	entries []brawlerDirLogEntry
 	values  map[string]*brawlerDirLogValue
+	talk    bool // The director announces its decisions (brawlerDirectorTalk)
 }
 
 var brawlerDirectorLog brawlerDirectorLogState
@@ -77,8 +78,9 @@ func (l *brawlerDirectorLogState) add(key string, kind brawlerDirLogKind, what, 
 }
 
 // Watch a value. While it doesn't apply (no wave, player down) it's forgotten silently. When it
-// changed and held, write(old, new) gives the entry: easier or harder, what changed and why ("" to write nothing)
-func (l *brawlerDirectorLogState) watch(key string, value int32, applies bool, write func(old, new int32) (brawlerDirLogKind, string, string)) {
+// changed and held, write(old, new) gives the entry: easier or harder, what changed and why ("" to write
+// nothing). The director announces it too (brawlerDirectorTalk), about who ("1P", "" for the team)
+func (l *brawlerDirectorLogState) watch(key, who string, value int32, applies bool, write func(old, new int32) (brawlerDirLogKind, string, string)) {
 	if l.values == nil {
 		l.values = map[string]*brawlerDirLogValue{}
 	}
@@ -100,6 +102,10 @@ func (l *brawlerDirectorLogState) watch(key string, value int32, applies bool, w
 		if v.since++; v.since >= brawlerDirLogSettle {
 			if kind, what, why := write(v.shown, value); what != "" {
 				l.add(key, kind, what, why)
+				if l.talk {
+					t := &brawlerDirectorTalk
+					t.announce(t.lines, kind, who)
+				}
 			}
 			v.shown = value
 		}
@@ -148,11 +154,19 @@ func (b *Brawler) directorLogStep() {
 	for len(l.entries) > 0 && l.entries[0].time <= 0 {
 		l.entries = l.entries[1:]
 	}
-	if !b.directorLogOn() {
+	t := &brawlerDirectorTalk
+	t.step()
+	// The decisions are watched for the feed, the announcements or both
+	if !b.directorLogOn() && !b.directorTalkOn() {
 		return
 	}
+	if l.talk = b.directorTalkOn(); l.talk {
+		t.linesNow()
+	}
 	d := &b.director
-	inWave := b.waveActive && b.wave < len(b.level.waves)
+	// With the whole team down (continue screen) nothing applies: the enemy limit going back up isn't
+	// the team recovering
+	inWave := b.waveActive && b.wave < len(b.level.waves) && len(b.players(true)) > 0
 
 	// Enemies alive at once
 	normal, capped := int32(0), int32(0)
@@ -160,7 +174,7 @@ func (b *Brawler) directorLogStep() {
 		normal = b.maxAliveUncapped(b.level.waves[b.wave])
 		capped = brawlerDirectorCap(normal, d.tension)
 	}
-	l.watch("alive", capped, inWave, func(old, now int32) (brawlerDirLogKind, string, string) {
+	l.watch("alive", "", capped, inWave, func(old, now int32) (brawlerDirLogKind, string, string) {
 		switch {
 		case now < old:
 			return bdlEasier, fmt.Sprintf("EASIER: max %v enemies at once (not %v)", now, normal), b.teamReason()
@@ -175,7 +189,7 @@ func (b *Brawler) directorLogStep() {
 	for _, p := range b.players(true) {
 		pn := p.playerNo
 		who := fmt.Sprintf("%vP", b.charSeat(p)+1)
-		l.watch(fmt.Sprintf("turns%v", pn), d.slots[pn], d.slots[pn] > 0, func(old, now int32) (brawlerDirLogKind, string, string) {
+		l.watch(fmt.Sprintf("turns%v", pn), who, d.slots[pn], d.slots[pn] > 0, func(old, now int32) (brawlerDirLogKind, string, string) {
 			slower := brawlerPressureCooldown(d.pressure[pn])
 			switch {
 			case now < old:
@@ -193,7 +207,7 @@ func (b *Brawler) directorLogStep() {
 	if pending {
 		pace = b.spawnPace()
 	}
-	l.watch("pace", pace, pending, func(old, now int32) (brawlerDirLogKind, string, string) {
+	l.watch("pace", "", pace, pending, func(old, now int32) (brawlerDirLogKind, string, string) {
 		if now > old {
 			return bdlHarder, fmt.Sprintf("HARDER: enemies come %vx faster", now), "fewer enemies than players, " + b.teamReason()
 		}

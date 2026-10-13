@@ -115,6 +115,7 @@ options.t_itemname = {
 			modifyGameOption('Options.QuickContinue', false)
 			modifyGameOption('Brawler.MoveNames', true)
 			modifyGameOption('Brawler.DirectorInfo', true)
+			modifyGameOption('Brawler.DirectorTalk', true)
 			modifyGameOption('Options.AutoGuard', false)
 			modifyGameOption('Options.GuardBreak', false)
 			modifyGameOption('Options.Dizzy', false)
@@ -455,6 +456,16 @@ options.t_itemname = {
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
 			modifyGameOption('Brawler.DirectorInfo', not gameOption('Brawler.DirectorInfo'))
 			t.items[item].vardisplay = options.t_vardisplay['brawlerdirectorinfo']()
+			options.modified = true
+		end
+		return true
+	end,
+	--Brawler: the director announces its decisions
+	['brawlerdirectortalk'] = function(t, item, cursorPosY, moveTxt)
+		if getInput(-1, motif.option_info.menu.add.key, motif.option_info.menu.subtract.key, motif.option_info.menu.done.key) then
+			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
+			modifyGameOption('Brawler.DirectorTalk', not gameOption('Brawler.DirectorTalk'))
+			t.items[item].vardisplay = options.t_vardisplay['brawlerdirectortalk']()
 			options.modified = true
 		end
 		return true
@@ -1584,6 +1595,9 @@ options.t_vardisplay = {
 	['brawlerdirectorinfo'] = function()
 		return options.f_boolDisplay(gameOption('Brawler.DirectorInfo'))
 	end,
+	['brawlerdirectortalk'] = function()
+		return options.f_boolDisplay(gameOption('Brawler.DirectorTalk'))
+	end,
 	['redlife'] = function()
 		return options.f_boolDisplay(gameOption('Options.RedLife'))
 	end,
@@ -1776,9 +1790,10 @@ function options.f_start()
 	-- Beat 'em up mode settings, unless the screenpack already defines (or hides) them
 	main.f_appendItemname(motif.option_info.menu, '', 'menubrawler', {
 		__value = 'Brawler Settings',
-		__order = {'brawlermovenames', 'brawlerdirectorinfo', 'back'},
+		__order = {'brawlermovenames', 'brawlerdirectorinfo', 'brawlerdirectortalk', 'back'},
 		brawlermovenames = 'Show Move Names',
 		brawlerdirectorinfo = 'Show Director Decisions',
+		brawlerdirectortalk = 'Director Announcements',
 		back = 'Back',
 	}, 'menuvideo')
 	-- create menu

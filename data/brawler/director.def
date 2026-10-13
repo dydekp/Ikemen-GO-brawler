@@ -1,0 +1,30 @@
+; Brawler mode director announcements ([Brawler] DirectorLines in the config)
+;
+; When the director makes the fight easier or harder, it says so with a short
+; line in the upper center of the screen ([Brawler] DirectorTalk = 1).
+; One line is picked at random, never the same one twice in a row.
+; {player} is replaced by the player the decision is about (1P, 2P...).
+; Lines with {player} are only used for decisions about one player.
+; Keep lines short: about 40 characters fit.
+
+[Easier]
+; The director gives the players room: be encouraging
+line = Hang in there!
+line = Catch your breath.
+line = Don't give up now!
+line = You've got this!
+line = Stay on your feet!
+line = Shake it off, {player}!
+line = Breathe, {player}. I'll hold them back.
+line = Keep fighting, {player}!
+
+[Harder]
+; The director turns up the heat: be challenging
+line = Too easy? Let's fix that.
+line = Warming up? Here comes more!
+line = Show me what you've got!
+line = Let's see you handle this!
+line = No more holding back!
+line = Getting comfortable, {player}?
+line = Think you're tough, {player}?
+line = {player} wants more. Granted!
