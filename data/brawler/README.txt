@@ -683,9 +683,10 @@ for example o and p.
   Free movement levels ([Level] lanes = 0) have no lanes: holding the
   button turns up and down into walking in depth (diagonals with left or
   right too), at [Brawler] DepthSpeed percent of the character's walking
-  speed. Enemies walk in depth at the same speed. Without the button, up and down jump and crouch as usual, so
-  every move and motion input keeps working. A character walks in depth
-  while standing or walking with control; attacks can start from the walk.
+  speed (enemies too). Without the button, up and down jump and crouch as
+  usual, so every move and motion input keeps working. A character walks
+  in depth while standing or walking with control; attacks can start from
+  the walk.
 
 FacingButton (default "w")
   FacingMode = lock: the character turns towards the direction it walks.
