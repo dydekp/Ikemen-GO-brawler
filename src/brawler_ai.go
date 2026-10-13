@@ -461,6 +461,9 @@ type brawlerAI struct {
 	patrolZ      float32 // Patrol with free depth: the depth of the current run
 	recoverLeft  int32   // Frames left backing off to recover, see aiRecover
 	recovered    bool    // Backed off to recover already
+	nextMove     int     // Index into the profile's moves of the next attack, -1 none (brawler_ai_reach.go)
+	moveIdx      int     // The attack being measured, -1 none
+	moveSeen     bool    // It got to its attack part
 }
 
 func (ai *brawlerAI) init(beh *BrawlerBehavior) {
@@ -481,6 +484,8 @@ func (ai *brawlerAI) init(beh *BrawlerBehavior) {
 		patrolLane: -1,
 		patrolStep: 1,
 		tauntTime:  brawlerRand(beh.tauntDelay),
+		nextMove:   pickBrawlerMoveIndex(beh.moves),
+		moveIdx:    -1,
 	}
 }
 
@@ -663,7 +668,9 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 	if f.toward == 0 {
 		f.toward = c.facing
 	}
-	f.reach = c.size.standbox[2]*c.localscl + f.beh.reach
+	b.learnReach(c, ai)
+	// In range for the attack it's going to use (brawler_ai_reach.go)
+	f.reach = b.attackReach(c, t, ai)
 	f.myZ, f.tZ = brawlerZ(c), brawlerZ(t)
 	f.sameLane = b.sameDepth(c, t)
 	f.grounded = c.ss.stateType != ST_A
@@ -937,9 +944,11 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 	}
 	if brawlerChance(beh.special) {
 		ai.cheat = brawlerRandomCommand(c.cmd[c.ss.sb.playerNo].Commands, b.ownAIOff(c))
-	} else if prog := pickBrawlerMove(beh.moves); prog != nil {
-		ai.start(prog, true)
+	} else if ai.nextMove >= 0 && ai.nextMove < len(beh.moves) {
+		ai.start(beh.moves[ai.nextMove].steps, true)
 		ai.comboLeft = brawlerRand(beh.combo)
+		ai.moveIdx, ai.moveSeen = ai.nextMove, false
+		ai.nextMove = pickBrawlerMoveIndex(beh.moves)
 	}
 	// Harder AI levels attack more often, a player under pressure gets more time between attacks
 	ai.cooldown = int32(float32(brawlerRand(beh.cooldown)) * brawlerCooldownScale(brawlerSkill(c)) * brawlerPressureCooldown(b.pressureOn(f.t)) * b.difficulty().cooldown / 100)

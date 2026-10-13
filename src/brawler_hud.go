@@ -658,6 +658,8 @@ func (b *Brawler) drawDirectorDebug(txt brawlerHudText) {
 		pace = fmt.Sprintf("building (%v)", d.buildTime)
 	}
 	txt.draw(316, y, fmt.Sprintf("intensity %.2f  %v  %v", d.intensity, pace, b.difficulty().name), -1)
+	y += 9
+	txt.draw(316, y, "reach "+b.reachSummary(), -1)
 	for _, p := range b.players(true) {
 		y += 9
 		txt.draw(316, y, fmt.Sprintf("%vP pressure %.2f  turns %v  enemies %v", b.charSeat(p)+1,

@@ -141,6 +141,7 @@ type Brawler struct {
 	props        []brawlerProp         // Breakable objects on the lanes, see brawler_props.go
 	items        []brawlerItem         // Items on the ground
 	propGfx      *brawlerPropGfx       // Their pictures, made with the stage. Shared by save states, never changed
+	moveReach    [][]brawlerReach      // Per enemy entry and move: how far it hits, see brawler_ai_reach.go
 	diff         BrawlerDifficulty     // Difficulty profile, taken when the level starts, see brawler_difficulty.go
 	auto         brawlerAutoDifficulty // Auto difficulty, see brawler_difficulty_auto.go
 	stats        brawlerLevelStats     // Time and defeats for the summary at the end, see brawler_summary.go
@@ -321,6 +322,7 @@ func (b *Brawler) roundInit() {
 	b.camMinSet = false
 	b.complete = false
 	b.stats = brawlerLevelStats{}
+	b.moveReach = nil
 	b.goTime = 0
 	b.downTime = 0
 	b.director = brawlerDirector{}

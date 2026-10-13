@@ -446,6 +446,11 @@ combo.moves   = x | a      ; Moves for follow-ups (default: moves)
 combo.delay   = 8, 14      ; Frames between combo moves
 cooldown      = 20, 55     ; Frames between attacks (min, max)
 reach         = 30         ; Attack distance in front of the body
+                           ; Only until the enemy used a move: each
+                           ; attack's real reach (its attack boxes, and
+                           ; its HitDef depth) is learned the first time,
+                           ; and the enemy gets in range for the attack
+                           ; it is about to use
 special       = 0.15       ; Chance an attack is a random command instead
 guard         = 0.1        ; Chance to guard when the target attacks
 hover         = 60, 120    ; Distance kept while waiting to attack
@@ -550,9 +555,10 @@ looks at all players and enemies together:
   and the phase.
 The behavior profiles still decide how an enemy approaches and fights
 (flank, jumpover, hitrun, patrol); flankers go for the less crowded side.
-The debug display (Ctrl+D) shows the director's numbers and the waiting
-spots. Director = 0 brings back the simpler rules: every enemy fights the
-nearest player, AttackersPerPlayer turns per player.
+The debug display (Ctrl+D) shows the director's numbers, the waiting
+spots and the attack reaches the enemies learned. Director = 0 brings back
+the simpler rules: every enemy fights the nearest player,
+AttackersPerPlayer turns per player.
 A level chooses how the director runs it with [Level] director: pacing (the
 default, everything above), balance (no breathers, e.g. for boss fights) or
 classic (the simpler rules, like Director = 0, for that level only).
