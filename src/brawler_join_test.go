@@ -399,3 +399,27 @@ func TestBrawlerJoinStandAnim(t *testing.T) {
 		t.Errorf("with animation 0: %v", a)
 	}
 }
+
+// A joining character's depth: its lane, or without lanes the depth of the teammate next to it
+func TestBrawlerJoinDepth(t *testing.T) {
+	b := brawlerTestMode(t, -30, 0, 30)
+	brawlerTestChars(t)
+	c := brawlerTestPlayer(b, 0, 0, 0)
+	if z := b.joinDepth(c, 0, 2); z != 30 {
+		t.Fatalf("lane 2: %v", z)
+	}
+	if z := b.joinDepth(c, 0, 9); z != 30 {
+		t.Fatalf("out of range lane: %v", z)
+	}
+	b.lanesZ = nil
+	sys.zmin, sys.zmax = -40, 40
+	if z := b.joinDepth(c, 0, 0); z != 0 {
+		t.Fatalf("alone: %v", z)
+	}
+	near := brawlerTestPlayer(b, 2, 20, 0)
+	far := brawlerTestPlayer(b, 4, 300, 0)
+	near.pos[2], far.pos[2] = 25, -35
+	if z := b.joinDepth(c, 0, 0); z != 25 {
+		t.Fatalf("next to a teammate: %v", z)
+	}
+}

@@ -624,7 +624,8 @@ trigger  = attack                ; When the introduction starts:
                                  ;   attack on its first attack
                                  ;   jump   on its first jump
                                  ;   lane   when it switches into its
-                                 ;          target's lane
+                                 ;          target's lane (without lanes:
+                                 ;          on its first jump)
                                  ;   run    when it starts running
 delay    = 5                     ; Frames into the move before the freeze,
                                  ; so it freezes mid move. Default: 5

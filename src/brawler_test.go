@@ -1102,3 +1102,25 @@ kills    = 5
 		}
 	}
 }
+
+// Without lanes a "lane" introduction starts on a jump
+func TestBrawlerIntroLaneFreeDepth(t *testing.T) {
+	b := brawlerTestMode(t)
+	intro := &BrawlerIntro{trigger: BIT_Lane}
+	b.level.enemies = []BrawlerEnemy{{alias: "ninja", intro: intro}}
+	c := fakeBrawlerEnemy(100, newBrawlerBehavior("x"), false)
+	c.bw.entry = 0
+	for i := int32(0); i <= intro.freezeDelay()+1 && !b.introOn; i++ {
+		b.checkIntro(c)
+	}
+	if b.introOn {
+		t.Fatal("introduced standing")
+	}
+	c.ss.stateType = ST_A
+	for i := int32(0); i <= intro.freezeDelay()+1 && !b.introOn; i++ {
+		b.checkIntro(c)
+	}
+	if !b.introOn {
+		t.Fatal("not introduced on a jump")
+	}
+}

@@ -452,9 +452,7 @@ func (b *Brawler) revive(c *Char, pal int32) {
 	x, lane, facing := b.spawnSpot(c)
 	c.setPosX(x/c.localscl, true)
 	c.setPosY(0, true)
-	if int(lane) < len(b.lanesZ) {
-		c.setPosZ(b.lanesZ[lane]/c.localscl, true)
-	}
+	c.setPosZ(b.joinDepth(c, x, lane)/c.localscl, true)
 	c.vel = [3]float32{}
 	c.setFacing(facing)
 	if brawlerCanDrop(c.gi().animTable) {
@@ -633,6 +631,21 @@ func (b *Brawler) spawnSpot(c *Char) (x float32, lane int32, facing float32) {
 		}
 	}
 	return x, lane, facing
+}
+
+// Depth a joining character starts at: its lane, or without lanes (free depth movement) the depth of the
+// teammate closest to x, or the middle of the depth with nobody else up
+func (b *Brawler) joinDepth(c *Char, x float32, lane int32) float32 {
+	if len(b.lanesZ) > 0 {
+		return b.lanesZ[Clamp(lane, 0, int32(len(b.lanesZ))-1)]
+	}
+	z, best := (sys.zmin+sys.zmax)/2, float32(-1)
+	for _, p := range b.players(true) {
+		if d := Abs(brawlerX(p) - x); p != c && (best < 0 || d < best) {
+			z, best = brawlerZ(p), d
+		}
+	}
+	return b.clampDepth(z)
 }
 
 // A player slot whose character is being loaded in the background. Its character and its global info

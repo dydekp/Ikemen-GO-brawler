@@ -161,6 +161,11 @@ func (b *Brawler) checkIntro(c *Char) {
 		case BIT_Jump:
 			active = c.ss.stateType == ST_A && c.ss.moveType != MT_H
 		case BIT_Lane:
+			// Without lanes (free depth movement) there are no lane jumps: any jump
+			if b.freeDepth() {
+				active = c.ss.stateType == ST_A && c.ss.moveType != MT_H
+				break
+			}
 			t := b.root(st.ai.target)
 			active = st.laneJump && st.airborne && t != nil && st.targetLane == t.bw.targetLane
 		case BIT_Run:
