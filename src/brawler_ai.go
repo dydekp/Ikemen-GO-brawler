@@ -884,9 +884,9 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 	if !f.sameLane || !f.grounded || f.adx > f.reach || !c.ctrl() || ai.cooldown > 0 || !f.facingTarget {
 		return false
 	}
-	// Don't pile onto a target that is already being hit or lies on the ground. Without this, several
-	// enemies juggle a player to death. An enemy's own combo still continues (aiContinue)
-	if f.t.ss.moveType == MT_H || f.t.ss.stateType == ST_L {
+	// Don't pile onto a target that is being hit, lies on the ground or just got up. An enemy's own combo
+	// still continues (aiContinue)
+	if !brawlerOpenToAttack(f.t) {
 		return false
 	}
 	// Hard limit: never more enemies attacking the same player at once than it has attack turns
@@ -1168,7 +1168,7 @@ func (b *Brawler) aiPatrolLeap(f *brawlerAIFrame) bool {
 	if ahead <= 10 || ahead > f.beh.jumpDist {
 		return false
 	}
-	if f.t.ss.moveType == MT_H || f.t.ss.stateType == ST_L || b.attackersOn(f.t, c) >= b.attackLimit(f.t) {
+	if !brawlerOpenToAttack(f.t) || b.attackersOn(f.t, c) >= b.attackLimit(f.t) {
 		return false
 	}
 	switch d := f.tst.targetLane - st.targetLane; {

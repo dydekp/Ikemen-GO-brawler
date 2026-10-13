@@ -239,6 +239,7 @@ type Config struct {
 		DespawnTime         int32   `ini:"DespawnTime" sync:"host"`
 		BowlDamage          float32 `ini:"BowlDamage" sync:"host"`
 		BowlSlowdown        float32 `ini:"BowlSlowdown" sync:"host"`
+		GetUpGrace          int32   `ini:"GetUpGrace" sync:"host"`
 		EnemyLife           float32 `ini:"EnemyLife" sync:"host"`
 		MaxEnemiesPerPlayer int32   `ini:"MaxEnemiesPerPlayer" sync:"host"`
 		Intros              bool    `ini:"Intros" sync:"host"`

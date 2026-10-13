@@ -460,6 +460,32 @@ func (b *Brawler) attackLimit(t *Char) int32 {
 	return b.attackersPerPlayer()
 }
 
+// A player who just got up from the ground is left alone for a moment: [Brawler] GetUpGrace frames, up
+// to twice as long under pressure. Otherwise the enemies waiting for them to stand hit them right away
+func (b *Brawler) trackGetUp() {
+	for _, p := range b.players(false) {
+		st := &p.bw
+		if st.getUpTime > 0 {
+			st.getUpTime--
+		}
+		lying := p.ss.stateType == ST_L
+		if st.lying && !lying && p.alive() {
+			st.getUpTime = brawlerGetUpGrace(sys.cfg.Brawler.GetUpGrace, b.pressureOn(p))
+		}
+		st.lying = lying
+	}
+}
+
+func brawlerGetUpGrace(base int32, pressure float32) int32 {
+	return int32(float32(base)*(1+Clamp(pressure, 0, 1)) + 0.5)
+}
+
+// Enemies may start an attack on a target: not while it's being hit, lies on the ground or just got up.
+// Without this, several enemies juggle a player to death
+func brawlerOpenToAttack(t *Char) bool {
+	return t.ss.moveType != MT_H && t.ss.stateType != ST_L && t.bw.getUpTime <= 0
+}
+
 // Pressure on a player, 0 without the director
 func (b *Brawler) pressureOn(t *Char) float32 {
 	if !b.directorOn() || t == nil || t.playerNo < 0 || t.playerNo >= len(b.director.pressure) {

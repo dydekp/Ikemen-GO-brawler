@@ -211,11 +211,12 @@ func f32reach(e *Char, beh *BrawlerBehavior) float32 {
 	return e.size.standbox[2]*e.localscl + beh.reach
 }
 
-// An enemy doesn't attack a player who is down or being hit, and not from another lane
+// An enemy doesn't attack a player who is down, being hit or just got up, and not from another lane
 func TestBrawlerAIAttackConditions(t *testing.T) {
 	for name, setup := range map[string]func(s *aiSim){
 		"player lying down": func(s *aiSim) { s.player.ss.stateType = ST_L },
 		"player being hit":  func(s *aiSim) { s.player.ss.moveType = MT_H },
+		"player got up":     func(s *aiSim) { s.player.bw.getUpTime = 1000 },
 		"other lane":        func(s *aiSim) { s.player.bw.targetLane, s.player.pos[2] = 0, -30 },
 	} {
 		s := newAISim(t, []float32{-30, 0, 30}, 0, 1)

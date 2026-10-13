@@ -83,6 +83,10 @@ type brawlerChar struct {
 	hudTarget int32 // Player ID of the enemy last hit, shown in the player's HUD panel
 	hudTime   int32 // Frames left to show hudTarget
 
+	// Getting up (players)
+	lying     bool  // On the ground last frame
+	getUpTime int32 // Frames enemies leave the player alone after getting up, see trackGetUp
+
 	// Enemies
 	entry     int // Enemy entry index in the level
 	entering  bool
@@ -546,6 +550,7 @@ func (b *Brawler) step() {
 		b.assignTokens()
 	}
 	b.trackHudTargets()
+	b.trackGetUp()
 	b.stepCallouts()
 
 	if sys.roundState() != 2 || b.complete {

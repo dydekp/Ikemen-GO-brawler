@@ -501,6 +501,10 @@ looks at all players and enemies together:
   of the player's pressure (at least one), priority profiles first, then
   the closest. An enemy keeps its turn unless another one is clearly
   closer. Attacks against a player under pressure come up to 1.6x slower.
+- Getting up: nobody starts an attack on a player who is being hit or
+  lies on the ground, and for [Brawler] GetUpGrace frames (default 30)
+  after they got up, up to twice as long under pressure. Enemies waiting
+  around a fallen player don't hit them the moment they stand.
 - Where the others wait ("wait = surround"): on a ring around their player
   at their hover distance, spread evenly. The ring keeps turning (about 13
   seconds per turn), so the crowd circles the player through the lanes and
@@ -735,7 +739,7 @@ Controls:  LaneButton, FacingButton, FacingMode, TurnDelay, TurnBuffer,
            LaneSelectWindow, LaneSnapSpeed
 Balance:   AttackersPerPlayer, Director, ExtraPlayerEnemies, MaxEnemiesPerPlayer,
            EnemyLife, DespawnTime,
-           BowlDamage, BowlSlowdown
+           BowlDamage, BowlSlowdown, GetUpGrace
 Intros:    Intros, IntroTime
 Display:   MoveNames, DirectorInfo, DirectorTalk (also in Options > Brawler
            Settings), DirectorLines

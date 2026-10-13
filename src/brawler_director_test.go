@@ -753,3 +753,49 @@ func TestBrawlerDirectorClearOfFighters(t *testing.T) {
 		t.Errorf("spot on the fighter: %v,%v", waiter.bw.ai.anchorX, waiter.bw.ai.anchorZ)
 	}
 }
+
+// A player getting up is left alone for [Brawler] GetUpGrace frames, longer under pressure
+func TestBrawlerGetUpGrace(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	sys.cfg.Brawler.GetUpGrace = 30
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	p.ss.stateType = ST_L
+	b.trackGetUp()
+	if p.bw.getUpTime != 0 || brawlerOpenToAttack(p) {
+		t.Fatalf("lying: grace %v, open %v", p.bw.getUpTime, brawlerOpenToAttack(p))
+	}
+	p.ss.stateType = ST_S
+	b.trackGetUp()
+	if p.bw.getUpTime != 30 || brawlerOpenToAttack(p) {
+		t.Fatalf("got up: grace %v", p.bw.getUpTime)
+	}
+	for i := 0; i < 30; i++ {
+		b.trackGetUp()
+	}
+	if !brawlerOpenToAttack(p) {
+		t.Fatalf("still protected after the grace: %v", p.bw.getUpTime)
+	}
+	// Under full pressure: twice as long
+	b.director.pressure[0] = 1
+	p.ss.stateType = ST_L
+	b.trackGetUp()
+	p.ss.stateType = ST_S
+	b.trackGetUp()
+	if p.bw.getUpTime != 60 {
+		t.Fatalf("grace under pressure %v", p.bw.getUpTime)
+	}
+	// Off
+	sys.cfg.Brawler.GetUpGrace = 0
+	p.bw.getUpTime = 0
+	p.ss.stateType = ST_L
+	b.trackGetUp()
+	p.ss.stateType = ST_S
+	b.trackGetUp()
+	if !brawlerOpenToAttack(p) {
+		t.Fatal("grace with GetUpGrace = 0")
+	}
+	if brawlerGetUpGrace(30, 0.5) != 45 || brawlerGetUpGrace(30, 3) != 60 {
+		t.Error("grace scaling")
+	}
+}
