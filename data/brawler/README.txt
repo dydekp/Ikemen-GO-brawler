@@ -680,13 +680,13 @@ for example o and p.
     from the middle: 1 press = up,     2 presses = down
     from the top:    1 press = bottom, 2 presses = middle
     from the bottom: 1 press = middle, 2 presses = top
-  Free movement levels ([Level] lanes = 0) have no lanes: holding the
-  button turns up and down into walking in depth (diagonals with left or
-  right too), at [Brawler] DepthSpeed percent of the character's walking
-  speed (enemies too). Without the button, up and down jump and crouch as
-  usual, so every move and motion input keeps working. A character walks
-  in depth while standing or walking with control; attacks can start from
-  the walk.
+  Free movement levels ([Level] lanes = 0, like the demo's Back Alley) have
+  no lanes: holding the button turns up and down into walking in depth
+  (diagonals with left or right too), at [Brawler] DepthSpeed percent of
+  the character's walking speed (enemies too). Without the button, up and
+  down jump and crouch as usual, so every move and motion input keeps
+  working. A character walks in depth while standing or walking with
+  control; attacks can start from the walk.
 
 FacingButton (default "w")
   FacingMode = lock: the character turns towards the direction it walks.

@@ -1149,3 +1149,15 @@ func TestBrawlerNoEnemyPerfect(t *testing.T) {
 		t.Fatal("no player perfect in beat 'em up mode")
 	}
 }
+
+// The demo's Back Alley: free movement on the street's stage, with props at depths that work without lanes
+func TestBrawlerShippedAlley(t *testing.T) {
+	useShippedBrawlerData(t)
+	lv, err := loadBrawlerLevel("../data/brawler/levels/alley.def")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lv.lanes != 0 || len(lv.props) == 0 || len(lv.waves) != 3 {
+		t.Fatalf("lanes %v, props %v, waves %v", lv.lanes, len(lv.props), len(lv.waves))
+	}
+}

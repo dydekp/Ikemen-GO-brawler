@@ -1,0 +1,45 @@
+; Level 2 of the demo campaign: the street's stage without lanes, to show free
+; movement. See ../README.txt for the format.
+
+[Level]
+name      = Back Alley
+stage     = stages/stageZ.def
+; Free movement: no lanes. Hold the lane button and press up or down to walk
+; in depth (without it, up and down jump and crouch as usual). The depth range
+; is the stage's topbound/botbound (-30..30)
+lanes     = 0
+backtrack = 0
+endx      = 300
+help      = chicken
+
+[Enemies]
+enemy = thug
+enemy = leaper
+enemy = ninja    ; flanks: circles around the player in depth before attacking
+enemy = runner
+
+[Wave 1]
+; Starts right away: enemies come from both sides, at the player's depth
+trigger  = -9999
+maxalive = 3
+spawn    = thug, right, player, 30, 2
+spawn    = ninja, left, player, 60, 1
+
+[Wave 2]
+; Anywhere in depth
+trigger  = 120
+maxalive = 4
+kills    = 6
+spawn    = thug|leaper|ninja, random, random, 45, inf
+
+[Wave 3]
+trigger  = 220
+maxalive = 4
+spawn    = runner, right, player, 60
+spawn    = leaper|ninja, random, random, 90, 3
+
+[Props]
+; Without lanes a prop stands at a random depth, or 0 for the middle
+prop = crate, 40, 0
+prop = barrel, 160, random, chicken
+item = apple, 260, random
