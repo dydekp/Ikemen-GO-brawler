@@ -3514,18 +3514,24 @@ func (s *System) stepRoundState() {
 	}
 }
 
+// A team won without losing life
+func (s *System) teamPerfect(team int) bool {
+	// Beat 'em up enemies are hidden templates and their instances: no perfect for them
+	if s.brawler.active() && team == 1 {
+		return false
+	}
+	for i := team; i < MaxSimul*2; i += 2 {
+		if len(s.chars[i]) > 0 &&
+			s.chars[i][0].teamside != -1 &&
+			s.chars[i][0].life < s.chars[i][0].lifeMax {
+			return false
+		}
+	}
+	return true
+}
+
 // Check if the round ended by KO or time over and set win types
 func (s *System) roundEndDecision() bool {
-	checkPerfect := func(team int) bool {
-		for i := team; i < MaxSimul*2; i += 2 {
-			if len(s.chars[i]) > 0 &&
-				s.chars[i][0].teamside != -1 &&
-				s.chars[i][0].life < s.chars[i][0].lifeMax {
-				return false
-			}
-		}
-		return true
-	}
 	if s.intro > 0 {
 		return false
 	}
@@ -3553,7 +3559,7 @@ func (s *System) roundEndDecision() bool {
 	for loser := range ko {
 		if s.brawler.active() {
 			ko[loser] = brawlerKO[loser]
-			if ko[loser] && checkPerfect(loser^1) {
+			if ko[loser] && s.teamPerfect(loser^1) {
 				s.winType[loser^1].SetPerfect()
 			}
 			continue
@@ -3571,7 +3577,7 @@ func (s *System) roundEndDecision() bool {
 			}
 		}
 		if ko[loser] {
-			if checkPerfect(loser ^ 1) {
+			if s.teamPerfect(loser ^ 1) {
 				s.winType[loser^1].SetPerfect()
 			} else if checkClutch(loser ^ 1) {
 				s.winType[loser^1].SetClutch()
@@ -3606,7 +3612,7 @@ func (s *System) roundEndDecision() bool {
 			if l[0] < l[1] {
 				winner = 1
 			}
-			if checkPerfect(winner) {
+			if s.teamPerfect(winner) {
 				s.winType[winner].SetPerfect()
 			} else if checkClutch(winner) {
 				s.winType[winner].SetClutch()

@@ -1124,3 +1124,24 @@ func TestBrawlerIntroLaneFreeDepth(t *testing.T) {
 		t.Fatal("not introduced on a jump")
 	}
 }
+
+// No perfect for the enemy side in beat 'em up mode; players can still have one
+func TestBrawlerNoEnemyPerfect(t *testing.T) {
+	brawlerTestMode(t)
+	brawlerTestChars(t)
+	old := sys.brawler
+	t.Cleanup(func() { sys.brawler = old })
+	sys.chars[0] = []*Char{{life: 1000, lifeMax: 1000}}
+	sys.chars[1] = []*Char{{life: 1000, lifeMax: 1000, teamside: 1}}
+	sys.brawler = Brawler{}
+	if !sys.teamPerfect(1) || !sys.teamPerfect(0) {
+		t.Fatal("perfect outside beat 'em up mode")
+	}
+	sys.brawler = Brawler{enabled: true, level: &BrawlerLevel{}}
+	if sys.teamPerfect(1) {
+		t.Fatal("enemy perfect in beat 'em up mode")
+	}
+	if !sys.teamPerfect(0) {
+		t.Fatal("no player perfect in beat 'em up mode")
+	}
+}
