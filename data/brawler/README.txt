@@ -694,6 +694,11 @@ for example o and p.
   working. A character walks in depth while standing or walking with
   control; attacks can start from the walk.
 
+Throws: right after a throw grabs an enemy, pressing the other direction
+  (within [Brawler] ThrowTurn frames, default 12) turns the throw around and
+  throws the enemy that way. Works with any character whose throw holds the
+  enemy in its own states, like MUGEN throws.
+
 FacingButton (default "w")
   FacingMode = lock: the character turns towards the direction it walks.
     Holding the button keeps the current facing, which allows walking
@@ -878,7 +883,7 @@ Sizes can be tuned in brawlerHudLayout (src/brawler_hud.go).
 ------------------------------
 Content:   Campaigns (comma separated folders), FreePlay, Enemies, Behaviors
 Controls:  LaneButton, FacingButton, FacingMode, TurnDelay, TurnBuffer,
-           LaneSelectWindow, LaneSnapSpeed, DepthSpeed, DepthGuide
+           LaneSelectWindow, LaneSnapSpeed, DepthSpeed, DepthGuide, ThrowTurn
 Balance:   Difficulty, Difficulties, AttackersPerPlayer, Director,
            ExtraPlayerEnemies, MaxEnemiesPerPlayer,
            EnemyLife, DespawnTime,

@@ -63,6 +63,13 @@ func (b *Brawler) processInput(c *Char, in [14]bool) [14]bool {
 	laneIdx := brawlerButtonIndex(sys.cfg.Brawler.LaneButton)
 	faceIdx := brawlerButtonIndex(sys.cfg.Brawler.FacingButton)
 	lane := laneIdx >= 0 && in[laneIdx]
+	st.holdDir = 0
+	if in[3] != in[2] {
+		st.holdDir = 1
+		if in[2] {
+			st.holdDir = -1
+		}
+	}
 	face := faceIdx >= 0 && in[faceIdx]
 	if laneIdx >= 0 {
 		in[laneIdx] = false

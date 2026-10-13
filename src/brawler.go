@@ -87,6 +87,11 @@ type brawlerChar struct {
 	hudTarget int32 // Player ID of the enemy last hit, shown in the player's HUD panel
 	hudTime   int32 // Frames left to show hudTarget
 
+	// Throws (players): see brawler_throw.go
+	holdDir     float32 // Screen direction the player holds: -1 left, 1 right, 0 none
+	throwTime   int32   // Frames the current throw has lasted
+	throwTurned bool    // It was turned around already
+
 	// Getting up (players)
 	lying     bool  // On the ground last frame
 	getUpTime int32 // Frames enemies leave the player alone after getting up, see trackGetUp
@@ -606,6 +611,7 @@ func (b *Brawler) step() {
 	}
 	b.trackHudTargets()
 	b.trackGetUp()
+	b.stepThrows()
 	brawlerStepPickupTexts()
 	b.stepCallouts()
 
