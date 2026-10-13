@@ -85,3 +85,17 @@ line = Look who's up again: {player}!
 line = {player} joins the fight!
 line = Fresh fists! Welcome, {player}!
 line = Reinforcements! Go get 'em, {player}!
+
+[Relax]
+; The fight peaked: the director gives the team a breather
+line = Catch your breath!
+line = Take five. You earned it.
+line = Easy now. Regroup!
+line = Breathe. They're waiting for you.
+
+[Resume]
+; The breather is over
+line = Break's over!
+line = Rested? Here we go again!
+line = Back to work!
+line = Round two. Ready?

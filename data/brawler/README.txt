@@ -516,6 +516,14 @@ looks at all players and enemies together:
   after 2.5 seconds, on the side with fewer enemies ([Level] help; the
   level needs items, e.g. drops from props or enemies). Then not again
   for that player for 40 seconds.
+- Pacing: the fight comes in waves of intensity. The intensity follows the
+  highest pressure on a player, rising within a second or two and falling
+  over a few seconds. When it reaches the difficulty's peak, the director
+  gives the team a breather: no new enemies (while some are left) and one
+  attacker per player, until things calmed down (2 seconds at least) or
+  the difficulty's relax time ran out. The next breather can come 15
+  seconds later at the earliest. The debug display shows the intensity
+  and the phase.
 The behavior profiles still decide how an enemy approaches and fights
 (flank, jumpover, hitrun, patrol); flankers go for the less crowded side.
 The debug display (Ctrl+D) shows the director's numbers and the waiting
@@ -530,8 +538,8 @@ Easy, Normal and Hard are profiles in data/brawler/difficulty.def ([Brawler]
 Difficulties): each changes enemy life and damage, attack turns per player,
 the time between attacks, how many enemies are alive at once (with
 MaxEnemiesPerPlayer), how strongly the director eases off under pressure,
-the get-up grace, and whether the director drops food for a player in
-trouble:
+the get-up grace, whether the director drops food for a player in
+trouble, and its breathers (Pacing above):
 
   [Difficulty easy]
   name      = Easy  ; shown in the options
@@ -543,6 +551,8 @@ trouble:
   ease      = 150   ; percent of the pressure the director sees
   getup     = 150   ; percent of GetUpGrace
   help      = 1     ; director help (food drops)
+  relax     = 420   ; frames a breather lasts at most (0 = no pacing)
+  peak      = 60    ; intensity (percent) that calls a breather
 
 Missing keys keep the normal value. The profile is taken when a level
 starts. More profiles can be added and chosen in the config; the options
@@ -747,8 +757,9 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   [Close] when a player was in real trouble in it; not when the level
   ends with the wave). In co-op it also reacts to the players: one going
   down while others fight on ([Down]), coming back ([Back]) and joining
-  during the level ([Join]). Challenging lines (harder, waves, bosses, a
-  player down) have a red edge, the others a green one. A line hidden by
+  during the level ([Join]), and to its breathers ([Relax], [Resume]).
+  Challenging lines (harder, waves, bosses, a player down, a breather
+  ending) have a red edge, the others a green one. A line hidden by
   a character introduction is shown again in full afterwards.
 The options are in Options > Brawler Settings ([Brawler] MoveNames,
 DirectorInfo and DirectorTalk in the config).

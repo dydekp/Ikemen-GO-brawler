@@ -585,7 +585,8 @@ func (b *Brawler) drawContinue(txt brawlerHudText) {
 	txt.drawScaled(160, y+9, fmt.Sprintf("%v", left), 0, 1.6)
 }
 
-// Director state in the debug display (Ctrl+D): team tension, enemies alive and allowed, and per player
+// Director state in the debug display (Ctrl+D): team tension, enemies alive and allowed, intensity and
+// pacing phase, difficulty, and per player
 // the pressure, attack turns and enemies assigned. Waiting spots are marked on the field
 func (b *Brawler) drawDirectorDebug(txt brawlerHudText) {
 	if !sys.debugDisplay || !b.directorOn() {
@@ -599,6 +600,15 @@ func (b *Brawler) drawDirectorDebug(txt brawlerHudText) {
 	// Right half of the screen, clear of the engine's own debug text on the left
 	y := brawlerHudHeight() * 0.45
 	txt.draw(316, y, fmt.Sprintf("DIRECTOR tension %.2f  alive %v/%v", d.tension, b.aliveEnemies(), limit), -1)
+	y += 9
+	pace := "building"
+	switch {
+	case d.relaxTime > 0:
+		pace = fmt.Sprintf("relax %v", d.relaxTime)
+	case d.buildTime > 0:
+		pace = fmt.Sprintf("building (%v)", d.buildTime)
+	}
+	txt.draw(316, y, fmt.Sprintf("intensity %.2f  %v  %v", d.intensity, pace, b.difficulty().name), -1)
 	for _, p := range b.players(true) {
 		y += 9
 		txt.draw(316, y, fmt.Sprintf("%vP pressure %.2f  turns %v  enemies %v", b.charSeat(p)+1,

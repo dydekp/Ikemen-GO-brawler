@@ -14,8 +14,11 @@ package main
 //   ease      = 150   ; how strongly the director reacts to pressure (recent damage, low life), percent
 //   getup     = 150   ; [Brawler] GetUpGrace, percent
 //   help      = 1     ; the director drops food for a player in trouble (brawler_director_help.go)
+//   relax     = 420   ; frames a breather lasts at most, 0 = none (brawler_director_pace.go)
+//   peak      = 60    ; intensity (percent) that calls a breather
 //
-// Missing keys keep the Normal value (100, 0, 1), and an unknown id or a missing file is Normal.
+// Missing keys keep the Normal value (100, 0, 1; relax 300, peak 70), and an unknown id or a missing
+// file is Normal.
 // The profile is taken when a level starts and is part of the Brawler state, so it can't change in the
 // middle of a level and save states keep it. The AI level of the game options still scales the enemies'
 // attack and guard rates on top (brawlerSkill).
@@ -33,12 +36,14 @@ type BrawlerDifficulty struct {
 	alive     float32
 	ease      float32
 	getUp     float32
-	attackers int32 // Added attack turns per player
+	attackers int32   // Added attack turns per player
+	relax     int32   // Frames a breather lasts at most, 0 = no pacing (brawler_director_pace.go)
+	peak      float32 // Intensity (percent) that calls a breather
 	help      bool
 }
 
 func newBrawlerDifficulty(id string) BrawlerDifficulty {
-	return BrawlerDifficulty{id: id, name: id, enemyLife: 100, damage: 100, cooldown: 100, alive: 100, ease: 100, getUp: 100, help: true}
+	return BrawlerDifficulty{id: id, name: id, enemyLife: 100, damage: 100, cooldown: 100, alive: 100, ease: 100, getUp: 100, help: true, relax: 300, peak: 70}
 }
 
 func (d *BrawlerDifficulty) set(key, val string) error {
@@ -58,12 +63,20 @@ func (d *BrawlerDifficulty) set(key, val string) error {
 		d.attackers = v
 		return nil
 	}
+	if key == "relax" {
+		v, err := brawlerParseI(val)
+		if err != nil || v < 0 {
+			return fmt.Errorf("invalid relax: %v (frames, 0 or more)", val)
+		}
+		d.relax = v
+		return nil
+	}
 	pct := map[string]*float32{
 		"enemylife": &d.enemyLife, "damage": &d.damage, "cooldown": &d.cooldown,
-		"alive": &d.alive, "ease": &d.ease, "getup": &d.getUp,
+		"alive": &d.alive, "ease": &d.ease, "getup": &d.getUp, "peak": &d.peak,
 	}[key]
 	if pct == nil {
-		return fmt.Errorf("unknown difficulty parameter '%v' (name, enemylife, damage, attackers, cooldown, alive, ease, getup, help)", key)
+		return fmt.Errorf("unknown difficulty parameter '%v' (name, enemylife, damage, attackers, cooldown, alive, ease, getup, help, relax, peak)", key)
 	}
 	v, err := brawlerParseF(strings.TrimSuffix(val, "%"))
 	if err != nil || v < 0 {

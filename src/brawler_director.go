@@ -58,6 +58,10 @@ type brawlerDirector struct {
 	helpGap   [MaxSimul * 2]int32   // Frames until each player may get help again
 	peak      float32               // Highest pressure on a player in the current wave
 	peakPn    int32                 // That player
+	intensity float32               // The team's intensity, see brawler_director_pace.go
+	relaxTime int32                 // Frames left of the current breather, 0 = none
+	relaxed   int32                 // Frames the current breather has lasted
+	buildTime int32                 // Frames until the next breather may come
 }
 
 func (b *Brawler) directorOn() bool {
@@ -267,9 +271,13 @@ func (b *Brawler) directorStep() {
 	}
 
 	// Attack turns and waiting spots per player
+	b.directorPace(b.waveActive && b.wave < len(b.level.waves) && sys.roundState() == 2 && !b.complete)
 	base := b.attackersPerPlayer()
 	for _, p := range dirPlayers {
 		d.slots[p.pn] = brawlerAttackSlots(base, p.pressure)
+		if b.relaxing() {
+			d.slots[p.pn] = 1
+		}
 		var list []*Char
 		for _, c := range enemies {
 			// Patrolling enemies don't take a turn from the others. They check the hard limit when they leap

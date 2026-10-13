@@ -11,6 +11,10 @@
 ;                     damage, low life): higher eases off sooner and more
 ;   getup     = 100   [Brawler] GetUpGrace
 ;   help      = 1     the director drops food for a player in trouble
+;   relax     = 300   frames a breather lasts at most when the fight peaks
+;                     (no new enemies, one attacker per player), 0 = none
+;   peak      = 70    intensity (percent) that calls a breather: higher
+;                     waits for a harder fight
 ; The game's AI level (Options > Difficulty) still scales the enemies'
 ; attack and guard rates on top.
 
@@ -24,6 +28,8 @@ alive     = 80
 ease      = 150
 getup     = 150
 help      = 1
+relax     = 420
+peak      = 60
 
 [Difficulty normal]
 name      = Normal
@@ -38,3 +44,5 @@ alive     = 125
 ease      = 60
 getup     = 50
 help      = 0
+relax     = 180
+peak      = 85

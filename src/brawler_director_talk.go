@@ -17,11 +17,13 @@ package main
 //   [Down]      ; a player goes down while others fight on
 //   [Back]      ; a player who was down is back (continue, rejoin)
 //   [Join]      ; a player joins during the level
+//   [Relax]     ; the director gives the team a breather (brawler_director_pace.go)
+//   [Resume]    ; the breather is over
 //
 // {player} is the player a line is about (1P, 2P...); lines with it are only used for lines about one
 // player, lines without it for any. The director's decisions are the ones its log watches
 // (brawler_director_log.go): enemies alive at once, attack turns per player, spawn pace. They're announced
-// at least brawlerTalkGap frames apart. Help, the waves and the players are always announced. A line
+// at least brawlerTalkGap frames apart. Help, the waves, the players and breathers are always announced. A line
 // an introduction interrupted (the HUD is hidden in them) is shown again in full afterwards. No line repeats the last
 // one of its topic.
 //
@@ -54,15 +56,17 @@ const (
 	btDown
 	btBack
 	btJoin
+	btRelax
+	btResume
 	btCount
 )
 
 // The director.def section of each topic
-var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join"}
+var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume"}
 
 // Topics that challenge the players (shown with a red edge); the others encourage them (green)
 func (tp brawlerTalkTopic) challenging() bool {
-	return tp == btHarder || tp == btWave || tp == btBoss || tp == btDown
+	return tp == btHarder || tp == btWave || tp == btBoss || tp == btDown || tp == btResume
 }
 
 // The topic of a decision the log watched
@@ -90,6 +94,8 @@ var brawlerTalkDefault = brawlerTalkLines{
 	btDown:    {"{player} is down! Hold the line!", "Cover for {player}!"},
 	btBack:    {"Welcome back, {player}!", "{player} is back in it!"},
 	btJoin:    {"{player} joins the fight!", "Fresh fists! Welcome, {player}!"},
+	btRelax:   {"Catch your breath!", "Take five. You earned it."},
+	btResume:  {"Break's over!", "Rested? Here we go again!"},
 }
 
 type brawlerDirectorTalkState struct {

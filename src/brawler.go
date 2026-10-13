@@ -668,6 +668,10 @@ func (b *Brawler) stepWave() {
 	if len(b.players(true)) == 0 {
 		return
 	}
+	// No new enemies during a breather, while some are still around (brawler_director_pace.go)
+	if b.relaxing() && b.aliveEnemies() > 0 {
+		return
+	}
 	if b.queueDelay > 0 {
 		b.queueDelay -= b.spawnPace()
 		return

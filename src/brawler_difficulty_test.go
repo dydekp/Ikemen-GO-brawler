@@ -51,7 +51,7 @@ func TestBrawlerDifficultyShipped(t *testing.T) {
 	}
 	easier := func(a, b BrawlerDifficulty) bool {
 		return a.enemyLife < b.enemyLife && a.damage < b.damage && a.attackers < b.attackers && a.cooldown > b.cooldown &&
-			a.alive < b.alive && a.ease > b.ease && a.getUp > b.getUp
+			a.alive < b.alive && a.ease > b.ease && a.getUp > b.getUp && a.relax > b.relax && a.peak < b.peak
 	}
 	if !easier(e, n) || !easier(n, h) {
 		t.Errorf("easy %+v\nnormal %+v\nhard %+v", e, n, h)
