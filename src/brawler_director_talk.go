@@ -15,6 +15,7 @@ package main
 //   [Cleared]   ; a wave is cleared
 //   [Close]     ; a wave is cleared after a player was in real trouble in it
 //   [Down]      ; a player goes down while others fight on
+//   [LastStand] ; a player goes down and leaves one player standing alone ({player}: that one)
 //   [Back]      ; a player who was down is back (continue, rejoin)
 //   [Join]      ; a player joins during the level
 //   [Relax]     ; the director gives the team a breather (brawler_director_pace.go)
@@ -62,15 +63,16 @@ const (
 	btResume
 	btVictory
 	btSurvived
+	btLastStand
 	btCount
 )
 
 // The director.def section of each topic
-var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived"}
+var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand"}
 
 // Topics that challenge the players (shown with a red edge); the others encourage them (green)
 func (tp brawlerTalkTopic) challenging() bool {
-	return tp == btHarder || tp == btWave || tp == btBoss || tp == btDown || tp == btResume
+	return tp == btHarder || tp == btWave || tp == btBoss || tp == btDown || tp == btResume || tp == btLastStand
 }
 
 // The topic of a decision the log watched
@@ -88,20 +90,21 @@ func brawlerTalkTopicOf(kind brawlerDirLogKind) (brawlerTalkTopic, bool) {
 type brawlerTalkLines [btCount][]string
 
 var brawlerTalkDefault = brawlerTalkLines{
-	btEasier:   {"Hang in there!", "Catch your breath.", "Shake it off, {player}!"},
-	btHarder:   {"Too easy? Let's fix that.", "Warming up? Here comes more!", "Getting comfortable, {player}?"},
-	btHelp:     {"Here, {player}, eat up!", "Hang on, {player}! Take this."},
-	btWave:     {"Here they come!", "Heads up!"},
-	btBoss:     {"Here comes the big one!"},
-	btCleared:  {"Nicely done.", "Area clear!"},
-	btClose:    {"That was close!", "Still standing? Impressive."},
-	btDown:     {"{player} is down! Hold the line!", "Cover for {player}!"},
-	btBack:     {"Welcome back, {player}!", "{player} is back in it!"},
-	btJoin:     {"{player} joins the fight!", "Fresh fists! Welcome, {player}!"},
-	btRelax:    {"Catch your breath!", "Take five. You earned it."},
-	btResume:   {"Break's over!", "Rested? Here we go again!"},
-	btVictory:  {"Level clear! Nicely done."},
-	btSurvived: {"Made it. Barely."},
+	btEasier:    {"Hang in there!", "Catch your breath.", "Shake it off, {player}!"},
+	btHarder:    {"Too easy? Let's fix that.", "Warming up? Here comes more!", "Getting comfortable, {player}?"},
+	btHelp:      {"Here, {player}, eat up!", "Hang on, {player}! Take this."},
+	btWave:      {"Here they come!", "Heads up!"},
+	btBoss:      {"Here comes the big one!"},
+	btCleared:   {"Nicely done.", "Area clear!"},
+	btClose:     {"That was close!", "Still standing? Impressive."},
+	btDown:      {"{player} is down! Hold the line!", "Cover for {player}!"},
+	btBack:      {"Welcome back, {player}!", "{player} is back in it!"},
+	btJoin:      {"{player} joins the fight!", "Fresh fists! Welcome, {player}!"},
+	btRelax:     {"Catch your breath!", "Take five. You earned it."},
+	btResume:    {"Break's over!", "Rested? Here we go again!"},
+	btVictory:   {"Level clear! Nicely done."},
+	btSurvived:  {"Made it. Barely."},
+	btLastStand: {"{player}, you're on your own!"},
 }
 
 type brawlerDirectorTalkState struct {
@@ -328,6 +331,12 @@ func (b *Brawler) talkPlayers() {
 		for pn, is := range now {
 			topic := btCount
 			switch was := t.seen[pn]; {
+			case was == btsUp && is == btsDown && up == 1:
+				// One player left standing: about that one
+				for _, c := range b.players(true) {
+					t.say(t.linesNow(), btLastStand, fmt.Sprintf("%vP", b.charSeat(c)+1))
+				}
+				continue
 			case was == btsUp && is == btsDown:
 				topic = btDown
 			case was == btsDown && is == btsUp:

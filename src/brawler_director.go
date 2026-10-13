@@ -43,6 +43,7 @@ const (
 	brawlerTokenStick     = 25    // Distance bonus for keeping an attack turn (avoids flip-flopping)
 	brawlerFighterClear   = 45    // Distance waiting spots keep from a fighting enemy in its lane
 	brawlerRefillPace     = 3     // Spawn delay countdown speed while there are fewer enemies than players
+	brawlerLastStandEase  = 0.5   // Tension the enemy limit assumes at least for the last player standing
 )
 
 // Part of the Brawler state (fixed size arrays only, so save states copy it)
@@ -493,6 +494,11 @@ func (b *Brawler) spawnPace() int32 {
 		return brawlerRefillPace
 	}
 	return 1
+}
+
+// Co-op with every player but one down: the last one stands alone until the others are back
+func (b *Brawler) lastStand() bool {
+	return len(b.players(true)) == 1 && len(b.players(false)) >= 2
 }
 
 // Attack limit for a target: the director's turns for that player, or the level's attackers

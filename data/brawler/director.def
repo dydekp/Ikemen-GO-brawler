@@ -113,3 +113,11 @@ line = Made it. Barely.
 line = Bruised, but standing. Good enough!
 line = That one hurt. Patch up and move on.
 line = Survived! Next time, guard more.
+
+[LastStand]
+; Co-op: a player goes down and only one is left standing ({player}: the one
+; still standing). The director also keeps fewer enemies on screen for them
+line = {player}, you're on your own!
+line = Hold the fort, {player}!
+line = It's all on you now, {player}!
+line = Last one standing: show them, {player}!

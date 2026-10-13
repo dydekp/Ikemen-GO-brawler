@@ -297,7 +297,7 @@ func TestBrawlerTalkPlayers(t *testing.T) {
 	sys.cfg.Brawler.DirectorLines = "test"
 	tk := &brawlerDirectorTalk
 	p1 := brawlerTestPlayer(b, 0, 0, 0)
-	brawlerJoin.slotSeat[0], brawlerJoin.slotSeat[2] = 0, 1
+	brawlerJoin.slotSeat[0], brawlerJoin.slotSeat[2], brawlerJoin.slotSeat[4] = 0, 1, 2
 	step := func() string {
 		tk.text = ""
 		b.talkPlayers()
@@ -311,12 +311,25 @@ func TestBrawlerTalkPlayers(t *testing.T) {
 	if s := step(); s != "join 2P" {
 		t.Fatalf("join: %q", s)
 	}
+	p3 := brawlerTestPlayer(b, 4, 80, 0)
+	if s := step(); s != "join 3P" {
+		t.Fatalf("join: %q", s)
+	}
 	p2.setSCF(SCF_ko)
 	if s := step(); s != "down 2P" {
 		t.Fatalf("down: %q", s)
 	}
 	if s := step(); s != "" {
 		t.Fatalf("said %q again", s)
+	}
+	// Only one left standing: a last stand, about that one
+	p3.setSCF(SCF_ko)
+	if s := step(); s != "laststand 1P" || !b.lastStand() {
+		t.Fatalf("last stand: %q %v", s, b.lastStand())
+	}
+	p3.unsetSCF(SCF_ko)
+	if s := step(); s != "back 3P" {
+		t.Fatalf("back: %q", s)
 	}
 	p2.unsetSCF(SCF_ko)
 	if s := step(); s != "back 2P" {
@@ -325,6 +338,7 @@ func TestBrawlerTalkPlayers(t *testing.T) {
 	// Everybody down: the continue screen, nobody to talk to
 	p1.setSCF(SCF_ko)
 	p2.setSCF(SCF_ko)
+	p3.setSCF(SCF_ko)
 	if s := step(); s != "" {
 		t.Fatalf("said %q with everybody down", s)
 	}

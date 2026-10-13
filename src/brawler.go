@@ -727,7 +727,12 @@ func (b *Brawler) endWave() {
 func (b *Brawler) maxAlive(w BrawlerWave) int32 {
 	n := b.maxAliveUncapped(w)
 	if b.directorOn() {
-		n = brawlerDirectorCap(n, b.director.tension)
+		tension := b.director.tension
+		// The last player standing in co-op holds out against fewer enemies
+		if b.lastStand() {
+			tension = Max(tension, brawlerLastStandEase)
+		}
+		n = brawlerDirectorCap(n, tension)
 	}
 	return n
 }

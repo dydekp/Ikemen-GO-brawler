@@ -177,10 +177,12 @@ func (b *Brawler) directorLogStep() {
 	normal, capped := int32(0), int32(0)
 	if inWave {
 		normal = b.maxAliveUncapped(b.level.waves[b.wave])
-		capped = brawlerDirectorCap(normal, d.tension)
+		capped = b.maxAlive(b.level.waves[b.wave])
 	}
 	l.watch("alive", "", capped, inWave, func(old, now int32) (brawlerDirLogKind, string, string) {
 		switch {
+		case now < old && b.lastStand():
+			return bdlEasier, fmt.Sprintf("EASIER: max %v enemies at once (not %v)", now, normal), "last player standing"
 		case now < old:
 			return bdlEasier, fmt.Sprintf("EASIER: max %v enemies at once (not %v)", now, normal), b.teamReason()
 		case now >= normal:

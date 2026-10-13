@@ -514,6 +514,9 @@ looks at all players and enemies together:
   around both sides, and nobody waits right in front of the player in its
   own lane. On a single lane, where they can't get past the player, they
   line up in rows on their side instead.
+- Last stand: in co-op with every player but one down, the enemy limit
+  assumes at least half tension (a quarter fewer enemies) until the
+  others are back.
 - Help: a player below 35% life who keeps getting hurt although they
   already have the fewest attackers gets an item dropped next to them
   after 2.5 seconds, on the side with fewer enemies ([Level] help; the
@@ -783,7 +786,9 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   [Close] when a player was in real trouble in it; not when the level
   ends with the wave). In co-op it also reacts to the players: one going
   down while others fight on ([Down]), coming back ([Back]) and joining
-  during the level ([Join]), and to its breathers ([Relax], [Resume]).
+  during the level ([Join]), a last player standing ([LastStand]: the
+  others are down, so the director also keeps fewer enemies on screen
+  until they are back), and to its breathers ([Relax], [Resume]).
   Challenging lines (harder, waves, bosses, a player down, a breather
   ending) have a red edge, the others a green one. A line hidden by
   a character introduction is shown again in full afterwards.

@@ -205,3 +205,24 @@ func TestBrawlerDirectorStyle(t *testing.T) {
 		t.Fatal("Director = 0: director on")
 	}
 }
+
+// The last player standing in co-op holds out against fewer enemies
+func TestBrawlerLastStand(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	p1 := brawlerTestPlayer(b, 0, 0, 0)
+	w := BrawlerWave{maxAlive: 4}
+	alone := b.maxAlive(w)
+	if b.lastStand() {
+		t.Fatal("last stand playing alone")
+	}
+	p2 := brawlerTestPlayer(b, 2, 50, 0)
+	p2.setSCF(SCF_ko)
+	if !b.lastStand() || b.maxAlive(w) != brawlerDirectorCap(alone, brawlerLastStandEase) || b.maxAlive(w) >= alone {
+		t.Fatalf("last stand: %v, %v enemies (alone %v)", b.lastStand(), b.maxAlive(w), alone)
+	}
+	p1.setSCF(SCF_ko)
+	if b.lastStand() {
+		t.Fatal("last stand with everybody down")
+	}
+}
