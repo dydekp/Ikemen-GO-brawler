@@ -350,6 +350,7 @@ func (b *Brawler) drawPlayerPanel(p *Char, l brawlerHudPanel, slot int, txt braw
 
 	// Name, life and power
 	txt.draw(l.barX, l.nameY, sys.cgi[p.playerNo].lifebarname, 1)
+	b.drawScore(p, l, txt)
 	life, red := brawlerLifeRatio(p)
 	brawlerHudBar(l.barX, l.lifeY, l.barW, l.lifeH, life, red, brawlerHudLifeColor(life))
 	// Nearly out: a pulsing red frame around the life bar

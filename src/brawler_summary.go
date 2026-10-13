@@ -24,6 +24,7 @@ type brawlerLevelStats struct {
 	time    int32               // Frames the level was fought
 	kills   int32               // Enemies defeated
 	killsBy [MaxSimul * 2]int32 // Per player slot: the defeats whose last hit was theirs
+	score   [MaxSimul * 2]int32 // Per player slot: the score so far in the campaign, see brawler_score.go
 	endTime int32               // Frames since the level was cleared
 }
 
@@ -117,11 +118,12 @@ func (b *Brawler) drawTitleCard(txt brawlerHudText) {
 
 // A defeated enemy counts for the player whose hit knocked it out (or that player's helper)
 func (b *Brawler) creditDefeat(c *Char) {
-	a := sys.playerID(c.ghv.playerid)
-	if a == nil || a.teamside != 0 || a.playerNo < 0 || a.playerNo >= len(b.stats.killsBy) {
+	pn := b.attackerSlot(c)
+	if pn < 0 {
 		return
 	}
-	b.stats.killsBy[a.playerNo]++
+	b.stats.killsBy[pn]++
+	b.scoreDefeat(c, pn)
 }
 
 // Defeats per player for the summary in co-op: "1P 12   2P 9", "" with one player

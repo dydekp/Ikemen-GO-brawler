@@ -6294,6 +6294,7 @@ func systemScriptInit(l *lua.LState) {
 		@function brawlerClearLevel*/
 		brawlerFinishJoinLoads()
 		sys.brawler.restoreStage()
+		brawlerScoreReset()
 		sys.brawler.level = nil
 		sys.brawler.typeDefs = nil
 		sys.brawler.enabled = false

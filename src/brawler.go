@@ -100,6 +100,7 @@ type brawlerChar struct {
 	introWait int32    // Frames the move that triggers the enemy's introduction has been going on
 	bowled    [8]int32 // Enemies hit by this body during the current fall
 	bowledN   int
+	scoreLife int32 // Life last frame, for the score (brawler_score.go)
 	ai        brawlerAI
 }
 
@@ -322,6 +323,7 @@ func (b *Brawler) roundInit() {
 	b.camMinSet = false
 	b.complete = false
 	b.stats = brawlerLevelStats{}
+	b.scoreStart()
 	b.seedReach()
 	b.goTime = 0
 	b.downTime = 0
@@ -621,6 +623,7 @@ func (b *Brawler) step() {
 	// Level cleared
 	if !b.waveActive && b.wave >= len(b.level.waves) && (!b.level.hasEndX || lead >= b.level.endX) {
 		b.complete = true
+		b.scoreCarry()
 		b.talkLevelCleared()
 	}
 }
@@ -630,6 +633,7 @@ func (b *Brawler) updateEnemies() {
 	despawnTime := sys.cfg.Brawler.DespawnTime
 	for _, c := range b.instances() {
 		st := &c.bw
+		b.scoreDamage(c)
 		if st.entering {
 			st.enterTime++
 			x := brawlerX(c)
