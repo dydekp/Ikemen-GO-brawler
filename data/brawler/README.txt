@@ -563,7 +563,26 @@ trouble, and its breathers (Pacing above):
 
 Missing keys keep the normal value. The profile is taken when a level
 starts. More profiles can be added and chosen in the config; the options
-menu cycles easy, normal and hard.
+menu cycles easy, normal, hard and auto.
+
+Auto slides between three profiles as the team plays. After every wave
+(with defeats) the director compares the life the players lost per enemy
+defeated with par: nothing lost moves it a full step towards hard, twice
+par a full step towards easy. It carries over from level to level while
+the game runs, and the log shows each change ("HARDER: Auto 65%").
+
+  [Difficulty auto]
+  name  = Auto
+  auto  = easy, normal, hard  ; easiest, middle and hardest profile
+  par   = 8                   ; percent of max life a player may lose per
+                              ; enemy defeated at an even pace
+  step  = 15                  ; how far one wave moves it at most (percent)
+  start = 50                  ; 0 = the easiest, 50 = the middle, 100 =
+                              ; the hardest
+
+Between the profiles every number is blended; help comes from the nearer
+one. Auto needs the director to measure the damage: in a level with
+director = classic it stays where it is.
 
 Behavior profiles are tuned for the default AI level. The AI level of the game
 options (Options > Difficulty, 1-8) scales them on top of the brawler

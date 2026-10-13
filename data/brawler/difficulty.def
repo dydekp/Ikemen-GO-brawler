@@ -46,3 +46,16 @@ getup     = 50
 help      = 0
 relax     = 180
 peak      = 85
+
+[Difficulty auto]
+; Slides between easy, normal and hard as the team plays: after every wave
+; the director compares the life the players lost per enemy defeated with
+; par. Less moves it towards hard, more towards easy. Carries over from
+; level to level.
+name  = Auto
+auto  = easy, normal, hard   ; the profiles it slides between
+par   = 8                    ; percent of max life a player may lose per
+                             ; enemy defeated at an even pace
+step  = 15                   ; how far one wave moves it at most, percent
+start = 50                   ; where it starts: 0 = easy, 50 = normal,
+                             ; 100 = hard

@@ -64,6 +64,7 @@ type brawlerDirector struct {
 	relaxTime int32                 // Frames left of the current breather, 0 = none
 	relaxed   int32                 // Frames the current breather has lasted
 	buildTime int32                 // Frames until the next breather may come
+	waveHurt  float32               // Life the players lost in the current wave, in max lives
 }
 
 // How a level uses the director: [Level] director = pacing (default) | balance | classic
@@ -97,8 +98,13 @@ var brawlerStressDecay = float32(math.Pow(0.5, 1/float64(brawlerStressHalfLife))
 // Track a player's damage. Life going up (recovery, rejoin) isn't damage
 func (d *brawlerDirector) observe(pn int, life, lifeMax int32, alive bool, ease float32) {
 	d.stress[pn] *= brawlerStressDecay
-	if alive && d.lastLife[pn] > 0 && life < d.lastLife[pn] {
-		d.stress[pn] += float32(d.lastLife[pn]-life) / float32(Max(1, lifeMax))
+	if d.lastLife[pn] > 0 && life < d.lastLife[pn] {
+		hurt := float32(d.lastLife[pn]-life) / float32(Max(1, lifeMax))
+		// The hit that knocks a player out counts for the wave, not for the pressure
+		d.waveHurt += hurt
+		if alive {
+			d.stress[pn] += hurt
+		}
 	}
 	d.lastLife[pn] = life
 	if !alive {

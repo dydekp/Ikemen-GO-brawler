@@ -59,6 +59,10 @@ func TestBrawlerDifficultyShipped(t *testing.T) {
 	if !e.help || h.help {
 		t.Error("help: on in easy, off in hard")
 	}
+	// Auto slides between the three
+	if a := got["auto"]; a.autoIDs != [3]string{"easy", "normal", "hard"} || a.autoPar <= 0 || a.autoStep <= 0 {
+		t.Errorf("auto %+v", a)
+	}
 }
 
 // [Brawler] Difficulty picks a profile when the level starts; unknown ids and missing files are normal

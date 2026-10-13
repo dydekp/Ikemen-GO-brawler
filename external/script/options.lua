@@ -463,7 +463,7 @@ options.t_itemname = {
 	end,
 	--Brawler: difficulty profile (data/brawler/difficulty.def)
 	['brawlerdifficulty'] = function(t, item, cursorPosY, moveTxt)
-		local list = {'easy', 'normal', 'hard'}
+		local list = {'easy', 'normal', 'hard', 'auto'}
 		local step = 0
 		if getInput(-1, motif.option_info.menu.add.key) then
 			step = 1

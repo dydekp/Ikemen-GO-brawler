@@ -20,7 +20,8 @@ package main
 // Missing keys keep the Normal value (100, 0, 1; relax 300, peak 70), and an unknown id or a missing
 // file is Normal.
 // The profile is taken when a level starts and is part of the Brawler state, so it can't change in the
-// middle of a level and save states keep it. The AI level of the game options still scales the enemies'
+// middle of a level and save states keep it. An Auto profile changes after every wave instead
+// (brawler_difficulty_auto.go). The AI level of the game options still scales the enemies'
 // attack and guard rates on top (brawlerSkill).
 
 import (
@@ -40,13 +41,20 @@ type BrawlerDifficulty struct {
 	relax     int32   // Frames a breather lasts at most, 0 = no pacing (brawler_director_pace.go)
 	peak      float32 // Intensity (percent) that calls a breather
 	help      bool
+	// Auto: the profiles it slides between, and its rating (brawler_difficulty_auto.go)
+	autoIDs                      [3]string
+	autoPar, autoStep, autoStart float32
 }
 
 func newBrawlerDifficulty(id string) BrawlerDifficulty {
-	return BrawlerDifficulty{id: id, name: id, enemyLife: 100, damage: 100, cooldown: 100, alive: 100, ease: 100, getUp: 100, help: true, relax: 300, peak: 70}
+	return BrawlerDifficulty{id: id, name: id, enemyLife: 100, damage: 100, cooldown: 100, alive: 100, ease: 100, getUp: 100, help: true, relax: 300, peak: 70,
+		autoPar: 8, autoStep: 15, autoStart: 50}
 }
 
 func (d *BrawlerDifficulty) set(key, val string) error {
+	if ok, err := d.setAuto(key, val); ok {
+		return err
+	}
 	if key == "name" {
 		d.name = val
 		return nil
@@ -76,7 +84,7 @@ func (d *BrawlerDifficulty) set(key, val string) error {
 		"alive": &d.alive, "ease": &d.ease, "getup": &d.getUp, "peak": &d.peak,
 	}[key]
 	if pct == nil {
-		return fmt.Errorf("unknown difficulty parameter '%v' (name, enemylife, damage, attackers, cooldown, alive, ease, getup, help, relax, peak)", key)
+		return fmt.Errorf("unknown difficulty parameter '%v' (name, enemylife, damage, attackers, cooldown, alive, ease, getup, help, relax, peak, auto, par, step, start)", key)
 	}
 	v, err := brawlerParseF(strings.TrimSuffix(val, "%"))
 	if err != nil || v < 0 {
@@ -123,13 +131,8 @@ func loadBrawlerDifficulties(path string) []BrawlerDifficulty {
 
 // The configured profile: [Brawler] Difficulty in [Brawler] Difficulties, or Normal
 func brawlerDifficultyNow() BrawlerDifficulty {
-	id := strings.ToLower(strings.TrimSpace(sys.cfg.Brawler.Difficulty))
-	for _, d := range loadBrawlerDifficulties(sys.cfg.Brawler.Difficulties) {
-		if d.id == id {
-			return d
-		}
-	}
-	return newBrawlerDifficulty("normal")
+	d, _ := brawlerDifficultySetup()
+	return d
 }
 
 // A percentage of a value

@@ -123,21 +123,22 @@ type Brawler struct {
 	camMin       float32
 	camMinSet    bool
 	complete     bool
-	stageEdit    *brawlerStageEdit // Stage values changed by the level, to restore when the level is unloaded
-	startPending bool              // The team is held at the level's startx until the fight starts
-	goTime       int32             // Frames left to show the "GO" sign after a wave
-	downTime     int32             // Frames all players have been down. The level is lost when the continue time runs out
-	director     brawlerDirector   // Pressure, targets, attack turns and waiting spots, see brawler_director.go
-	introOn      bool              // A character introduction is shown and the game is frozen
-	introID      int32             // Player ID of the introduced enemy
-	introEntry   int               // Its enemy entry
-	introTime    int32             // Frames the introduction has been shown
-	introShown   []bool            // Per enemy entry: introduction already shown in this level
-	introLayer   int32             // Draw layer of the introduced enemy before it was raised above the mask
-	props        []brawlerProp     // Breakable objects on the lanes, see brawler_props.go
-	items        []brawlerItem     // Items on the ground
-	propGfx      *brawlerPropGfx   // Their pictures, made with the stage. Shared by save states, never changed
-	diff         BrawlerDifficulty // Difficulty profile, taken when the level starts, see brawler_difficulty.go
+	stageEdit    *brawlerStageEdit     // Stage values changed by the level, to restore when the level is unloaded
+	startPending bool                  // The team is held at the level's startx until the fight starts
+	goTime       int32                 // Frames left to show the "GO" sign after a wave
+	downTime     int32                 // Frames all players have been down. The level is lost when the continue time runs out
+	director     brawlerDirector       // Pressure, targets, attack turns and waiting spots, see brawler_director.go
+	introOn      bool                  // A character introduction is shown and the game is frozen
+	introID      int32                 // Player ID of the introduced enemy
+	introEntry   int                   // Its enemy entry
+	introTime    int32                 // Frames the introduction has been shown
+	introShown   []bool                // Per enemy entry: introduction already shown in this level
+	introLayer   int32                 // Draw layer of the introduced enemy before it was raised above the mask
+	props        []brawlerProp         // Breakable objects on the lanes, see brawler_props.go
+	items        []brawlerItem         // Items on the ground
+	propGfx      *brawlerPropGfx       // Their pictures, made with the stage. Shared by save states, never changed
+	diff         BrawlerDifficulty     // Difficulty profile, taken when the level starts, see brawler_difficulty.go
+	auto         brawlerAutoDifficulty // Auto difficulty, see brawler_difficulty_auto.go
 }
 
 func (b *Brawler) active() bool {
@@ -317,7 +318,7 @@ func (b *Brawler) roundInit() {
 	b.goTime = 0
 	b.downTime = 0
 	b.director = brawlerDirector{}
-	b.diff = brawlerDifficultyNow()
+	b.diff, b.auto = brawlerDifficultySetup()
 	b.introOn = false
 	b.introShown = nil
 	brawlerFinishJoinLoads()
@@ -648,6 +649,7 @@ func (b *Brawler) startWave() {
 		b.lockX = sys.cam.Pos[0]
 	}
 	b.director.peak = 0
+	b.director.waveHurt = 0
 	b.talkWaveStart(w)
 }
 
@@ -702,6 +704,7 @@ func (b *Brawler) endWave() {
 	b.waveActive = false
 	goesOn := b.wave+1 < len(b.level.waves) || b.level.hasEndX
 	b.talkWaveCleared(goesOn)
+	b.autoWaveEnd()
 	if b.locked {
 		b.locked = false
 		// Don't let the camera scroll back behind the locked area
