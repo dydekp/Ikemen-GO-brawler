@@ -195,3 +195,22 @@ func TestBrawlerOffscreenEnemies(t *testing.T) {
 		t.Fatalf("left %v, right %v", len(left), len(right))
 	}
 }
+
+// The continue countdown shows once every player has been down a moment, and nobody joins
+func TestBrawlerContinueShown(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	p := brawlerTestPlayer(b, 0, 0, 0)
+	b.downTime = brawlerJoinRejoinWait + 1
+	if b.continueShown() {
+		t.Fatal("shown with a player up")
+	}
+	p.setSCF(SCF_ko)
+	if !b.continueShown() {
+		t.Fatal("not shown with everybody down")
+	}
+	b.downTime = brawlerJoinRejoinWait
+	if b.continueShown() {
+		t.Fatal("shown right away")
+	}
+}

@@ -597,9 +597,14 @@ func (b *Brawler) rosterPortrait(ref int) *Sprite {
 	return spr
 }
 
+// The continue countdown is up: every player down for a moment, nobody joining
+func (b *Brawler) continueShown() bool {
+	return b.downTime > brawlerJoinRejoinWait && !b.joinBusy() && len(b.players(true)) == 0
+}
+
 // Arcade continue countdown while every player is down
 func (b *Brawler) drawContinue(txt brawlerHudText) {
-	if b.downTime <= brawlerJoinRejoinWait || b.joinBusy() || len(b.players(true)) > 0 {
+	if !b.continueShown() {
 		return
 	}
 	left := (brawlerContinueTime - b.downTime + 59) / 60

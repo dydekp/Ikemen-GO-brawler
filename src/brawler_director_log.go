@@ -237,7 +237,8 @@ func brawlerAttackers(n int32) string {
 
 // The feed: newest at the top, green for easier, red for harder, grey otherwise
 func (b *Brawler) drawDirectorLog(txt brawlerHudText) {
-	if !b.directorLogOn() {
+	// Not over the continue countdown: with everybody down, the decisions don't matter
+	if !b.directorLogOn() || b.continueShown() {
 		return
 	}
 	l := &brawlerDirectorLog
