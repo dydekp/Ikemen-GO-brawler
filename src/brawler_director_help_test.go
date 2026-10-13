@@ -52,7 +52,7 @@ func brawlerHelpTest(t *testing.T, lanes ...float32) (*Brawler, *Char) {
 	})
 	brawlerDirectorLog.reset()
 	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &brawlerTalkLines{btHelp: []string{"Eat, {player}!"}}, linesFor: "test"}
-	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = true, "test"
+	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = 1, "test"
 	b.level.itemTypes = []*BrawlerItemType{{id: "chicken", life: 35, lifePct: true}}
 	b.propGfx = &brawlerPropGfx{itemsW: []float32{10}}
 	p := brawlerTestPlayer(b, 0, 0, 0)

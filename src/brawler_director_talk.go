@@ -2,8 +2,9 @@ package main
 
 // Brawler mode director announcements: when the director makes the fight easier or harder, it says so
 // with a short line in the upper center of the screen, encouraging when it eases off, challenging when it
-// pushes. It also comments on the waves. Option [Brawler] DirectorTalk; the lines come from [Brawler]
-// DirectorLines (director.def), one section per topic:
+// pushes. It also comments on the waves. Option [Brawler] DirectorTalk (0 off, 1 all, 2 key moments only:
+// no decisions and combos, see chatter). The lines come from [Brawler] DirectorLines (director.def) or the
+// level's [Level] lines, one section per topic:
 //
 //   [Easier]    ; the director gives the players room
 //   line = Hang in there!
@@ -81,6 +82,16 @@ func (tp brawlerTalkTopic) challenging() bool {
 	return tp == btHarder || tp == btWave || tp == btBoss || tp == btDown || tp == btResume || tp == btLastStand
 }
 
+// Frequent topics: the director's decisions and combos. [Brawler] DirectorTalk = 2 (key moments) leaves them out
+func (tp brawlerTalkTopic) chatter() bool {
+	return tp == btEasier || tp == btHarder || tp == btCombo
+}
+
+// A topic is announced with the configured amount of talk: all of them (1), or only key moments (2)
+func brawlerTalkWanted(tp brawlerTalkTopic) bool {
+	return sys.cfg.Brawler.DirectorTalk != 2 || !tp.chatter()
+}
+
 // The topic of a decision the log watched
 func brawlerTalkTopicOf(kind brawlerDirLogKind) (brawlerTalkTopic, bool) {
 	switch kind {
@@ -135,7 +146,7 @@ type brawlerDirectorTalkState struct {
 var brawlerDirectorTalk brawlerDirectorTalkState
 
 func (b *Brawler) directorTalkOn() bool {
-	return sys.cfg.Brawler.DirectorTalk && b.directorOn()
+	return sys.cfg.Brawler.DirectorTalk > 0 && b.directorOn()
 }
 
 // A new level: nothing said yet. The lines are kept
@@ -231,6 +242,9 @@ func (t *brawlerDirectorTalkState) announce(lines *brawlerTalkLines, kind brawle
 
 // Say something about a topic now, whatever was said before
 func (t *brawlerDirectorTalkState) say(lines *brawlerTalkLines, topic brawlerTalkTopic, who string) {
+	if !brawlerTalkWanted(topic) {
+		return
+	}
 	if text := t.pick(lines, topic, who); text != "" {
 		t.text, t.topic, t.time, t.wait = text, topic, brawlerTalkTime, brawlerTalkGap
 	}

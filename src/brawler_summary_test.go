@@ -24,7 +24,7 @@ func TestBrawlerSummary(t *testing.T) {
 		lines[tp] = []string{brawlerTalkSections[tp]}
 	}
 	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test"}
-	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = true, "test"
+	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = 1, "test"
 	brawlerTestPlayer(b, 0, 0, 0)
 
 	// Time counts while the level is fought, then the time since it was cleared

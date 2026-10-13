@@ -246,7 +246,7 @@ type Config struct {
 		IntroTime           int32   `ini:"IntroTime" sync:"host"`
 		MoveNames           bool    `ini:"MoveNames"`
 		DirectorInfo        bool    `ini:"DirectorInfo"`
-		DirectorTalk        bool    `ini:"DirectorTalk"`
+		DirectorTalk        int32   `ini:"DirectorTalk"`
 		DirectorLines       string  `ini:"DirectorLines"`
 		Difficulty          string  `ini:"Difficulty" sync:"host"`
 		Difficulties        string  `ini:"Difficulties" sync:"host"`

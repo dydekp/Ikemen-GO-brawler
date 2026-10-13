@@ -787,7 +787,9 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   with the reason: damage a player took recently, or low life. A change is
   only reported once it held for 1.5 seconds; each topic shows its latest
   change.
-- Director announcements (option "Director Announcements", needs
+- Director announcements (option "Director Announcements": Off, All, or
+  Fewer, which keeps the key moments and leaves out the frequent
+  easier/harder and combo lines; [Brawler] DirectorTalk 0, 1, 2; needs
   Director = 1): when the director makes the fight easier or harder, it
   says so with a short line in the upper center, encouraging (green edge)
   when it eases off, challenging (red edge) when it pushes. At most one

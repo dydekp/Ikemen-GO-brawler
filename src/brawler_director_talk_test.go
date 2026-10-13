@@ -122,7 +122,7 @@ func TestBrawlerTalkDecision(t *testing.T) {
 		lines:    &brawlerTalkLines{btEasier: []string{"Breathe, {player}!"}, btHarder: []string{"More!"}},
 		linesFor: "test",
 	}
-	sys.cfg.Brawler.DirectorInfo, sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = false, true, "test"
+	sys.cfg.Brawler.DirectorInfo, sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = false, 1, "test"
 	brawlerTestPlayer(b, 0, 0, 0)
 	brawlerJoin.slotSeat[0] = 0
 	d := &b.director
@@ -141,7 +141,7 @@ func TestBrawlerTalkDecision(t *testing.T) {
 		t.Fatalf("announcement %+v", tk)
 	}
 	// Turned off: no announcement, nothing drawn
-	sys.cfg.Brawler.DirectorTalk = false
+	sys.cfg.Brawler.DirectorTalk = 0
 	brawlerDirectorTalk.reset()
 	d.stress[0], d.pressure[0] = 0, 0
 	d.slots[0] = base
@@ -160,7 +160,7 @@ func TestBrawlerTalkTeamDown(t *testing.T) {
 	t.Cleanup(func() { brawlerDirectorLog, brawlerDirectorTalk, brawlerJoin.slotSeat = oldLog, oldTalk, oldSeats })
 	brawlerDirectorLog.reset()
 	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &brawlerTalkLines{btEasier: []string{"Easy"}, btHarder: []string{"Hard"}}, linesFor: "test"}
-	sys.cfg.Brawler.DirectorInfo, sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = true, true, "test"
+	sys.cfg.Brawler.DirectorInfo, sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = true, 1, "test"
 	p := brawlerTestPlayer(b, 0, 0, 0)
 	brawlerJoin.slotSeat[0] = 0
 	b.level.waves = []BrawlerWave{{maxAlive: 4}}
@@ -223,7 +223,7 @@ func TestBrawlerTalkWaves(t *testing.T) {
 	}
 	lines[btClose] = []string{"close {player}"}
 	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test"}
-	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = true, "test"
+	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = 1, "test"
 	brawlerTestPlayer(b, 0, 0, 0)
 	brawlerJoin.slotSeat[0] = 0
 	b.level.enemies = []BrawlerEnemy{{alias: "thug"}, {alias: "master", boss: true}}
@@ -376,7 +376,7 @@ func TestBrawlerTalkBosses(t *testing.T) {
 		lines[tp] = []string{brawlerTalkSections[tp]}
 	}
 	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test"}
-	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = true, "test"
+	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = 1, "test"
 	b.level.enemies = []BrawlerEnemy{{alias: "thug"}, {alias: "master", boss: true}}
 	thug, boss := list[0], list[1]
 	thug.bw.entry, boss.bw.entry = 0, 1
@@ -508,5 +508,38 @@ func TestBrawlerTalkLevelLines(t *testing.T) {
 	brawlerDirectorTalk = brawlerDirectorTalkState{}
 	if l := brawlerDirectorTalk.linesNow(); l[btEasier][0] != "Steady, warrior." || brawlerDirectorTalk.linesFor != path {
 		t.Fatalf("level lines %q from %q", l[btEasier], brawlerDirectorTalk.linesFor)
+	}
+}
+
+// DirectorTalk = 2: key moments only, no decisions and combos
+func TestBrawlerTalkKeyMoments(t *testing.T) {
+	b := brawlerTestMode(t)
+	var lines brawlerTalkLines
+	for tp := range lines {
+		lines[tp] = []string{brawlerTalkSections[tp]}
+	}
+	for _, c := range []struct {
+		level int32
+		topic brawlerTalkTopic
+		said  bool
+	}{
+		{1, btEasier, true}, {1, btCombo, true}, {1, btWave, true},
+		{2, btEasier, false}, {2, btHarder, false}, {2, btCombo, false},
+		{2, btWave, true}, {2, btHelp, true}, {2, btBossDown, true}, {2, btRelax, true},
+	} {
+		sys.cfg.Brawler.DirectorTalk = c.level
+		var tk brawlerDirectorTalkState
+		tk.say(&lines, c.topic, "")
+		if said := tk.text != ""; said != c.said {
+			t.Errorf("level %v, [%v]: said %v", c.level, brawlerTalkSections[c.topic], said)
+		}
+	}
+	sys.cfg.Brawler.DirectorTalk = 0
+	if b.directorTalkOn() {
+		t.Error("on with DirectorTalk = 0")
+	}
+	sys.cfg.Brawler.DirectorTalk = 2
+	if !b.directorTalkOn() {
+		t.Error("off with DirectorTalk = 2")
 	}
 }

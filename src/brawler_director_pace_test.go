@@ -32,7 +32,7 @@ func brawlerPaceTest(t *testing.T) (*Brawler, *Char) {
 		lines[tp] = []string{brawlerTalkSections[tp]}
 	}
 	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test"}
-	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = true, "test"
+	sys.cfg.Brawler.DirectorTalk, sys.cfg.Brawler.DirectorLines = 1, "test"
 	p := brawlerTestPlayer(b, 0, 0, 0)
 	brawlerJoin.slotSeat[0] = 0
 	b.level.waves = []BrawlerWave{{maxAlive: 4}}

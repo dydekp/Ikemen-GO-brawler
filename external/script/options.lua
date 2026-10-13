@@ -115,7 +115,7 @@ options.t_itemname = {
 			modifyGameOption('Options.QuickContinue', false)
 			modifyGameOption('Brawler.MoveNames', true)
 			modifyGameOption('Brawler.DirectorInfo', true)
-			modifyGameOption('Brawler.DirectorTalk', true)
+			modifyGameOption('Brawler.DirectorTalk', 1)
 			modifyGameOption('Brawler.Difficulty', 'normal')
 			modifyGameOption('Options.AutoGuard', false)
 			modifyGameOption('Options.GuardBreak', false)
@@ -487,7 +487,8 @@ options.t_itemname = {
 	['brawlerdirectortalk'] = function(t, item, cursorPosY, moveTxt)
 		if getInput(-1, motif.option_info.menu.add.key, motif.option_info.menu.subtract.key, motif.option_info.menu.done.key) then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Brawler.DirectorTalk', not gameOption('Brawler.DirectorTalk'))
+			-- Off, all lines, key moments only
+			modifyGameOption('Brawler.DirectorTalk', (gameOption('Brawler.DirectorTalk') + 1) % 3)
 			t.items[item].vardisplay = options.t_vardisplay['brawlerdirectortalk']()
 			options.modified = true
 		end
@@ -1623,7 +1624,7 @@ options.t_vardisplay = {
 		return v:sub(1, 1):upper() .. v:sub(2)
 	end,
 	['brawlerdirectortalk'] = function()
-		return options.f_boolDisplay(gameOption('Brawler.DirectorTalk'))
+		return ({[0] = 'Off', [1] = 'All', [2] = 'Fewer'})[gameOption('Brawler.DirectorTalk')] or 'All'
 	end,
 	['redlife'] = function()
 		return options.f_boolDisplay(gameOption('Options.RedLife'))
