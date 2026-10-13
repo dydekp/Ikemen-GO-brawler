@@ -138,3 +138,28 @@ func TestBrawlerPaceAttackers(t *testing.T) {
 		t.Fatalf("breather: relaxing %v, turns %v", b.relaxing(), d.slots[0])
 	}
 }
+
+// During a breather the waiting enemies keep further back and taunt more
+func TestBrawlerPaceHangBack(t *testing.T) {
+	b, list := directorFight(t, map[int]float32{0: 0}, []float32{100}, []float32{0})
+	e := list[0]
+	e.bw.ai.hover = 60
+	spot := func() float32 {
+		b.placeRing(brawlerDirPlayer{pn: 0, x: 0, z: 0}, []*Char{e}, nil)
+		return e.bw.ai.anchorX
+	}
+	if x := spot(); x != 60 {
+		t.Fatalf("waiting spot %v", x)
+	}
+	b.director.relaxTime = 100
+	if x := spot(); x != 60*brawlerRelaxHover {
+		t.Fatalf("waiting spot in a breather %v", x)
+	}
+	if b.tauntChance(0.3) != 0.6 || b.tauntChance(0.7) != 1 || b.tauntChance(0) != 0 {
+		t.Error("taunt chance in a breather")
+	}
+	b.director.relaxTime = 0
+	if b.tauntChance(0.3) != 0.3 {
+		t.Error("taunt chance outside a breather")
+	}
+}

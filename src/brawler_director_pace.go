@@ -4,8 +4,9 @@ package main
 // follows the team's intensity, the highest pressure on a player (recent damage, low life) smoothed over a
 // few seconds: it rises quickly while someone is in trouble and falls slowly. When it reaches the
 // difficulty's peak, the director gives the team a breather (relax): no new enemies come and each player
-// gets a single attacker, until the intensity is down again or the relax time ran out. Then the fight
-// builds up again, and the next breather can only come brawlerPaceBuildMin frames later.
+// gets a single attacker, while the others wait further back and taunt more, until the intensity is down
+// again or the relax time ran out. Then the fight builds up again, and the next breather can only come
+// brawlerPaceBuildMin frames later.
 //
 //   [Difficulty normal]
 //   relax = 300   ; frames a breather lasts at most (0 = no pacing)
@@ -23,6 +24,8 @@ const (
 	brawlerPaceCalm     = 0.3  // Intensity below which a breather ends early
 	brawlerPaceRelaxMin = 120  // Frames a breather lasts at least
 	brawlerPaceBuildMin = 900  // Frames from the end of a breather to the next one at least
+	brawlerRelaxHover   = 1.5  // Waiting enemies keep this much further back during a breather
+	brawlerRelaxTaunt   = 2    // and taunt this much more often
 )
 
 var brawlerPaceFall = float32(1 - math.Pow(0.5, 1/float64(brawlerPaceHalfLife)))
@@ -33,6 +36,22 @@ func brawlerPaceIntensity(intensity, pressure float32) float32 {
 		return intensity + (pressure-intensity)*brawlerPaceRise
 	}
 	return intensity - (intensity-pressure)*brawlerPaceFall
+}
+
+// Distance factor for the waiting spots: further back during a breather
+func (b *Brawler) waitScale() float32 {
+	if b.relaxing() {
+		return brawlerRelaxHover
+	}
+	return 1
+}
+
+// Taunt chance of a waiting enemy: higher during a breather, it shows off while the players recover
+func (b *Brawler) tauntChance(base float32) float32 {
+	if b.relaxing() {
+		return Min(1, base*brawlerRelaxTaunt)
+	}
+	return base
 }
 
 // A breather is under way

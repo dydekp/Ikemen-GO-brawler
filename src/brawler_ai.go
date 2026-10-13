@@ -1063,7 +1063,7 @@ func (b *Brawler) aiTaunt(f *brawlerAIFrame, g brawlerAIGoal) bool {
 	}
 	ai.tauntTime = brawlerRand(beh.tauntDelay)
 	if !f.grounded || f.st.laneJump || !c.ctrl() || c.ss.no == 100 || !b.atDepth(f, g.z) ||
-		Abs(g.x-f.myX) > 25 || !f.facingTarget || len(beh.tauntInput) == 0 || !brawlerChance(beh.taunt) {
+		Abs(g.x-f.myX) > 25 || !f.facingTarget || len(beh.tauntInput) == 0 || !brawlerChance(b.tauntChance(beh.taunt)) {
 		return false
 	}
 	ai.start(beh.tauntInput, false)

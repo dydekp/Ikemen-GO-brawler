@@ -520,7 +520,8 @@ looks at all players and enemies together:
   highest pressure on a player, rising within a second or two and falling
   over a few seconds. When it reaches the difficulty's peak, the director
   gives the team a breather: no new enemies (while some are left) and one
-  attacker per player, until things calmed down (2 seconds at least) or
+  attacker per player; the others wait 1.5x further back and taunt twice
+  as often, until things calmed down (2 seconds at least) or
   the difficulty's relax time ran out. The next breather can come 15
   seconds later at the earliest. The debug display shows the intensity
   and the phase.

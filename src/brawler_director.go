@@ -360,17 +360,20 @@ func (b *Brawler) placeRing(p brawlerDirPlayer, waiting, fighting []*Char) {
 	}
 	d.ringCount[p.pn] = int32(n)
 
-	// Rows on a single lane start at the group's average hover distance
+	// Rows on a single lane start at the group's average hover distance. In a breather everybody keeps
+	// further back
+	scale := b.waitScale()
 	var rowBase float32
 	for _, c := range waiting {
-		rowBase += c.bw.ai.hover / float32(n)
+		rowBase += c.bw.ai.hover * scale / float32(n)
 	}
 	margin := (sys.xmax - sys.xmin) * 0.06
 	for _, c := range waiting {
 		ai := &c.bw.ai
+		hover := ai.hover * scale
 		var x, z float32
 		if depthR > 0 {
-			x, z = brawlerRingPoint(p.x, p.z, brawlerRingSlotAngle(int(ai.ringIndex), n, d.ringPhase[p.pn]), ai.hover, depthR)
+			x, z = brawlerRingPoint(p.x, p.z, brawlerRingSlotAngle(int(ai.ringIndex), n, d.ringPhase[p.pn]), hover, depthR)
 			z = b.clampDepth(z)
 		} else {
 			side := float32(1)
@@ -385,7 +388,7 @@ func (b *Brawler) placeRing(p brawlerDirPlayer, waiting, fighting []*Char) {
 		}
 		// Never right in front of the player in its own lane or depth: that spot would push through it.
 		// Checked after keeping the spot on the screen, which can pull it next to a player at the edge
-		if depthR > 0 && Abs(x-p.x) < ai.hover*0.7 && b.sameDepthAt(z, p.z) {
+		if depthR > 0 && Abs(x-p.x) < hover*0.7 && b.sameDepthAt(z, p.z) {
 			z = b.otherDepth(p.z)
 		}
 		// Not on top of an enemy that is fighting the player either: the waiting one would stand in its back
