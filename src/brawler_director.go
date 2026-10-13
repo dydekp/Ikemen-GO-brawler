@@ -54,6 +54,8 @@ type brawlerDirector struct {
 	ringDir   [MaxSimul * 2]float32 // Turning direction of each player's ring
 	ringPhase [MaxSimul * 2]float32 // Rotation of each player's ring
 	ringCount [MaxSimul * 2]int32   // Enemies on each ring last frame
+	helpTime  [MaxSimul * 2]int32   // Frames each player has been in trouble, see brawler_director_help.go
+	helpGap   [MaxSimul * 2]int32   // Frames until each player may get help again
 }
 
 func (b *Brawler) directorOn() bool {

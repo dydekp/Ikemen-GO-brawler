@@ -9,11 +9,14 @@ package main
 //   line = Shake it off, {player}!
 //   [Harder]                   ; the director turns up the heat
 //   line = Too easy? Let's fix that.
+//   [Help]                     ; the director drops an item for a player in trouble
+//   line = Here, {player}, eat up!
 //
 // {player} is the player a decision is about (1P, 2P...); lines with it are only used for such decisions,
 // lines without it for any. The director's decisions are the ones its log watches (brawler_director_log.go):
-// enemies alive at once, attack turns per player, spawn pace. Announcements are at least
-// brawlerTalkGap frames apart and never repeat the last line of their kind.
+// enemies alive at once, attack turns per player, spawn pace; and its help (brawler_director_help.go).
+// Announcements are at least brawlerTalkGap frames apart (help is always announced) and never repeat
+// the last line of their kind.
 //
 // Display only: not part of the save state, and its random choices don't touch the game's random numbers.
 
@@ -29,14 +32,15 @@ const (
 	brawlerTalkGap  = 360 // Frames from one announcement to the next at least
 )
 
-// Lines of each kind (bdlEasier, bdlHarder)
+// Lines of each kind (bdlEasier, bdlHarder, bdlHelp)
 type brawlerTalkLines struct {
-	easier, harder []string
+	easier, harder, help []string
 }
 
 var brawlerTalkDefault = brawlerTalkLines{
 	easier: []string{"Hang in there!", "Catch your breath.", "Shake it off, {player}!"},
 	harder: []string{"Too easy? Let's fix that.", "Warming up? Here comes more!", "Getting comfortable, {player}?"},
+	help:   []string{"Here, {player}, eat up!", "Hang on, {player}! Take this."},
 }
 
 type brawlerDirectorTalkState struct {
@@ -44,7 +48,7 @@ type brawlerDirectorTalkState struct {
 	kind     brawlerDirLogKind
 	time     int32 // Frames left on screen
 	wait     int32 // Frames until the next announcement may come
-	last     [2]string
+	last     [3]string
 	lines    *brawlerTalkLines
 	linesFor string // Path the lines were read from
 	rng      *rand.Rand
@@ -58,7 +62,7 @@ func (b *Brawler) directorTalkOn() bool {
 
 // A new level: nothing said yet. The lines are kept
 func (t *brawlerDirectorTalkState) reset() {
-	t.text, t.time, t.wait, t.last = "", 0, 0, [2]string{}
+	t.text, t.time, t.wait, t.last = "", 0, 0, [3]string{}
 }
 
 // Read the lines of a director.def file. Kinds without lines (or a missing file) use the built-in ones
@@ -73,6 +77,8 @@ func loadBrawlerTalkLines(path string) *brawlerTalkLines {
 					list = &lines.easier
 				case "harder":
 					list = &lines.harder
+				case "help":
+					list = &lines.help
 				default:
 					list = nil
 				}
@@ -90,6 +96,9 @@ func loadBrawlerTalkLines(path string) *brawlerTalkLines {
 	if len(lines.harder) == 0 {
 		lines.harder = brawlerTalkDefault.harder
 	}
+	if len(lines.help) == 0 {
+		lines.help = brawlerTalkDefault.help
+	}
 	return lines
 }
 
@@ -105,8 +114,11 @@ func (t *brawlerDirectorTalkState) linesNow() *brawlerTalkLines {
 // the one said last time if there's another
 func (t *brawlerDirectorTalkState) pick(lines *brawlerTalkLines, kind brawlerDirLogKind, who string) string {
 	all := lines.harder
-	if kind == bdlEasier {
+	switch kind {
+	case bdlEasier:
 		all = lines.easier
+	case bdlHelp:
+		all = lines.help
 	}
 	var fit []string
 	for _, l := range all {
@@ -144,6 +156,11 @@ func (t *brawlerDirectorTalkState) announce(lines *brawlerTalkLines, kind brawle
 	if kind != bdlEasier && kind != bdlHarder || t.wait > 0 {
 		return
 	}
+	t.say(lines, kind, who)
+}
+
+// Say something about a decision now, whatever was said before
+func (t *brawlerDirectorTalkState) say(lines *brawlerTalkLines, kind brawlerDirLogKind, who string) {
 	if text := t.pick(lines, kind, who); text != "" {
 		t.text, t.kind, t.time, t.wait = text, kind, brawlerTalkTime, brawlerTalkGap
 	}
@@ -167,16 +184,16 @@ func (t *brawlerDirectorTalkState) alpha() float32 {
 	return Clamp(Min(float32(shown+1), float32(t.time))/brawlerTalkFade, 0, 1)
 }
 
-// The announcement in the upper center, on a dark band with a green (easier) or red (harder) edge
+// The announcement in the upper center, on a dark band with a red edge when it's harder, green otherwise
 func (b *Brawler) drawDirectorTalk(txt brawlerHudText) {
 	t := &brawlerDirectorTalk
 	a := t.alpha()
 	if !b.directorTalkOn() || a <= 0 {
 		return
 	}
-	col := uint32(0xff6a3a)
-	if t.kind == bdlEasier {
-		col = 0x3fd36a
+	col := uint32(0x3fd36a)
+	if t.kind == bdlHarder {
+		col = 0xff6a3a
 	}
 	const y, w = 44, 170
 	brawlerHudFill(160-w/2, y-9, w, 13, 0x000000, int32(150*a))

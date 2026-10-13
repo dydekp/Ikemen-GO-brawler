@@ -32,6 +32,7 @@ const (
 	bdlNeutral brawlerDirLogKind = iota
 	bdlEasier
 	bdlHarder
+	bdlHelp // The director dropped an item for a player in trouble (brawler_director_help.go)
 )
 
 type brawlerDirLogEntry struct {

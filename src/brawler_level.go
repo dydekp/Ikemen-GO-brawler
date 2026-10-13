@@ -78,6 +78,8 @@ type BrawlerLevel struct {
 	items     []BrawlerItemPlace          // Items lying around from the start
 	propTypes []*BrawlerPropType          // Prop types the level uses
 	itemTypes []*BrawlerItemType          // Item types the level uses (placed or dropped)
+	help      []BrawlerDrop               // What the director drops for a player in trouble, see helpDrops
+	hasHelp   bool
 	waves     []BrawlerWave
 }
 
@@ -425,6 +427,11 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 			return fmt.Errorf("invalid startx: %v", l.val)
 		}
 		lv.hasStartX = true
+	case "help":
+		if lv.help, err = parseBrawlerDrops(l.args); err != nil {
+			return fmt.Errorf("invalid help: %w", err)
+		}
+		lv.hasHelp = true
 	case "endx":
 		if lv.endX, err = brawlerParseF(l.val); err != nil {
 			return fmt.Errorf("invalid endx: %v", l.val)
@@ -432,7 +439,7 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 		lv.hasEndX = true
 	default:
 		return fmt.Errorf("unknown level parameter '%v' (name, stage, music, library, lanes, lanepos, topbound, botbound, "+
-			"boundleft, boundright, leftbound, rightbound, zscale, attackers, backtrack, endx, startx, extend)", l.key)
+			"boundleft, boundright, leftbound, rightbound, zscale, attackers, backtrack, endx, startx, extend, help)", l.key)
 	}
 	return nil
 }

@@ -217,6 +217,10 @@ attackers = 1                    ; Optional: enemies that may attack the same
                                  ; AttackersPerPlayer). Fewer = slower pace
 endx      = 900                  ; Optional: after the last wave, a player
                                  ; must reach this X to finish the level
+help      = chicken              ; Optional: what the director drops for a
+                                 ; player in trouble (a drop list, section
+                                 ; 13, or none). Default: the level's item
+                                 ; that restores the most life
 ; Stage overrides, in the stage's coordinates (section 6):
 topbound   = -60                 ; depth range of the lanes
 botbound   = 60
@@ -503,6 +507,11 @@ looks at all players and enemies together:
   around both sides, and nobody waits right in front of the player in its
   own lane. On a single lane, where they can't get past the player, they
   line up in rows on their side instead.
+- Help: a player below 35% life who keeps getting hurt although they
+  already have the fewest attackers gets an item dropped next to them
+  after 2.5 seconds, on the side with fewer enemies ([Level] help; the
+  level needs items, e.g. drops from props or enemies). Then not again
+  for that player for 40 seconds.
 The behavior profiles still decide how an enemy approaches and fights
 (flank, jumpover, hitrun, patrol); flankers go for the less crowded side.
 The debug display (Ctrl+D) shows the director's numbers and the waiting
@@ -704,6 +713,8 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   data/brawler/director.def ([Easier] and [Harder], "line = ..."; {player}
   is the player a decision is about). [Brawler] DirectorLines sets another
   file.
+  When it drops an item for a player in trouble (DIRECTOR in section 7),
+  it always says so, with a [Help] line.
 The options are in Options > Brawler Settings ([Brawler] MoveNames,
 DirectorInfo and DirectorTalk in the config).
 The HUD uses the fight screen's name font and scales to its localcoord.

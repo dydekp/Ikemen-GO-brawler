@@ -539,6 +539,9 @@ func (b *Brawler) step() {
 	if b.directorOn() {
 		b.directorStep()
 		b.directorLogStep()
+		if sys.roundState() == 2 && !b.complete {
+			b.directorHelp()
+		}
 	} else {
 		b.assignTokens()
 	}

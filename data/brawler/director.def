@@ -1,7 +1,7 @@
 ; Brawler mode director announcements ([Brawler] DirectorLines in the config)
 ;
-; When the director makes the fight easier or harder, it says so with a short
-; line in the upper center of the screen ([Brawler] DirectorTalk = 1).
+; When the director makes the fight easier or harder, or drops an item for a
+; player in trouble, it says so with a short line in the upper center of the screen ([Brawler] DirectorTalk = 1).
 ; One line is picked at random, never the same one twice in a row.
 ; {player} is replaced by the player the decision is about (1P, 2P...).
 ; Lines with {player} are only used for decisions about one player.
@@ -28,3 +28,11 @@ line = No more holding back!
 line = Getting comfortable, {player}?
 line = Think you're tough, {player}?
 line = {player} wants more. Granted!
+
+[Help]
+; The director drops an item next to a player in trouble ([Level] help):
+; always said, even right after another line
+line = Here, {player}, eat up!
+line = Hang on, {player}! Take this.
+line = {player}, grab that and get back up!
+line = Don't quit on me, {player}! Food's here.

@@ -357,6 +357,9 @@ func (p *brawlerLevelParser) finishProps() error {
 			return fmt.Errorf("item '%v' at x %v: no lane %v", it.id, it.x, it.lane)
 		}
 	}
+	if lv.help, err = drops(lv.help); err != nil {
+		return fmt.Errorf("help: %w", err)
+	}
 	for i := range lv.enemies {
 		e := &lv.enemies[i]
 		if e.drops, err = drops(e.drops); err != nil {
@@ -455,10 +458,15 @@ func (b *Brawler) loadPropGfx(stg *Stage, adds *brawlerStageAdds) (*brawlerPropG
 func (b *Brawler) placeProps() {
 	b.props, b.items = nil, nil
 	lv := b.level
-	if len(b.lanesZ) == 0 {
-		return
-	}
+	// Depth of a spot: its lane, or a random one. Without lanes (free depth movement) a lane means the middle
+	// of the depth, random anywhere in it
 	lane := func(l int32) float32 {
+		if len(b.lanesZ) == 0 {
+			if l < 0 {
+				return sys.zmin + float32(Rand(0, 1000))/1000*(sys.zmax-sys.zmin)
+			}
+			return (sys.zmin + sys.zmax) / 2
+		}
 		if l < 0 {
 			l = Rand(0, int32(len(b.lanesZ))-1)
 		}

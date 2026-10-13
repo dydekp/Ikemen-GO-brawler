@@ -10,6 +10,9 @@ lanes     = 3
 backtrack = 0
 ; After the last wave, walk to the right end of the stage to finish
 endx      = 300
+; What the director drops for a player in trouble (default: the item that
+; restores the most life)
+help      = chicken
 
 [Enemies]
 ; NPCs from the enemy library: character, palette, life, behavior and intro
