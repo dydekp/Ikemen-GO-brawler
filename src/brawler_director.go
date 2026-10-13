@@ -24,8 +24,10 @@ package main
 // (any number of them, a single lane included). They are the one place free depth movement plugs in.
 
 import (
+	"fmt"
 	"math"
 	"sort"
+	"strings"
 )
 
 const (
@@ -64,8 +66,30 @@ type brawlerDirector struct {
 	buildTime int32                 // Frames until the next breather may come
 }
 
+// How a level uses the director: [Level] director = pacing (default) | balance | classic
+type brawlerDirectorStyle int32
+
+const (
+	bdsPacing  brawlerDirectorStyle = iota // Everything, with breathers (brawler_director_pace.go)
+	bdsBalance                             // Balancing without breathers
+	bdsClassic                             // No director: every enemy fights the nearest player
+)
+
+func parseBrawlerDirectorStyle(v string) (brawlerDirectorStyle, error) {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "pacing":
+		return bdsPacing, nil
+	case "balance":
+		return bdsBalance, nil
+	case "classic":
+		return bdsClassic, nil
+	}
+	return 0, fmt.Errorf("invalid director: %v (pacing, balance or classic)", v)
+}
+
+// The director runs: on in the config ([Brawler] Director) and not turned off by the level
 func (b *Brawler) directorOn() bool {
-	return sys.cfg.Brawler.Director
+	return sys.cfg.Brawler.Director && (b.level == nil || b.level.director != bdsClassic)
 }
 
 var brawlerStressDecay = float32(math.Pow(0.5, 1/float64(brawlerStressHalfLife)))

@@ -55,15 +55,16 @@ type BrawlerLevel struct {
 	lanePos   []float32 // Explicit lane Z positions in stage coordinates
 	topbound  float32
 	botbound  float32
-	hasBounds bool       // Level overrides the stage's topbound and botbound
-	camBounds [2]int32   // Overrides the stage's camera boundleft, boundright
-	hasCam    bool       // camBounds is set
-	pBounds   [2]float32 // Overrides the stage's player leftbound, rightbound
-	hasPBound bool       // pBounds is set
-	zScale    [2]float32 // Overrides the stage's character scale at the top and bottom of the lanes
-	hasZScale bool       // zScale is set
-	backtrack bool       // Camera may scroll back to the left
-	attackers int32      // Enemies that may attack the same player at once (0 = [Brawler] AttackersPerPlayer)
+	hasBounds bool                 // Level overrides the stage's topbound and botbound
+	camBounds [2]int32             // Overrides the stage's camera boundleft, boundright
+	hasCam    bool                 // camBounds is set
+	pBounds   [2]float32           // Overrides the stage's player leftbound, rightbound
+	hasPBound bool                 // pBounds is set
+	zScale    [2]float32           // Overrides the stage's character scale at the top and bottom of the lanes
+	hasZScale bool                 // zScale is set
+	backtrack bool                 // Camera may scroll back to the left
+	director  brawlerDirectorStyle // How the level uses the director (brawler_director.go)
+	attackers int32                // Enemies that may attack the same player at once (0 = [Brawler] AttackersPerPlayer)
 	endX      float32
 	hasEndX   bool
 	startX    float32 // Stage X the team starts at (default: the stage's own start positions)
@@ -420,6 +421,10 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 		}
 	case "backtrack":
 		lv.backtrack = brawlerParseB(l.val)
+	case "director":
+		if lv.director, err = parseBrawlerDirectorStyle(l.val); err != nil {
+			return err
+		}
 	case "extend":
 		return p.extendShort(l)
 	case "startx":
@@ -439,7 +444,7 @@ func (p *brawlerLevelParser) levelKey(l brawlerIniLine) error {
 		lv.hasEndX = true
 	default:
 		return fmt.Errorf("unknown level parameter '%v' (name, stage, music, library, lanes, lanepos, topbound, botbound, "+
-			"boundleft, boundright, leftbound, rightbound, zscale, attackers, backtrack, endx, startx, extend, help)", l.key)
+			"boundleft, boundright, leftbound, rightbound, zscale, attackers, backtrack, director, endx, startx, extend, help)", l.key)
 	}
 	return nil
 }

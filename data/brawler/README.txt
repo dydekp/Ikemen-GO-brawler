@@ -208,6 +208,9 @@ library   = ../enemies.def        ; Optional: a content pack's own enemy
 lanes     = 3                    ; Number of lanes (default 3)
 lanepos   = -60, 0, 60           ; Optional: explicit lane depths
 backtrack = 0                    ; 1 = the camera may scroll back to the left
+director  = pacing               ; Optional: how the director runs this level:
+                                 ; pacing (default, with breathers), balance
+                                 ; (no breathers), classic (no director)
 startx    = -2000                ; Optional: stage X the team starts at (e.g.
                                  ; in a stage extension, see section 6)
 extend    = left, street.png     ; Optional: a picture added to the stage,
@@ -530,6 +533,9 @@ The behavior profiles still decide how an enemy approaches and fights
 The debug display (Ctrl+D) shows the director's numbers and the waiting
 spots. Director = 0 brings back the simpler rules: every enemy fights the
 nearest player, AttackersPerPlayer turns per player.
+A level chooses how the director runs it with [Level] director: pacing (the
+default, everything above), balance (no breathers, e.g. for boss fights) or
+classic (the simpler rules, like Director = 0, for that level only).
 
 The director works with positions in continuous depth and only turns them
 into lanes at the end, so it works with any number of lanes.

@@ -17,6 +17,9 @@ boundright = 900
 leftbound  = -1100
 rightbound = 1500
 endx       = 1200
+; A short level ending in a boss fight: the director balances it, but gives
+; no breathers (pacing is the default, classic turns the director off)
+director   = balance
 
 [Enemies]
 ; Library NPCs

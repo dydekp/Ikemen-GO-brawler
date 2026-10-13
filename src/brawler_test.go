@@ -547,6 +547,10 @@ func TestBrawlerLibraryAndOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The boss level runs the director without breathers
+	if lv.director != bdsBalance {
+		t.Errorf("dojo director %v, want balance", lv.director)
+	}
 	get := func(alias string) BrawlerEnemy {
 		i := lv.enemyIndex(alias)
 		if i < 0 {

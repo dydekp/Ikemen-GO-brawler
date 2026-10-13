@@ -163,3 +163,45 @@ func TestBrawlerPaceHangBack(t *testing.T) {
 		t.Error("taunt chance outside a breather")
 	}
 }
+
+// [Level] director: pacing (default), balance (no breathers), classic (no director)
+func TestBrawlerDirectorStyle(t *testing.T) {
+	level := func(key string) string { return "[Level]\nname = x\n" + key + "\n[Enemies]\nenemy = thug\n" }
+	for key, want := range map[string]brawlerDirectorStyle{
+		"": bdsPacing, "director = Pacing": bdsPacing, "director = balance": bdsBalance, "director = classic": bdsClassic,
+	} {
+		lv, err := brawlerTestPropFiles(t, brawlerTestPropLibrary, level(key))
+		if err != nil || lv.director != want {
+			t.Errorf("%q: %v %v", key, lv.director, err)
+		}
+	}
+	if _, err := brawlerTestPropFiles(t, brawlerTestPropLibrary, level("director = wild")); err == nil {
+		t.Error("director = wild accepted")
+	}
+
+	b, _ := brawlerPaceTest(t)
+	d := &b.director
+	if !b.directorOn() {
+		t.Fatal("director off by default")
+	}
+	// Balance: the director runs, but no breathers
+	b.level.director = bdsBalance
+	d.intensity, d.pressure[0] = 1, 1
+	for i := 0; i < 100; i++ {
+		b.directorPace(true)
+	}
+	if !b.directorOn() || b.relaxing() {
+		t.Fatalf("balance: director %v, relaxing %v", b.directorOn(), b.relaxing())
+	}
+	// Classic: no director at all
+	b.level.director = bdsClassic
+	if b.directorOn() {
+		t.Fatal("classic: director on")
+	}
+	// The config switch still turns it off everywhere
+	b.level.director = bdsPacing
+	sys.cfg.Brawler.Director = false
+	if b.directorOn() {
+		t.Fatal("Director = 0: director on")
+	}
+}
