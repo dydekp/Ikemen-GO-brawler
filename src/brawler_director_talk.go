@@ -1,14 +1,14 @@
 package main
 
-// Brawler mode director announcements: when the director makes the fight easier or harder, it says so
-// with a short line in the upper center of the screen, encouraging when it eases off, challenging when it
-// pushes. It also comments on the waves. Option [Brawler] DirectorTalk (0 off, 1 all, 2 key moments only:
-// no decisions and combos, see chatter). The lines come from [Brawler] DirectorLines (director.def) or the
-// level's [Level] lines, one section per topic:
+// Brawler mode director announcements: when the director makes the fight easier or harder, it shouts
+// a short line where the fight screen shows FIGHT! (in its look, see brawler_hud_shout.go), encouraging
+// when it eases off, challenging when it pushes. It also comments on the waves. Option [Brawler]
+// DirectorTalk (0 off, 1 all, 2 key moments only: no decisions and combos, see chatter). The lines come from
+// [Brawler] DirectorLines (director.def) or the level's [Level] lines, one section per topic:
 //
 //   [Easier]    ; the director gives the players room
-//   line = Hang in there!
-//   line = Shake it off, {player}!
+//   line = HANG IN THERE!
+//   line = SHAKE IT OFF {player}!
 //   [Harder]    ; the director turns up the heat
 //   [Help]      ; the director drops an item for a player in trouble
 //   [Wave]      ; a wave starts
@@ -48,12 +48,8 @@ import (
 
 const (
 	brawlerTalkTime = 150 // Frames an announcement is shown
-	brawlerTalkFade = 15  // Frames it takes to fade in and out
 	brawlerTalkGap  = 360 // Frames from one announcement to the next at least
 )
-
-// Width of the announcement band in HUD units: at least, and at most (the text shrinks to fit)
-var brawlerTalkBand = [2]float32{170, 300}
 
 // What the director talks about
 type brawlerTalkTopic int
@@ -86,7 +82,7 @@ const (
 // The director.def section of each topic
 var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand", "bosslow", "bossdown", "combo", "streak", "gameover", "strike"}
 
-// Topics that challenge the players (shown with a red edge); the others encourage them (green)
+// Topics that challenge the players (shown in fire colors); the others encourage them (green)
 func (tp brawlerTalkTopic) challenging() bool {
 	return tp == btHarder || tp == btWave || tp == btBoss || tp == btDown || tp == btResume || tp == btLastStand
 }
@@ -116,27 +112,27 @@ func brawlerTalkTopicOf(kind brawlerDirLogKind) (brawlerTalkTopic, bool) {
 type brawlerTalkLines [btCount][]string
 
 var brawlerTalkDefault = brawlerTalkLines{
-	btEasier:    {"Hang in there!", "Catch your breath.", "Shake it off, {player}!"},
-	btHarder:    {"Too easy? Let's fix that.", "Warming up? Here comes more!", "Getting comfortable, {player}?"},
-	btHelp:      {"Here, {player}, eat up!", "Hang on, {player}! Take this."},
-	btWave:      {"Here they come!", "Heads up!"},
-	btBoss:      {"Here comes the big one!"},
-	btCleared:   {"Nicely done.", "Area clear!"},
-	btClose:     {"That was close!", "Still standing? Impressive."},
-	btDown:      {"{player} is down! Hold the line!", "Cover for {player}!"},
-	btBack:      {"Welcome back, {player}!", "{player} is back in it!"},
-	btJoin:      {"{player} joins the fight!", "Fresh fists! Welcome, {player}!"},
-	btRelax:     {"Catch your breath!", "Take five. You earned it."},
-	btResume:    {"Break's over!", "Rested? Here we go again!"},
-	btVictory:   {"Level clear! Nicely done."},
-	btSurvived:  {"Made it. Barely."},
-	btLastStand: {"{player}, you're on your own!"},
-	btBossLow:   {"It's almost done! Finish it!"},
-	btBossDown:  {"The big one's down!"},
-	btCombo:     {"Nice combo!", "What a combo, {player}!"},
-	btStreak:    {"Untouchable!"},
-	btGameOver:  {"Rest up and come back stronger!"},
-	btStrike:    {"Strike!", "Bowled them over, {player}!"},
+	btEasier:    {"HANG IN THERE!", "CATCH YOUR BREATH!", "SHAKE IT OFF {player}!"},
+	btHarder:    {"TOO EASY? MORE!", "HERE COMES MORE!", "{player} WANTS MORE?"},
+	btHelp:      {"FOOD DROP!", "EAT UP {player}!"},
+	btWave:      {"HERE THEY COME!", "HEADS UP!"},
+	btBoss:      {"BOSS INCOMING!"},
+	btCleared:   {"AREA CLEAR!", "NICE WORK!"},
+	btClose:     {"THAT WAS CLOSE!", "PHEW!"},
+	btDown:      {"{player} DOWN!", "COVER {player}!"},
+	btBack:      {"{player} IS BACK!", "WELCOME BACK {player}!"},
+	btJoin:      {"{player} JOINS!", "HERE COMES {player}!"},
+	btRelax:     {"BREATHER!", "TAKE FIVE!"},
+	btResume:    {"BREAK IS OVER!", "HERE WE GO AGAIN!"},
+	btVictory:   {"WELL DONE!"},
+	btSurvived:  {"BARELY MADE IT!"},
+	btLastStand: {"{player} STANDS ALONE!"},
+	btBossLow:   {"FINISH IT!"},
+	btBossDown:  {"BOSS DOWN!"},
+	btCombo:     {"NICE COMBO!", "GREAT COMBO {player}!"},
+	btStreak:    {"UNTOUCHABLE!"},
+	btGameOver:  {"TRY AGAIN!"},
+	btStrike:    {"STRIKE!", "{player} STRIKE!"},
 }
 
 type brawlerDirectorTalkState struct {
@@ -277,35 +273,51 @@ func (t *brawlerDirectorTalkState) step() {
 	}
 }
 
-// Opacity of the announcement now: fading in, shown, fading out
-func (t *brawlerDirectorTalkState) alpha() float32 {
-	if t.time <= 0 {
-		return 0
-	}
-	shown := brawlerTalkTime - t.time
-	return Clamp(Min(float32(shown+1), float32(t.time))/brawlerTalkFade, 0, 1)
+// The announcement shows
+func (t *brawlerDirectorTalkState) shown() bool {
+	return t.time > 0
 }
 
-// The announcement in the upper center, on a dark band with a red edge when it challenges the players,
-// green when it encourages them
-func (b *Brawler) drawDirectorTalk(txt brawlerHudText) {
+// Scale of the announcement now: zooming in, shown, folding away (brawlerShoutScale)
+func (t *brawlerDirectorTalkState) scale() (x, y float32) {
+	if !t.shown() {
+		return 0, 0
+	}
+	return brawlerShoutScale(brawlerTalkTime-t.time, brawlerTalkTime)
+}
+
+// The announcement waits while the level-clear K.O. shows: it comes with the summary, under it
+func (b *Brawler) talkHeld() bool {
+	return b.complete && b.stats.endTime < brawlerSummaryDelay
+}
+
+// The fight screen shows its winner announcement (YOU WIN), where the level-clear comment would be
+func brawlerWinShown() bool {
+	ro := sys.fightScreen.round
+	return ro != nil && ro.winDisplayPhase < 2 && sys.intro < -ro.over_waittime && ro.winDisplayTimer >= ro.win_time
+}
+
+// The announcement where the fight screen shows FIGHT!, in its look but smaller (brawler_hud_shout.go): in
+// fire colors when it challenges the players, green when it encourages them. When the level is cleared,
+// it goes under the summary, until the winner announcement
+func (b *Brawler) drawDirectorTalk() {
 	t := &brawlerDirectorTalk
-	a := t.alpha()
-	if !b.directorTalkOn() || a <= 0 {
+	if !b.directorTalkOn() || !t.shown() || b.talkHeld() || (b.complete && brawlerWinShown()) {
 		return
 	}
-	col := uint32(0x3fd36a)
-	if t.topic.challenging() {
-		col = 0xff6a3a
+	txt := b.shoutFont(brawlerHudLayer)
+	text := brawlerShoutText(txt.fnt, txt.bank, t.text)
+	k := txt.fit(text, brawlerShoutHeight/Max(1, txt.height()), brawlerShoutWidth)
+	y := brawlerShoutY()
+	if b.complete {
+		y = b.summaryBottom() + txt.height()*k/2 + 6
 	}
-	// The band fits the line (brawlerTalkBand), a long line gets smaller text
-	text := brawlerShorten(t.text, 72)
-	k := txt.fit(text, 0.75, brawlerTalkBand[1]-20)
-	w := Clamp(txt.width(text, k)+20, brawlerTalkBand[0], brawlerTalkBand[1])
-	y := brawlerHudPanelsBottom() + 12
-	brawlerHudFill(160-w/2, y-9, w, 13, 0x000000, int32(150*a))
-	brawlerHudFill(160-w/2, y+3, w, 1, col, int32(255*a))
-	txt.drawFaded(160, y, text, 0, k, a)
+	colors := brawlerShoutGreen
+	if t.topic.challenging() {
+		colors = brawlerShoutFire
+	}
+	sx, sy := t.scale()
+	txt.drawShout(160, y, text, k, sx, sy, colors)
 }
 
 // Pressure on a player in a wave from which clearing it counts as a close call

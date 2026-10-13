@@ -155,8 +155,7 @@ func TestBrawlerIntroEase(t *testing.T) {
 	}
 }
 
-// The director's announcement and log stay below everything under the player panels, the log below the
-// announcement
+// The director's log stays below everything under the player panels and below its shouts
 func TestBrawlerHudDirectorPlacement(t *testing.T) {
 	for _, n := range []int{1, 2, 3, 4} {
 		l := brawlerHudLayout(0, n)
@@ -165,10 +164,10 @@ func TestBrawlerHudDirectorPlacement(t *testing.T) {
 			t.Errorf("%v players: panels end at %v, move names at %v", n, brawlerHudPanelsBottom(), callouts)
 		}
 	}
-	talkTop, talkBottom := brawlerHudPanelsBottom()+12-9, brawlerHudPanelsBottom()+12+4
-	logTop := brawlerHudPanelsBottom() + 29 - 6
-	if talkTop < brawlerHudPanelsBottom() || logTop < talkBottom {
-		t.Errorf("announcement %v-%v, log from %v", talkTop, talkBottom, logTop)
+	shoutBottom := brawlerShoutY() + brawlerShoutHeight/2 + 2 // With the letters' shadow
+	logTop := brawlerDirLogY() - 6
+	if logTop < brawlerHudPanelsBottom() || logTop < shoutBottom {
+		t.Errorf("shouts end at %v, log from %v", shoutBottom, logTop)
 	}
 }
 

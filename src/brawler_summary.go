@@ -70,18 +70,30 @@ func (b *Brawler) summaryLines() [2]string {
 	return lines
 }
 
+// The summary panel's top and height, in HUD units
+func (b *Brawler) summaryBox() (top, h float32) {
+	h = 52
+	if b.summaryDefeats() != "" {
+		h += 11
+	}
+	return brawlerHudHeight()*0.42 - 26, h
+}
+
+// Bottom of the summary panel: the director's comment goes under it
+func (b *Brawler) summaryBottom() float32 {
+	top, h := b.summaryBox()
+	return top + h
+}
+
 // The panel, fading in a moment after the level was cleared
 func (b *Brawler) drawSummary(txt brawlerHudText) {
 	if !b.complete || b.stats.endTime < brawlerSummaryDelay {
 		return
 	}
 	a := Clamp(float32(b.stats.endTime-brawlerSummaryDelay)/brawlerSummaryFade, 0, 1)
-	y := brawlerHudHeight() * 0.42
+	top, h := b.summaryBox()
+	y := top + 26
 	defeats := b.summaryDefeats()
-	h := float32(52)
-	if defeats != "" {
-		h += 11
-	}
 	brawlerHudFill(70, y-26, 180, h, 0x000000, int32(170*a))
 	brawlerHudFill(70, y-26, 180, 1.5, 0x3fd36a, int32(255*a))
 	txt.drawFaded(160, y-10, "LEVEL CLEAR", 0, 1.6, a)

@@ -75,26 +75,31 @@ func TestBrawlerTalkAnnounce(t *testing.T) {
 	if tk.text != "Hard" || tk.topic != btHarder || tk.time != brawlerTalkTime {
 		t.Fatalf("announce: %+v", tk)
 	}
-	// Fades in, holds, fades out
-	if a := tk.alpha(); a <= 0 || a >= 1 {
-		t.Fatalf("first frame alpha %v", a)
+	// Zooms in, holds, folds away
+	if x, y := tk.scale(); x <= 1 || x != y {
+		t.Fatalf("first frame scale %v %v", x, y)
 	}
-	for i := 0; i < brawlerTalkFade; i++ {
+	for i := 0; i < brawlerShoutPop; i++ {
 		tk.step()
 	}
-	if tk.alpha() != 1 {
-		t.Fatalf("shown alpha %v", tk.alpha())
+	if x, y := tk.scale(); x != 1 || y != 1 {
+		t.Fatalf("shown scale %v %v", x, y)
 	}
 	// The next one waits for the gap
 	tk.announce(lines, bdlEasier, "")
 	if tk.text != "Hard" {
 		t.Fatal("announced within the gap")
 	}
-	for i := brawlerTalkFade; i < brawlerTalkTime; i++ {
+	for i := brawlerShoutPop; i < brawlerTalkTime-2; i++ {
 		tk.step()
 	}
-	if tk.alpha() != 0 {
-		t.Fatalf("alpha after the time %v", tk.alpha())
+	if x, y := tk.scale(); x != 1 || y <= 0 || y >= 1 {
+		t.Fatalf("folding scale %v %v", x, y)
+	}
+	tk.step()
+	tk.step()
+	if tk.shown() {
+		t.Fatal("shown after the time")
 	}
 	for i := brawlerTalkTime; i < brawlerTalkGap; i++ {
 		tk.step()
@@ -105,7 +110,7 @@ func TestBrawlerTalkAnnounce(t *testing.T) {
 	}
 	// A new level: nothing shown, no wait
 	tk.reset()
-	if tk.alpha() != 0 || tk.wait != 0 {
+	if tk.shown() || tk.wait != 0 {
 		t.Fatalf("reset: %+v", tk)
 	}
 }
@@ -137,7 +142,7 @@ func TestBrawlerTalkDecision(t *testing.T) {
 	d.stress[0], d.pressure[0] = 0.3, 1
 	d.slots[0] = brawlerAttackSlots(base, 1)
 	settle()
-	if tk := brawlerDirectorTalk; tk.text != "Breathe, 1P!" || tk.topic != btEasier || tk.alpha() <= 0 {
+	if tk := brawlerDirectorTalk; tk.text != "Breathe, 1P!" || tk.topic != btEasier || !tk.shown() {
 		t.Fatalf("announcement %+v", tk)
 	}
 	// Turned off: no announcement, nothing drawn

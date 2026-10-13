@@ -66,8 +66,7 @@ func brawlerHudLayout(i, n int) brawlerHudPanel {
 	return p
 }
 
-// Bottom of what the panels show under them (enemy bar, move names): the director's announcement and log
-// go below it
+// Bottom of what the panels show under them (enemy bar, move names): the director's log goes below it
 func brawlerHudPanelsBottom() float32 {
 	l := brawlerHudLayout(0, 2)
 	return l.targetY + l.targetH + 12
@@ -296,7 +295,7 @@ func (b *Brawler) drawHUD(layerno int16) {
 	b.drawTitleCard(txt)
 	b.drawCallouts(txt)
 	b.drawDirectorLog(txt)
-	b.drawDirectorTalk(txt)
+	b.drawDirectorTalk()
 	b.drawDirectorDebug(txt)
 }
 
@@ -648,7 +647,7 @@ func (b *Brawler) drawDirectorDebug(txt brawlerHudText) {
 		limit = b.maxAlive(b.level.waves[b.wave])
 	}
 	// Right half of the screen, clear of the engine's own debug text on the left, below the director log
-	y := brawlerHudPanelsBottom() + 29 + brawlerDirLogLines*16 + 4
+	y := brawlerDirLogY() + brawlerDirLogLines*16 + 4
 	txt.draw(316, y, fmt.Sprintf("DIRECTOR tension %.2f  alive %v/%v", d.tension, b.aliveEnemies(), limit), -1)
 	y += 9
 	pace := "building"

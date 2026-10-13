@@ -824,9 +824,11 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   Fewer, which keeps the key moments and leaves out the frequent
   easier/harder, combo and streak lines; [Brawler] DirectorTalk 0, 1, 2; needs
   Director = 1): when the director makes the fight easier or harder, it
-  says so with a short line in the upper center, encouraging (green edge)
-  when it eases off, challenging (red edge) when it pushes. At most one
-  every 6 seconds, never the same line twice in a row. The lines are in
+  shouts a short line where the fight screen shows FIGHT!, in its look but
+  smaller: green when it encourages (it eases off), in fire colors when it
+  challenges (it pushes). Lines are short shouts in capitals (the combo
+  text font has capitals, digits and ! ? % only). At most one every 6
+  seconds, never the same line twice in a row. The lines are in
   data/brawler/director.def ([Easier] and [Harder], "line = ..."; {player}
   is the player a decision is about). [Brawler] DirectorLines sets another
   file, and a level can use its own with [Level] lines (a content pack

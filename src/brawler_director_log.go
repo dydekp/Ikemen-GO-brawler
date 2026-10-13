@@ -155,7 +155,9 @@ func (b *Brawler) directorLogStep() {
 		l.entries = l.entries[1:]
 	}
 	t := &brawlerDirectorTalk
-	t.step()
+	if !b.talkHeld() {
+		t.step()
+	}
 	if b.directorTalkOn() {
 		b.talkPlayers()
 		b.talkBosses()
@@ -237,13 +239,12 @@ func brawlerAttackers(n int32) string {
 
 // The feed: newest at the top, green for easier, red for harder, grey otherwise
 func (b *Brawler) drawDirectorLog(txt brawlerHudText) {
-	// Not over the continue countdown: with everybody down, the decisions don't matter
-	if !b.directorLogOn() || b.continueShown() {
+	// Not over the continue countdown or the level summary: the decisions don't matter then
+	if !b.directorLogOn() || b.continueShown() || b.complete {
 		return
 	}
 	l := &brawlerDirectorLog
-	// Below the announcement
-	y := brawlerHudPanelsBottom() + 29
+	y := brawlerDirLogY()
 	for i := len(l.entries) - 1; i >= 0; i-- {
 		e := l.entries[i]
 		col := uint32(0x9a9aa8)
@@ -261,4 +262,9 @@ func (b *Brawler) drawDirectorLog(txt brawlerHudText) {
 		txt.drawScaled(315, y+6, why, -1, txt.fit(why, 0.48, 136))
 		y += 16
 	}
+}
+
+// Where the log's newest entry goes: under the player panels and under the director's shouts
+func brawlerDirLogY() float32 {
+	return Max(brawlerHudPanelsBottom()+12, brawlerShoutY()+brawlerShoutHeight/2+10)
 }

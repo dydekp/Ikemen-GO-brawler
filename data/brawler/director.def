@@ -2,167 +2,173 @@
 ;
 ; When the director makes the fight easier or harder, drops an item for a
 ; player in trouble, a wave starts or is cleared, or a player goes down, comes
-; back or joins, it says so with a short line in the upper center of the
-; screen ([Brawler] DirectorTalk = 1).
+; back or joins, it shouts a short line where the fight screen shows FIGHT!
+; ([Brawler] DirectorTalk = 1). The lines are shown in the look of FIGHT!,
+; smaller: in the fight screen's combo text font, in capitals, in fire colors
+; when they challenge the players, in green when they encourage them.
 ; One line is picked at random, never the same one twice in a row.
 ; {player} is replaced by the player the decision is about (1P, 2P...).
 ; Lines with {player} are only used for decisions about one player.
-; Keep lines short: the band grows with longer lines and their text shrinks,
-; up to 72 characters.
+;
+; Keep lines short, like shouts: a few words, up to about 20 letters (longer
+; ones get smaller). The default font has capitals, digits and ! ? % only:
+; apostrophes are left out and other marks become spaces.
 
 [Easier]
 ; The director gives the players room: be encouraging
-line = Hang in there!
-line = Catch your breath.
-line = Don't give up now!
-line = You've got this!
-line = Stay on your feet!
-line = Shake it off, {player}!
-line = Breathe, {player}. I'll hold them back.
-line = Keep fighting, {player}!
+line = HANG IN THERE!
+line = CATCH YOUR BREATH!
+line = YOU GOT THIS!
+line = STAY ON YOUR FEET!
+line = DONT GIVE UP!
+line = SHAKE IT OFF {player}!
+line = BREATHE {player}!
+line = KEEP FIGHTING {player}!
 
 [Harder]
 ; The director turns up the heat: be challenging
-line = Too easy? Let's fix that.
-line = Warming up? Here comes more!
-line = Show me what you've got!
-line = Let's see you handle this!
-line = No more holding back!
-line = Getting comfortable, {player}?
-line = Think you're tough, {player}?
-line = {player} wants more. Granted!
+line = TOO EASY? MORE!
+line = HERE COMES MORE!
+line = SHOW ME MORE!
+line = TURNING UP THE HEAT!
+line = NO MORE MERCY!
+line = {player} WANTS MORE?
+line = TOO COMFY {player}?
+line = MORE FOR {player}!
 
 [Help]
 ; The director drops an item next to a player in trouble ([Level] help):
 ; always said, even right after another line
-line = Here, {player}, eat up!
-line = Hang on, {player}! Take this.
-line = {player}, grab that and get back up!
-line = Don't quit on me, {player}! Food's here.
+line = FOOD DROP!
+line = EAT UP {player}!
+line = {player} GRAB IT!
+line = HANG ON {player}!
+line = FOOD FOR {player}!
 
 [Wave]
 ; A wave starts: get the players going
-line = Here they come!
-line = Heads up!
-line = Company's here. Show them out!
-line = Look alive, they're coming!
+line = HERE THEY COME!
+line = HEADS UP!
+line = INCOMING!
+line = LOOK ALIVE!
 
 [Boss]
 ; A wave with a boss starts
-line = Here comes the big one!
-line = This one won't go down easy.
-line = Now the real fight begins!
+line = BOSS INCOMING!
+line = HERE COMES THE BOSS!
+line = BIG ONE AHEAD!
+line = BOSS FIGHT!
 
 [Cleared]
 ; A wave is cleared
-line = Nicely done.
-line = Area clear!
-line = That's how it's done!
-line = Not bad. Keep moving!
+line = AREA CLEAR!
+line = NICE WORK!
+line = CLEAR! MOVE ON!
+line = THATS HOW ITS DONE!
 
 [Close]
 ; A wave is cleared after a player was in real trouble in it
 ; ({player}: that player)
-line = That was close!
-line = Still standing? Impressive.
-line = Phew! You made it, {player}.
-line = Close one, {player}. Breathe.
+line = THAT WAS CLOSE!
+line = PHEW!
+line = CLOSE ONE {player}!
+line = STILL ALIVE {player}!
 
 [Down]
 ; A player goes down while others fight on ({player}: the one down)
-line = {player} is down! Hold the line!
-line = Cover for {player}!
-line = Lost {player}! Don't let up!
-line = {player} needs a breather. Keep them busy!
+line = {player} DOWN!
+line = COVER {player}!
+line = {player} IS DOWN! HOLD ON!
+line = PROTECT {player}!
 
 [Back]
 ; A player who was down is back in the fight
-line = Welcome back, {player}!
-line = {player} is back in it!
-line = Look who's up again: {player}!
+line = {player} IS BACK!
+line = WELCOME BACK {player}!
+line = {player} RETURNS!
 
 [Join]
 ; A player joins during the level
-line = {player} joins the fight!
-line = Fresh fists! Welcome, {player}!
-line = Reinforcements! Go get 'em, {player}!
+line = {player} JOINS!
+line = HERE COMES {player}!
+line = {player} JOINS THE FIGHT!
 
 [Relax]
 ; The fight peaked: the director gives the team a breather
-line = Catch your breath!
-line = Take five. You earned it.
-line = Easy now. Regroup!
-line = Breathe. They're waiting for you.
+line = BREATHER!
+line = TAKE FIVE!
+line = REGROUP!
+line = CATCH YOUR BREATH!
 
 [Resume]
 ; The breather is over
-line = Break's over!
-line = Rested? Here we go again!
-line = Back to work!
-line = Round two. Ready?
+line = BREAK IS OVER!
+line = HERE WE GO AGAIN!
+line = BACK TO WORK!
+line = ROUND TWO!
 
 [Victory]
 ; The level is cleared and the team lost little life for what it defeated
-line = Level clear! Nicely done.
-line = Not a scratch on you. Almost.
-line = That's how it's done!
-line = Clean work. On to the next one!
+line = WELL DONE!
+line = CLEAN WORK!
+line = BARELY A SCRATCH!
+line = THATS HOW ITS DONE!
 
 [Survived]
 ; The level is cleared, but it was rough
-line = Made it. Barely.
-line = Bruised, but standing. Good enough!
-line = That one hurt. Patch up and move on.
-line = Survived! Next time, guard more.
+line = BARELY MADE IT!
+line = SURVIVED!
+line = BRUISED BUT STANDING!
+line = PATCH UP AND GO!
 
 [LastStand]
 ; Co-op: a player goes down and only one is left standing ({player}: the one
 ; still standing). The director also keeps fewer enemies on screen for them
-line = {player}, you're on your own!
-line = Hold the fort, {player}!
-line = It's all on you now, {player}!
-line = Last one standing: show them, {player}!
+line = {player} STANDS ALONE!
+line = ALL ON YOU {player}!
+line = HOLD ON {player}!
+line = LAST ONE {player}!
 
 [BossLow]
 ; A boss is down to a quarter of its life
-line = It's almost done! Finish it!
-line = One more push!
-line = It's wobbling. Take it down!
+line = FINISH IT!
+line = ONE MORE PUSH!
+line = ALMOST DOWN!
 
 [BossDown]
 ; A boss is defeated (said instead of the wave or level line when it was
 ; the last enemy)
-line = The big one's down!
-line = Boss down! Who's next?
-line = And stay down!
+line = BOSS DOWN!
+line = AND STAY DOWN!
+line = THE BIG ONE FALLS!
 
 [Combo]
 ; A combo of at least "hits" hits by the players. Named after the player
 ; when only one plays
 hits = 8
-line = Nice combo!
-line = Now that's a combo!
-line = What a combo, {player}!
-line = Keep it rolling, {player}!
+line = NICE COMBO!
+line = SWEET COMBO!
+line = GREAT COMBO {player}!
+line = KEEP IT ROLLING {player}!
 
 [Streak]
 ; "defeats" enemies defeated in a row without a player taking damage
 defeats = 5
-line = Untouchable!
-line = Nobody can lay a finger on you!
-line = Flawless so far, {player}!
-line = They can't even touch you, {player}!
+line = UNTOUCHABLE!
+line = FLAWLESS!
+line = {player} UNTOUCHABLE!
+line = NO SCRATCH {player}!
 
 [GameOver]
 ; Nobody continued: the level is lost
-line = Rest up and come back stronger!
-line = Not this time. Shake it off and try again.
-line = They won this round. Only this round.
+line = TRY AGAIN!
+line = NOT THIS TIME!
+line = COME BACK STRONGER!
 
 [Strike]
 ; A thrown or knocked down enemy knocked over another one or more
 ; ({player}: who sent it flying)
-line = Strike!
-line = Bowled them over, {player}!
-line = Two for the price of one!
-line = Look out below!
+line = STRIKE!
+line = BOWLED OVER!
+line = TWO FOR ONE!
+line = {player} STRIKE!
