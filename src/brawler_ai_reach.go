@@ -81,7 +81,7 @@ func (b *Brawler) learnReach(c *Char, ai *brawlerAI) {
 	ai.moveSeen = true
 	if front := brawlerAttackFront(c); front > 0 {
 		ls := c.localscl
-		b.noteReach(c.bw.entry, ai.moveIdx, brawlerMoveSlots(ai.beh), front,
+		b.noteReach(c.bw.entry, ai.moveIdx, brawlerReachSlots(c, ai.beh), front,
 			[2]float32{c.hitdef.attack_depth[0] * ls, c.hitdef.attack_depth[1] * ls})
 		b.carryReach(c.bw.entry, ai.moveIdx)
 	}
@@ -207,12 +207,46 @@ func brawlerMoveAt(beh *BrawlerBehavior, slot int) (brawlerMove, bool) {
 	return brawlerMove{}, false
 }
 
-// A combo follow-up with a learned reach that doesn't reach the target any more (it was knocked back or
-// stepped away): the enemy ends the combo instead of attacking air
-func (b *Brawler) followUpMisses(f *brawlerAIFrame, slot int) bool {
+// A move with a learned reach that doesn't reach the target now: too far in front, or in depth
+func (b *Brawler) reachMisses(f *brawlerAIFrame, slot int) bool {
 	r := b.moveReachOf(f.c.bw.entry, slot)
 	if !r.known {
 		return false
 	}
 	return f.adx > r.front*brawlerReachUse+f.t.size.standbox[2]*f.t.localscl || !f.sameLane
+}
+
+// A combo follow-up that doesn't reach the target any more (it was knocked back or stepped away): the enemy
+// ends the combo instead of attacking air
+func (b *Brawler) followUpMisses(f *brawlerAIFrame, slot int) bool {
+	return b.reachMisses(f, slot)
+}
+
+// Reach slots of an enemy: its profile's moves and follow-ups, then one per command of its character
+// (the random specials). Specials are learned per level only: carrying them needs the command names
+func brawlerReachSlots(c *Char, beh *BrawlerBehavior) int {
+	n := brawlerMoveSlots(beh)
+	if c.cmd != nil && c.ss.sb != nil && c.ss.sb.playerNo >= 0 && c.ss.sb.playerNo < len(c.cmd) {
+		n += len(c.cmd[c.ss.sb.playerNo].Commands)
+	}
+	return n
+}
+
+// Attempts at picking a special that reaches before throwing the planned move instead
+const brawlerSpecialTries = 4
+
+// A random special command for an attack: one not learned yet, or one whose reach covers the target. -1
+// when none of a few picks does
+func (b *Brawler) pickSpecial(f *brawlerAIFrame, cmds [][]Command, skipAI bool) int32 {
+	base := brawlerMoveSlots(f.beh)
+	for i := 0; i < brawlerSpecialTries; i++ {
+		cmd := brawlerRandomCommand(cmds, skipAI)
+		if cmd < 0 {
+			return -1
+		}
+		if !b.reachMisses(f, base+int(cmd)) {
+			return cmd
+		}
+	}
+	return -1
 }

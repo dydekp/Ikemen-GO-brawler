@@ -167,3 +167,36 @@ func TestBrawlerFollowUpMisses(t *testing.T) {
 		t.Fatalf("out of reach: combo left %v", ai.comboLeft)
 	}
 }
+
+// Specials: unknown ones are tried; learned ones that don't reach are skipped, and with none reaching the
+// planned move is used instead (-1)
+func TestBrawlerPickSpecial(t *testing.T) {
+	b := brawlerTestMode(t)
+	beh := newBrawlerBehavior("x")
+	beh.moves, _ = parseBrawlerMoves("a")
+	c := fakeBrawlerEnemy(100, beh, false)
+	tg := &Char{localscl: 1}
+	f := &brawlerAIFrame{c: c, t: tg, ai: &c.bw.ai, beh: beh, adx: 100, sameLane: true}
+	cmds := [][]Command{{{name: "QCF_x"}}, {{name: "DP_x"}}}
+	base := brawlerMoveSlots(beh)
+	if cmd := b.pickSpecial(f, cmds, false); cmd < 0 {
+		t.Fatal("unknown specials not tried")
+	}
+	// The fireball reaches 300, the uppercut 30: at 100 only the fireball
+	b.noteReach(0, base+0, base+2, 300, [2]float32{4, 4})
+	b.noteReach(0, base+1, base+2, 30, [2]float32{4, 4})
+	for i := 0; i < 20; i++ {
+		if cmd := b.pickSpecial(f, cmds, false); cmd != 0 && cmd != -1 {
+			t.Fatalf("picked the uppercut out of reach: %v", cmd)
+		}
+	}
+	// Nothing reaches: no special
+	f.adx = 1000
+	if cmd := b.pickSpecial(f, cmds, false); cmd != -1 {
+		t.Fatalf("picked %v with nothing in reach", cmd)
+	}
+	// No commands at all
+	if cmd := b.pickSpecial(f, nil, false); cmd != -1 {
+		t.Fatalf("picked %v without commands", cmd)
+	}
+}

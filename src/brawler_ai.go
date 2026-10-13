@@ -949,8 +949,14 @@ func (b *Brawler) aiAttack(f *brawlerAIFrame) bool {
 	if b.attackersOn(f.t, c) >= b.attackLimit(f.t) {
 		return false
 	}
+	// Now and then a random special of the character, if one reaches (brawler_ai_reach.go)
+	special := int32(-1)
 	if brawlerChance(beh.special) {
-		ai.cheat = brawlerRandomCommand(c.cmd[c.ss.sb.playerNo].Commands, b.ownAIOff(c))
+		special = b.pickSpecial(f, c.cmd[c.ss.sb.playerNo].Commands, b.ownAIOff(c))
+	}
+	if special >= 0 {
+		ai.cheat = special
+		ai.moveIdx, ai.moveSeen = brawlerMoveSlots(beh)+int(special), false
 	} else if ai.nextMove >= 0 && ai.nextMove < len(beh.moves) {
 		ai.start(beh.moves[ai.nextMove].steps, true)
 		ai.comboLeft = brawlerRand(beh.combo)

@@ -459,6 +459,7 @@ reach         = 30         ; Attack distance in front of the body
                            ; Combo follow-ups are measured too; one that
                            ; no longer reaches ends the combo
 special       = 0.15       ; Chance an attack is a random command instead
+                           ; (one whose learned reach covers the target)
 guard         = 0.1        ; Chance to guard when the target attacks
 hover         = 60, 120    ; Distance kept while waiting to attack
 priority      = 0          ; 1 = gets an attack turn before other enemies.
