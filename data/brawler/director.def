@@ -143,3 +143,11 @@ line = Nice combo!
 line = Now that's a combo!
 line = What a combo, {player}!
 line = Keep it rolling, {player}!
+
+[Streak]
+; "defeats" enemies defeated in a row without a player taking damage
+defeats = 5
+line = Untouchable!
+line = Nobody can lay a finger on you!
+line = Flawless so far, {player}!
+line = They can't even touch you, {player}!

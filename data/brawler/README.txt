@@ -792,7 +792,7 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   change.
 - Director announcements (option "Director Announcements": Off, All, or
   Fewer, which keeps the key moments and leaves out the frequent
-  easier/harder and combo lines; [Brawler] DirectorTalk 0, 1, 2; needs
+  easier/harder, combo and streak lines; [Brawler] DirectorTalk 0, 1, 2; needs
   Director = 1): when the director makes the fight easier or harder, it
   says so with a short line in the upper center, encouraging (green edge)
   when it eases off, challenging (red edge) when it pushes. At most one
@@ -817,6 +817,8 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   they fall (instead of the wave or level line when they were the last).
   A combo of at least 8 hits gets a [Combo] line ("hits = 8" in that
   section sets the number).
+  Five enemies defeated in a row without a player taking damage get a
+  [Streak] line ("defeats = 5" in that section).
 - Title card: as the fight starts, the level's name and difficulty fade
   in at the bottom of the screen for 2.5 seconds.
 - Level summary: when a level is cleared, a panel shows the time it took,

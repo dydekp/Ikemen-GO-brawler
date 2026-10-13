@@ -20,6 +20,7 @@ package main
 //   [BossLow]   ; a boss is down to brawlerTalkBossLow of its life
 //   [BossDown]  ; a boss is defeated
 //   [Combo]     ; a combo of at least "hits = 8" hits (a key of this section)
+//   [Streak]    ; "defeats = 5" enemies defeated in a row without a player taking damage
 //   [Back]      ; a player who was down is back (continue, rejoin)
 //   [Join]      ; a player joins during the level
 //   [Relax]     ; the director gives the team a breather (brawler_director_pace.go)
@@ -71,11 +72,12 @@ const (
 	btBossLow
 	btBossDown
 	btCombo
+	btStreak
 	btCount
 )
 
 // The director.def section of each topic
-var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand", "bosslow", "bossdown", "combo"}
+var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived", "laststand", "bosslow", "bossdown", "combo", "streak"}
 
 // Topics that challenge the players (shown with a red edge); the others encourage them (green)
 func (tp brawlerTalkTopic) challenging() bool {
@@ -84,7 +86,7 @@ func (tp brawlerTalkTopic) challenging() bool {
 
 // Frequent topics: the director's decisions and combos. [Brawler] DirectorTalk = 2 (key moments) leaves them out
 func (tp brawlerTalkTopic) chatter() bool {
-	return tp == btEasier || tp == btHarder || tp == btCombo
+	return tp == btEasier || tp == btHarder || tp == btCombo || tp == btStreak
 }
 
 // A topic is announced with the configured amount of talk: all of them (1), or only key moments (2)
@@ -125,22 +127,27 @@ var brawlerTalkDefault = brawlerTalkLines{
 	btBossLow:   {"It's almost done! Finish it!"},
 	btBossDown:  {"The big one's down!"},
 	btCombo:     {"Nice combo!", "What a combo, {player}!"},
+	btStreak:    {"Untouchable!"},
 }
 
 type brawlerDirectorTalkState struct {
-	text      string
-	topic     brawlerTalkTopic
-	time      int32 // Frames left on screen
-	wait      int32 // Frames until the next announcement of a decision may come
-	last      [btCount]string
-	lines     *brawlerTalkLines
-	linesFor  string // Path the lines were read from
-	rng       *rand.Rand
-	seen      [MaxSimul * 2]brawlerTalkSeen // The players as last seen, see talkPlayers
-	bossSaid  map[int32]brawlerTalkTopic    // Per boss (player ID): the last boss topic said, see talkBosses
-	comboHits int32                         // Hits a combo needs for a [Combo] line, from the lines file
-	comboSaid bool                          // Said for the current combo
-	watching  bool                          // seen is filled in
+	text        string
+	topic       brawlerTalkTopic
+	time        int32 // Frames left on screen
+	wait        int32 // Frames until the next announcement of a decision may come
+	last        [btCount]string
+	lines       *brawlerTalkLines
+	linesFor    string // Path the lines were read from
+	rng         *rand.Rand
+	seen        [MaxSimul * 2]brawlerTalkSeen // The players as last seen, see talkPlayers
+	bossSaid    map[int32]brawlerTalkTopic    // Per boss (player ID): the last boss topic said, see talkBosses
+	comboHits   int32                         // Hits a combo needs for a [Combo] line, from the lines file
+	comboSaid   bool                          // Said for the current combo
+	streakKills int32                         // Defeats a [Streak] line needs, from the lines file
+	streakFrom  int32                         // Defeats (Brawler.stats.kills) when the players were last hurt
+	streakHurt  float32                       // The life they had lost then (director.levelHurt)
+	streakSaid  bool
+	watching    bool // seen is filled in
 }
 
 var brawlerDirectorTalk brawlerDirectorTalkState
@@ -154,6 +161,7 @@ func (t *brawlerDirectorTalkState) reset() {
 	t.text, t.time, t.wait, t.last = "", 0, 0, [btCount]string{}
 	t.watching = false
 	t.bossSaid = nil
+	t.streakFrom, t.streakHurt, t.streakSaid = 0, 0, false
 }
 
 // Read the lines of a director.def file. Topics without lines (or a missing file) use the built-in ones
@@ -196,6 +204,7 @@ func (t *brawlerDirectorTalkState) linesNow() *brawlerTalkLines {
 	if path := brawlerTalkPath(); t.lines == nil || t.linesFor != path {
 		t.lines, t.linesFor = loadBrawlerTalkLines(path), path
 		t.comboHits = loadBrawlerTalkComboHits(path)
+		t.streakKills = loadBrawlerTalkNumber(path, "streak", "defeats", brawlerTalkStreak)
 	}
 	return t.lines
 }
@@ -422,21 +431,27 @@ func (t *brawlerDirectorTalkState) bossJustDown() bool {
 }
 
 const brawlerTalkComboHits = 8 // Default hits a combo needs for a [Combo] line
+const brawlerTalkStreak = 5    // Default defeats in a row without damage for a [Streak] line
 
 // "hits" of the [Combo] section of a lines file, or the default
 func loadBrawlerTalkComboHits(path string) int32 {
-	hits := int32(brawlerTalkComboHits)
+	return loadBrawlerTalkNumber(path, "combo", "hits", brawlerTalkComboHits)
+}
+
+// A number key of a section of a lines file (2 or more), or def
+func loadBrawlerTalkNumber(path, section, key string, def int32) int32 {
+	n := def
 	if text, err := os.ReadFile(path); err == nil {
 		readBrawlerIni(string(text), func(l brawlerIniLine) error {
-			if !l.header && l.section == "combo" && l.key == "hits" {
+			if !l.header && l.section == section && l.key == key {
 				if v, err := brawlerParseI(l.val); err == nil && v > 1 {
-					hits = v
+					n = v
 				}
 			}
 			return nil
 		})
 	}
-	return hits
+	return n
 }
 
 // A big combo by the players: the director praises it, once per combo, about the player when only one
@@ -458,4 +473,24 @@ func (b *Brawler) talkCombo() {
 		who = fmt.Sprintf("%vP", b.charSeat(players[0])+1)
 	}
 	t.say(t.lines, btCombo, who)
+}
+
+// Enemies defeated in a row without a player taking damage: the director cheers, once per streak (about the
+// player when only one plays). Any damage starts a new streak. Runs every frame with the announcements on
+func (b *Brawler) talkStreak() {
+	t := &brawlerDirectorTalk
+	t.linesNow()
+	if hurt := b.director.levelHurt; hurt != t.streakHurt || b.stats.kills < t.streakFrom {
+		t.streakFrom, t.streakHurt, t.streakSaid = b.stats.kills, hurt, false
+		return
+	}
+	if t.streakSaid || b.stats.kills-t.streakFrom < t.streakKills || t.time > brawlerTalkTime-60 {
+		return
+	}
+	t.streakSaid = true
+	who := ""
+	if players := b.players(true); len(b.players(false)) == 1 && len(players) == 1 {
+		who = fmt.Sprintf("%vP", b.charSeat(players[0])+1)
+	}
+	t.say(t.lines, btStreak, who)
 }

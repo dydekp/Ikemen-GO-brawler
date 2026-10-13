@@ -543,3 +543,48 @@ func TestBrawlerTalkKeyMoments(t *testing.T) {
 		t.Error("off with DirectorTalk = 2")
 	}
 }
+
+// Defeats in a row without damage: one line per streak; damage starts a new one
+func TestBrawlerTalkStreak(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	oldTalk, oldSeats := brawlerDirectorTalk, brawlerJoin.slotSeat
+	t.Cleanup(func() { brawlerDirectorTalk, brawlerJoin.slotSeat = oldTalk, oldSeats })
+	var lines brawlerTalkLines
+	for tp := range lines {
+		lines[tp] = []string{brawlerTalkSections[tp] + " {player}"}
+	}
+	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test", streakKills: 3}
+	sys.cfg.Brawler.DirectorLines = "test"
+	tk := &brawlerDirectorTalk
+	brawlerTestPlayer(b, 0, 0, 0)
+	brawlerJoin.slotSeat[0] = 0
+	step := func(kills int32, hurt float32) string {
+		tk.text = ""
+		b.stats.kills, b.director.levelHurt = kills, hurt
+		b.talkStreak()
+		return tk.text
+	}
+	step(0, 0)
+	if s := step(2, 0); s != "" {
+		t.Fatalf("2 defeats: %q", s)
+	}
+	if s := step(3, 0); s != "streak 1P" {
+		t.Fatalf("3 defeats: %q", s)
+	}
+	tk.time = 0
+	if s := step(6, 0); s != "" {
+		t.Fatalf("twice in a streak: %q", s)
+	}
+	// Hurt: a new streak from here
+	step(6, 0.1)
+	if s := step(8, 0.1); s != "" {
+		t.Fatalf("2 defeats after the hit: %q", s)
+	}
+	if s := step(9, 0.1); s != "streak 1P" {
+		t.Fatalf("3 defeats after the hit: %q", s)
+	}
+	if h := loadBrawlerTalkNumber("../data/brawler/director.def", "streak", "defeats", 99); h != 5 {
+		t.Fatalf("shipped defeats %v", h)
+	}
+}
