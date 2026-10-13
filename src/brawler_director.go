@@ -635,16 +635,33 @@ func (b *Brawler) laneDepth(lane int32) float32 {
 	return 0
 }
 
-// Close enough in depth to hit each other: the same lane, both standing on it, or with free depth
-// movement, within brawlerFreeDepthReach
+// Close enough in depth for c to hit t: the same lane, both standing on it, or with free depth movement,
+// within the reach of c's attacks in depth (brawlerDepthReach)
 func (b *Brawler) sameDepth(c, t *Char) bool {
 	if b.freeDepth() {
-		return Abs(brawlerZ(c)-brawlerZ(t)) < brawlerFreeDepthReach
+		return Abs(brawlerZ(c)-brawlerZ(t)) <= brawlerDepthReach(c, t)*brawlerDepthReachUse
 	}
 	return !c.bw.laneJump && !t.bw.laneJump && c.bw.targetLane == t.bw.targetLane
 }
 
 const brawlerFreeDepthReach = 16
+
+// Share of the depth reach an enemy uses: a little inside it, so attacks started at the edge still land
+// after a step
+const brawlerDepthReachUse = 0.8
+
+// How far apart in depth (world units) c's attacks still hit t: the engine's hit check overlaps c's attack
+// depth with t's body depth, on the side t stands. brawlerFreeDepthReach for characters without sizes
+func brawlerDepthReach(c, t *Char) float32 {
+	atk, body := c.size.attack.depth[1], t.depthPlayer[0]
+	if brawlerZ(t) < brawlerZ(c) {
+		atk, body = c.size.attack.depth[0], t.depthPlayer[1]
+	}
+	if r := atk*c.localscl + body*t.localscl; r > 0 {
+		return r
+	}
+	return brawlerFreeDepthReach
+}
 
 // The enemy stands at the wanted depth: on its lane, or close to it with free depth movement
 func (b *Brawler) atDepth(f *brawlerAIFrame, z float32) bool {

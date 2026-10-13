@@ -799,3 +799,33 @@ func TestBrawlerGetUpGrace(t *testing.T) {
 		t.Error("grace scaling")
 	}
 }
+
+// With free depth an enemy attacks only within the depth its attacks reach (the engine's hit check)
+func TestBrawlerDepthReach(t *testing.T) {
+	b := brawlerTestMode(t)
+	c := &Char{localscl: 1}
+	tg := &Char{localscl: 1}
+	c.size.attack.depth = [2]float32{2, 6} // Reaches 2 deeper (up), 6 closer (down)
+	tg.depthPlayer = [2]float32{3, 3}
+	tg.pos[2] = 7
+	if r := brawlerDepthReach(c, tg); r != 9 {
+		t.Fatalf("reach closer %v", r)
+	}
+	tg.pos[2] = -7
+	if r := brawlerDepthReach(c, tg); r != 5 {
+		t.Fatalf("reach deeper %v", r)
+	}
+	// sameDepth uses a share of it
+	tg.pos[2] = -3.9
+	if !b.sameDepth(c, tg) {
+		t.Fatal("within reach")
+	}
+	tg.pos[2] = -4.5
+	if b.sameDepth(c, tg) {
+		t.Fatal("beyond the used reach")
+	}
+	// No sizes: the fallback
+	if r := brawlerDepthReach(&Char{localscl: 1}, &Char{localscl: 1}); r != brawlerFreeDepthReach {
+		t.Fatalf("fallback %v", r)
+	}
+}
