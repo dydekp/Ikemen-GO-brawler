@@ -214,6 +214,9 @@ backtrack = 0                    ; 1 = the camera may scroll back to the left
 director  = pacing               ; Optional: how the director runs this level:
                                  ; pacing (default, with breathers), balance
                                  ; (no breathers), classic (no director)
+hint      = Mind the ninjas!     ; Optional: a line under the level's title
+                                 ; card (default: none, or for lanes = 0 how
+                                 ; to walk in depth; "none" turns it off)
 lines     = director.def         ; Optional: the director's lines for this
                                  ; level (default: [Brawler] DirectorLines),
                                  ; e.g. a content pack's own voice
@@ -853,7 +856,9 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   hit, up to double). It adds up over the levels of a campaign and starts
   over when the mode ends.
 - Title card: as the fight starts, the level's name and difficulty fade
-  in at the bottom of the screen for 2.5 seconds.
+  in at the bottom of the screen for 2.5 seconds. With a hint line
+  ([Level] hint, or how to walk in depth in a level without lanes) it
+  stays 5 seconds.
 - Level summary: when a level is cleared, a panel shows the time it took,
   the enemies defeated, the team's score, the life lost per player (with
   the director) and the difficulty (in co-op also each player's defeats:

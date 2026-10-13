@@ -72,16 +72,16 @@ func TestBrawlerSummaryLevelHurt(t *testing.T) {
 
 // The title card fades in at the start of the fight and out after brawlerCardTime frames
 func TestBrawlerTitleCard(t *testing.T) {
-	if a := brawlerCardAlpha(0); a <= 0 || a >= 1 {
+	if a := brawlerCardAlpha(0, brawlerCardTime); a <= 0 || a >= 1 {
 		t.Errorf("first frame %v", a)
 	}
-	if a := brawlerCardAlpha(brawlerCardTime / 2); a != 1 {
+	if a := brawlerCardAlpha(brawlerCardTime/2, brawlerCardTime); a != 1 {
 		t.Errorf("middle %v", a)
 	}
-	if a := brawlerCardAlpha(brawlerCardTime - 1); a <= 0 || a >= 1 {
+	if a := brawlerCardAlpha(brawlerCardTime-1, brawlerCardTime); a <= 0 || a >= 1 {
 		t.Errorf("last frame %v", a)
 	}
-	if a := brawlerCardAlpha(brawlerCardTime); a != 0 {
+	if a := brawlerCardAlpha(brawlerCardTime, brawlerCardTime); a != 0 {
 		t.Errorf("after %v", a)
 	}
 }
@@ -113,5 +113,29 @@ func TestBrawlerSummaryDefeats(t *testing.T) {
 	b.stats.killsBy[2] = 5
 	if s := b.summaryDefeats(); s != "1P 2   2P 5" {
 		t.Fatalf("co-op: %q", s)
+	}
+}
+
+// The title card's hint: the level's own, none, or how to walk in depth in a level without lanes
+func TestBrawlerCardHint(t *testing.T) {
+	b := brawlerTestMode(t, -30, 0, 30)
+	if h := b.cardHint(); h != "" {
+		t.Fatalf("lanes, no hint: %q", h)
+	}
+	b.lanesZ = nil
+	if h := b.cardHint(); h != brawlerFreeMoveHint {
+		t.Fatalf("free movement: %q", h)
+	}
+	b.level.hint = "None"
+	if h := b.cardHint(); h != "" {
+		t.Fatalf("hint = none: %q", h)
+	}
+	b.level.hint = "Watch out for the ninjas!"
+	if h := b.cardHint(); h != "Watch out for the ninjas!" {
+		t.Fatalf("own hint: %q", h)
+	}
+	lv, err := brawlerTestPropFiles(t, brawlerTestPropLibrary, "[Level]\nname = x\nhint = Mind the gap\n[Enemies]\nenemy = thug\n")
+	if err != nil || lv.hint != "Mind the gap" {
+		t.Fatalf("parsed %q %v", lv.hint, err)
 	}
 }

@@ -94,29 +94,58 @@ func (b *Brawler) drawSummary(txt brawlerHudText) {
 }
 
 const (
-	brawlerCardTime = 150 // Frames the level's title card shows at the start of the fight
-	brawlerCardFade = 20
+	brawlerCardTime     = 150 // Frames the level's title card shows at the start of the fight
+	brawlerCardHintTime = 300 // The same with a hint line, which takes longer to read
+	brawlerCardFade     = 20
 )
 
-// Opacity of the title card: fading in at the start of the fight, then out
-func brawlerCardAlpha(time int32) float32 {
-	if time >= brawlerCardTime {
+// Opacity of the title card: fading in at the start of the fight, then out after total frames
+func brawlerCardAlpha(time, total int32) float32 {
+	if time >= total {
 		return 0
 	}
-	return Clamp(Min(float32(time+1), float32(brawlerCardTime-time))/brawlerCardFade, 0, 1)
+	return Clamp(Min(float32(time+1), float32(total-time))/brawlerCardFade, 0, 1)
+}
+
+const brawlerFreeMoveHint = "Hold the lane button + up/down to walk in depth"
+
+// The title card's hint line: [Level] hint ("none": no hint), or for a level without lanes how to walk in
+// depth
+func (b *Brawler) cardHint() string {
+	switch h := b.level.hint; {
+	case strings.EqualFold(h, "none"):
+		return ""
+	case h != "":
+		return h
+	case b.freeDepth():
+		return brawlerFreeMoveHint
+	}
+	return ""
 }
 
 // The level's name and difficulty in the lower part of the screen as the fight starts
 func (b *Brawler) drawTitleCard(txt brawlerHudText) {
-	a := brawlerCardAlpha(b.stats.time)
+	hint := b.cardHint()
+	total := int32(brawlerCardTime)
+	if hint != "" {
+		total = brawlerCardHintTime
+	}
+	a := brawlerCardAlpha(b.stats.time, total)
 	if a <= 0 || b.complete || b.level.name == "" || sys.roundState() != 2 {
 		return
 	}
 	y := brawlerHudHeight() * 0.72
-	brawlerHudFill(40, y-14, 240, 26, 0x000000, int32(150*a))
-	brawlerHudFill(40, y+12, 240, 1, 0xffc93a, int32(255*a))
+	h := float32(26)
+	if hint != "" {
+		h += 10
+	}
+	brawlerHudFill(40, y-14, 240, h, 0x000000, int32(150*a))
+	brawlerHudFill(40, y-14+h, 240, 1, 0xffc93a, int32(255*a))
 	txt.drawFaded(160, y, b.level.name, 0, 1.3, a)
 	txt.drawFaded(160, y+9, "DIFFICULTY "+b.difficulty().name, 0, 0.6, a)
+	if hint != "" {
+		txt.drawFaded(160, y+19, hint, 0, txt.fit(hint, 0.7, 230), a)
+	}
 }
 
 // A defeated enemy counts for the player whose hit knocked it out (or that player's helper)
