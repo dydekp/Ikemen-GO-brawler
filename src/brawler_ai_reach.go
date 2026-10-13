@@ -81,7 +81,7 @@ func (b *Brawler) learnReach(c *Char, ai *brawlerAI) {
 	ai.moveSeen = true
 	if front := brawlerAttackFront(c); front > 0 {
 		ls := c.localscl
-		b.noteReach(c.bw.entry, ai.moveIdx, len(ai.beh.moves), front,
+		b.noteReach(c.bw.entry, ai.moveIdx, brawlerMoveSlots(ai.beh), front,
 			[2]float32{c.hitdef.attack_depth[0] * ls, c.hitdef.attack_depth[1] * ls})
 		b.carryReach(c.bw.entry, ai.moveIdx)
 	}
@@ -168,10 +168,11 @@ func (b *Brawler) seedReach() {
 		return
 	}
 	for entry, e := range b.level.enemies {
-		moves := brawlerEntryBehavior(e).moves
-		for i, m := range moves {
+		beh := brawlerEntryBehavior(e)
+		for i := 0; i < brawlerMoveSlots(beh); i++ {
+			m, _ := brawlerMoveAt(beh, i)
 			if r, ok := brawlerReachCarry[brawlerReachKey(e.def, m)]; ok {
-				b.noteReach(entry, i, len(moves), r.front, r.depth)
+				b.noteReach(entry, i, brawlerMoveSlots(beh), r.front, r.depth)
 			}
 		}
 	}
@@ -183,8 +184,35 @@ func (b *Brawler) carryReach(entry, move int) {
 		return
 	}
 	e := b.level.enemies[entry]
-	moves := brawlerEntryBehavior(e).moves
-	if r := b.moveReachOf(entry, move); r.known && move < len(moves) {
-		brawlerReachCarry[brawlerReachKey(e.def, moves[move])] = r
+	m, ok := brawlerMoveAt(brawlerEntryBehavior(e), move)
+	if r := b.moveReachOf(entry, move); r.known && ok {
+		brawlerReachCarry[brawlerReachKey(e.def, m)] = r
 	}
+}
+
+// Reach slots of a profile: its moves, then its combo follow-ups (when it has its own)
+func brawlerMoveSlots(beh *BrawlerBehavior) int {
+	return len(beh.moves) + len(beh.comboMoves)
+}
+
+// The move of a reach slot
+func brawlerMoveAt(beh *BrawlerBehavior, slot int) (brawlerMove, bool) {
+	switch {
+	case slot < 0:
+	case slot < len(beh.moves):
+		return beh.moves[slot], true
+	case slot < brawlerMoveSlots(beh):
+		return beh.comboMoves[slot-len(beh.moves)], true
+	}
+	return brawlerMove{}, false
+}
+
+// A combo follow-up with a learned reach that doesn't reach the target any more (it was knocked back or
+// stepped away): the enemy ends the combo instead of attacking air
+func (b *Brawler) followUpMisses(f *brawlerAIFrame, slot int) bool {
+	r := b.moveReachOf(f.c.bw.entry, slot)
+	if !r.known {
+		return false
+	}
+	return f.adx > r.front*brawlerReachUse+f.t.size.standbox[2]*f.t.localscl || !f.sameLane
 }

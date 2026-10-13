@@ -129,3 +129,41 @@ func TestBrawlerReachCarry(t *testing.T) {
 		t.Fatal("other moves or characters known")
 	}
 }
+
+// Combo follow-ups have their own reach slots after the moves
+func TestBrawlerMoveSlots(t *testing.T) {
+	beh := newBrawlerBehavior("x")
+	beh.moves, _ = parseBrawlerMoves("a | b")
+	beh.comboMoves, _ = parseBrawlerMoves("x | y | z")
+	if n := brawlerMoveSlots(beh); n != 5 {
+		t.Fatalf("slots %v", n)
+	}
+	if m, ok := brawlerMoveAt(beh, 3); !ok || m.steps[0].dirs != beh.comboMoves[1].steps[0].dirs || len(m.steps) != len(beh.comboMoves[1].steps) {
+		t.Fatalf("slot 3 %+v", m)
+	}
+	if _, ok := brawlerMoveAt(beh, 5); ok {
+		t.Fatal("slot past the end")
+	}
+}
+
+// A follow-up whose learned reach no longer covers the distance ends the combo; unknown ones still go
+func TestBrawlerFollowUpMisses(t *testing.T) {
+	s := newAISim(t, []float32{0}, 0, 0)
+	beh := newBrawlerBehavior("x")
+	beh.moves, _ = parseBrawlerMoves("a")
+	beh.comboMoves, _ = parseBrawlerMoves("b")
+	e := s.enemy(beh, 80, 0)
+	ai := &e.bw.ai
+	ai.comboLeft, ai.comboDelay = 2, 0
+	f := &brawlerAIFrame{c: e, t: s.player, st: &e.bw, tst: &s.player.bw, ai: ai, beh: beh, adx: 80, sameLane: true}
+	// Unknown reach: the follow-up starts
+	if !s.b.aiContinue(f) || ai.moveIdx != 1 {
+		t.Fatalf("unknown reach: measuring %v", ai.moveIdx)
+	}
+	// Learned: 30 units, the target is 80 away
+	ai.prog, ai.comboLeft = nil, 2
+	s.b.noteReach(e.bw.entry, 1, brawlerMoveSlots(beh), 30, [2]float32{4, 4})
+	if s.b.aiContinue(f) || ai.comboLeft != 0 {
+		t.Fatalf("out of reach: combo left %v", ai.comboLeft)
+	}
+}

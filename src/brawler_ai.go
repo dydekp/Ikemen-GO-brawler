@@ -788,12 +788,19 @@ func (b *Brawler) aiContinue(f *brawlerAIFrame) bool {
 		ai.comboDelay--
 		return true
 	}
-	moves := f.beh.comboMoves
+	// Follow-ups: the profile's combo moves (reach slots after its moves), or its moves
+	moves, base := f.beh.comboMoves, len(f.beh.moves)
 	if len(moves) == 0 {
-		moves = f.beh.moves
+		moves, base = f.beh.moves, 0
+	}
+	i := pickBrawlerMoveIndex(moves)
+	if i < 0 || b.followUpMisses(f, base+i) {
+		ai.comboLeft = 0
+		return false
 	}
 	ai.comboLeft--
-	ai.start(pickBrawlerMove(moves), true)
+	ai.start(moves[i].steps, true)
+	ai.moveIdx, ai.moveSeen = base+i, false
 	ai.runProgram(f.c, &f.in)
 	return true
 }
