@@ -282,3 +282,70 @@ func TestBrawlerDirectorPeak(t *testing.T) {
 		t.Fatalf("peak lowered to %v", d.peak)
 	}
 }
+
+// Co-op: a player going down while another fights on, coming back and joining
+func TestBrawlerTalkPlayers(t *testing.T) {
+	b := brawlerTestMode(t)
+	brawlerTestChars(t)
+	oldTalk, oldSeats := brawlerDirectorTalk, brawlerJoin.slotSeat
+	t.Cleanup(func() { brawlerDirectorTalk, brawlerJoin.slotSeat = oldTalk, oldSeats })
+	var lines brawlerTalkLines
+	for tp := range lines {
+		lines[tp] = []string{brawlerTalkSections[tp] + " {player}"}
+	}
+	brawlerDirectorTalk = brawlerDirectorTalkState{lines: &lines, linesFor: "test"}
+	sys.cfg.Brawler.DirectorLines = "test"
+	tk := &brawlerDirectorTalk
+	p1 := brawlerTestPlayer(b, 0, 0, 0)
+	brawlerJoin.slotSeat[0], brawlerJoin.slotSeat[2] = 0, 1
+	step := func() string {
+		tk.text = ""
+		b.talkPlayers()
+		return tk.text
+	}
+	// The players at the start aren't joining
+	if s := step(); s != "" {
+		t.Fatalf("said %q at the start", s)
+	}
+	p2 := brawlerTestPlayer(b, 2, 50, 0)
+	if s := step(); s != "join 2P" {
+		t.Fatalf("join: %q", s)
+	}
+	p2.setSCF(SCF_ko)
+	if s := step(); s != "down 2P" {
+		t.Fatalf("down: %q", s)
+	}
+	if s := step(); s != "" {
+		t.Fatalf("said %q again", s)
+	}
+	p2.unsetSCF(SCF_ko)
+	if s := step(); s != "back 2P" {
+		t.Fatalf("back: %q", s)
+	}
+	// Everybody down: the continue screen, nobody to talk to
+	p1.setSCF(SCF_ko)
+	p2.setSCF(SCF_ko)
+	if s := step(); s != "" {
+		t.Fatalf("said %q with everybody down", s)
+	}
+	// A new level starts watching again
+	tk.reset()
+	p1.unsetSCF(SCF_ko)
+	if s := step(); s != "" {
+		t.Fatalf("said %q after the reset", s)
+	}
+}
+
+// A line an introduction interrupted is shown again in full
+func TestBrawlerTalkShowAgain(t *testing.T) {
+	tk := brawlerDirectorTalkState{time: 20}
+	tk.showAgain()
+	if tk.time != brawlerTalkTime {
+		t.Fatalf("time %v", tk.time)
+	}
+	tk.time = 0
+	tk.showAgain()
+	if tk.time != 0 {
+		t.Fatal("an ended line came back")
+	}
+}

@@ -61,6 +61,7 @@ func (b *Brawler) introStep() {
 		if e != nil {
 			e.layerNo = b.introLayer
 		}
+		brawlerDirectorTalk.showAgain()
 	}
 }
 

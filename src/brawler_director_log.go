@@ -156,6 +156,11 @@ func (b *Brawler) directorLogStep() {
 	}
 	t := &brawlerDirectorTalk
 	t.step()
+	if b.directorTalkOn() {
+		b.talkPlayers()
+	} else {
+		t.watching = false
+	}
 	// The decisions are watched for the feed, the announcements or both
 	if !b.directorLogOn() && !b.directorTalkOn() {
 		return

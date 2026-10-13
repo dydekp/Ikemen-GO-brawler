@@ -717,8 +717,11 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   section 7, [Help] lines) and on the waves: one starting ([Wave], or
   [Boss] when a boss is in its spawn lines) and one cleared ([Cleared], or
   [Close] when a player was in real trouble in it; not when the level
-  ends with the wave). Challenging lines (harder, waves, bosses) have a
-  red edge, the others a green one.
+  ends with the wave). In co-op it also reacts to the players: one going
+  down while others fight on ([Down]), coming back ([Back]) and joining
+  during the level ([Join]). Challenging lines (harder, waves, bosses, a
+  player down) have a red edge, the others a green one. A line hidden by
+  a character introduction is shown again in full afterwards.
 The options are in Options > Brawler Settings ([Brawler] MoveNames,
 DirectorInfo and DirectorTalk in the config).
 The HUD uses the fight screen's name font and scales to its localcoord.

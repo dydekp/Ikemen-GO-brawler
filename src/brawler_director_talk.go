@@ -14,11 +14,15 @@ package main
 //   [Boss]      ; a wave with a boss starts
 //   [Cleared]   ; a wave is cleared
 //   [Close]     ; a wave is cleared after a player was in real trouble in it
+//   [Down]      ; a player goes down while others fight on
+//   [Back]      ; a player who was down is back (continue, rejoin)
+//   [Join]      ; a player joins during the level
 //
 // {player} is the player a line is about (1P, 2P...); lines with it are only used for lines about one
 // player, lines without it for any. The director's decisions are the ones its log watches
 // (brawler_director_log.go): enemies alive at once, attack turns per player, spawn pace. They're announced
-// at least brawlerTalkGap frames apart. Help and the waves are always announced. No line repeats the last
+// at least brawlerTalkGap frames apart. Help, the waves and the players are always announced. A line
+// an introduction interrupted (the HUD is hidden in them) is shown again in full afterwards. No line repeats the last
 // one of its topic.
 //
 // Display only: not part of the save state, and its random choices don't touch the game's random numbers.
@@ -47,15 +51,18 @@ const (
 	btBoss
 	btCleared
 	btClose
+	btDown
+	btBack
+	btJoin
 	btCount
 )
 
 // The director.def section of each topic
-var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close"}
+var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join"}
 
 // Topics that challenge the players (shown with a red edge); the others encourage them (green)
 func (tp brawlerTalkTopic) challenging() bool {
-	return tp == btHarder || tp == btWave || tp == btBoss
+	return tp == btHarder || tp == btWave || tp == btBoss || tp == btDown
 }
 
 // The topic of a decision the log watched
@@ -80,6 +87,9 @@ var brawlerTalkDefault = brawlerTalkLines{
 	btBoss:    {"Here comes the big one!"},
 	btCleared: {"Nicely done.", "Area clear!"},
 	btClose:   {"That was close!", "Still standing? Impressive."},
+	btDown:    {"{player} is down! Hold the line!", "Cover for {player}!"},
+	btBack:    {"Welcome back, {player}!", "{player} is back in it!"},
+	btJoin:    {"{player} joins the fight!", "Fresh fists! Welcome, {player}!"},
 }
 
 type brawlerDirectorTalkState struct {
@@ -91,6 +101,8 @@ type brawlerDirectorTalkState struct {
 	lines    *brawlerTalkLines
 	linesFor string // Path the lines were read from
 	rng      *rand.Rand
+	seen     [MaxSimul * 2]brawlerTalkSeen // The players as last seen, see talkPlayers
+	watching bool                          // seen is filled in
 }
 
 var brawlerDirectorTalk brawlerDirectorTalkState
@@ -102,6 +114,7 @@ func (b *Brawler) directorTalkOn() bool {
 // A new level: nothing said yet. The lines are kept
 func (t *brawlerDirectorTalkState) reset() {
 	t.text, t.time, t.wait, t.last = "", 0, 0, [btCount]string{}
+	t.watching = false
 }
 
 // Read the lines of a director.def file. Topics without lines (or a missing file) use the built-in ones
@@ -266,4 +279,53 @@ func (b *Brawler) talkWaveCleared(levelGoesOn bool) {
 	}
 	t := &brawlerDirectorTalk
 	t.say(t.linesNow(), topic, who)
+}
+
+// An introduction closed: the line it interrupted is shown again in full, it was hidden
+func (t *brawlerDirectorTalkState) showAgain() {
+	if t.time > 0 {
+		t.time = brawlerTalkTime
+	}
+}
+
+// A player slot as the director last saw it
+type brawlerTalkSeen int8
+
+const (
+	btsNone brawlerTalkSeen = iota // No character
+	btsUp
+	btsDown
+)
+
+// Players going down while others fight on, coming back and joining: the director says something about
+// them. Runs every frame with the announcements on
+func (b *Brawler) talkPlayers() {
+	t := &brawlerDirectorTalk
+	var now [MaxSimul * 2]brawlerTalkSeen
+	up := 0
+	for _, c := range b.players(false) {
+		now[c.playerNo] = btsDown
+		if c.alive() {
+			now[c.playerNo] = btsUp
+			up++
+		}
+	}
+	// With nobody up there's nobody to talk to: the continue screen
+	if t.watching && up > 0 {
+		for pn, is := range now {
+			topic := btCount
+			switch was := t.seen[pn]; {
+			case was == btsUp && is == btsDown:
+				topic = btDown
+			case was == btsDown && is == btsUp:
+				topic = btBack
+			case was == btsNone && is == btsUp:
+				topic = btJoin
+			}
+			if topic < btCount {
+				t.say(t.linesNow(), topic, fmt.Sprintf("%vP", b.charSeat(b.root(pn))+1))
+			}
+		}
+	}
+	t.seen, t.watching = now, true
 }
