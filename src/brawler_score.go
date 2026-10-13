@@ -1,7 +1,7 @@
 package main
 
 // Brawler mode score: every player slot scores points for the damage its attacks do to enemies and for the
-// enemies it defeats (the last hit counts), shown in the player's panel ([Brawler] Score). The score adds
+// enemies it defeats (the last hit counts); damage in a combo scores more (brawlerComboBonus), shown in the player's panel ([Brawler] Score). The score adds
 // up over the levels of a campaign and starts over when the mode ends.
 //
 // The scores of a level are part of the Brawler state (stats.score); the total carried to the next level is
@@ -34,10 +34,15 @@ func (b *Brawler) scoreDamage(c *Char) {
 	if st.scoreLife > 0 && c.life < st.scoreLife {
 		if pn := b.attackerSlot(c); pn >= 0 {
 			pct := float32(st.scoreLife-c.life) * 100 / float32(Max(1, c.lifeMax))
-			b.stats.score[pn] += int32(pct*brawlerScoreDamage + 0.5)
+			b.stats.score[pn] += int32(pct*brawlerScoreDamage*brawlerComboBonus(sys.comboCount[0]) + 0.5)
 		}
 	}
 	st.scoreLife = c.life
+}
+
+// Damage points multiplier for a combo of this many hits: 10% more per hit after the first, up to double
+func brawlerComboBonus(hits int32) float32 {
+	return 1 + 0.1*float32(Clamp(hits-1, 0, 10))
 }
 
 // Points for a defeat

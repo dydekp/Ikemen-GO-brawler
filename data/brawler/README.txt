@@ -848,8 +848,9 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   a pulsing red frame.
 - Score ([Brawler] Score): right of each player's name, 10 points per
   percent of an enemy's life taken, 500 per defeat, 3000 per boss (the
-  player whose hit it was scores). It adds up over the levels of a
-  campaign and starts over when the mode ends.
+  player whose hit it was scores; damage in a combo scores 10% more per
+  hit, up to double). It adds up over the levels of a campaign and starts
+  over when the mode ends.
 - Title card: as the fight starts, the level's name and difficulty fade
   in at the bottom of the screen for 2.5 seconds.
 - Level summary: when a level is cleared, a panel shows the time it took,

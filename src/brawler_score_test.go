@@ -9,6 +9,9 @@ func TestBrawlerScore(t *testing.T) {
 	brawlerTestChars(t)
 	old := brawlerScoreCarry
 	t.Cleanup(func() { brawlerScoreCarry = old })
+	oldCombo := sys.comboCount
+	t.Cleanup(func() { sys.comboCount = oldCombo })
+	sys.comboCount = [2]int32{}
 	brawlerScoreReset()
 	p := brawlerTestPlayer(b, 0, 0, 0)
 	p.id = 56
@@ -51,5 +54,13 @@ func TestBrawlerScore(t *testing.T) {
 	b.scoreStart()
 	if b.stats.score[0] != 0 {
 		t.Fatal("not reset")
+	}
+}
+
+func TestBrawlerComboBonus(t *testing.T) {
+	for hits, want := range map[int32]float32{0: 1, 1: 1, 2: 1.1, 6: 1.5, 11: 2, 40: 2} {
+		if got := brawlerComboBonus(hits); Abs(got-want) > 0.001 {
+			t.Errorf("%v hits: %v, want %v", hits, got, want)
+		}
 	}
 }
