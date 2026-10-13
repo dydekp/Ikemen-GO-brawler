@@ -11,7 +11,10 @@ package main
 // Coordinates are in a virtual space 320 units wide, scaled to the fight screen's localcoord and
 // converted to pixels like the regular lifebars.
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 const (
 	brawlerHudTargetTime = 180 // Frames an enemy stays in a player's panel after the last hit
@@ -121,6 +124,22 @@ func brawlerHudBar(x, y, w, h, value, red float32, color uint32) {
 	brawlerHudFill(x, y, w*value, h, color, 255)
 	// Highlight on the upper part gives the bar some depth
 	brawlerHudFill(x, y, w*value, h*0.35, 0xffffff, 70)
+}
+
+// Life (fraction of max) from which a player's life bar pulses
+const brawlerHudLowLife = 0.25
+
+// Opacity of the low life pulse at a game time: about one pulse per second
+func brawlerHudPulse(time int32) int32 {
+	return int32(140 + 110*math.Sin(float64(time)*2*math.Pi/50))
+}
+
+// A frame of thickness t around a box
+func brawlerHudFrame(x, y, w, h, t float32, color uint32, alpha int32) {
+	brawlerHudFill(x, y, w, t, color, alpha)
+	brawlerHudFill(x, y+h-t, w, t, color, alpha)
+	brawlerHudFill(x, y+t, t, h-2*t, color, alpha)
+	brawlerHudFill(x+w-t, y+t, t, h-2*t, color, alpha)
 }
 
 // Current and recoverable (red) life as fractions of max life
@@ -315,6 +334,10 @@ func (b *Brawler) drawPlayerPanel(p *Char, l brawlerHudPanel, slot int, txt braw
 	txt.draw(l.barX, l.nameY, sys.cgi[p.playerNo].lifebarname, 1)
 	life, red := brawlerLifeRatio(p)
 	brawlerHudBar(l.barX, l.lifeY, l.barW, l.lifeH, life, red, brawlerHudLifeColor(life))
+	// Nearly out: a pulsing red frame around the life bar
+	if p.alive() && life <= brawlerHudLowLife {
+		brawlerHudFrame(l.barX-3, l.lifeY-3, l.barW+6, l.lifeH+6, 2, 0xff2a2a, brawlerHudPulse(sys.gameTime()))
+	}
 	brawlerHudBar(l.barX, l.powerY, l.barW, l.powerH, float32(p.power)/float32(Max(1, p.powerMax)), 0, 0x3aa0ff)
 	// Power level separators
 	for lv := int32(1000); lv < p.powerMax; lv += 1000 {

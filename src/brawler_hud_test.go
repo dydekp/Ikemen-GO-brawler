@@ -171,3 +171,15 @@ func TestBrawlerHudDirectorPlacement(t *testing.T) {
 		t.Errorf("announcement %v-%v, log from %v", talkTop, talkBottom, logTop)
 	}
 }
+
+// The low life pulse stays within 30..250 and goes up and down about once a second
+func TestBrawlerHudPulse(t *testing.T) {
+	lo, hi := int32(255), int32(0)
+	for f := int32(0); f < 50; f++ {
+		a := brawlerHudPulse(f)
+		lo, hi = Min(lo, a), Max(hi, a)
+	}
+	if lo < 25 || lo > 40 || hi < 240 || hi > 255 {
+		t.Fatalf("pulse %v..%v", lo, hi)
+	}
+}
