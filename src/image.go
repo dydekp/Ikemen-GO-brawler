@@ -678,6 +678,9 @@ type Sprite struct {
 	ownPal       bool   // SFFv1 portrait keeping its own colors (Pal), see sffv1PortraitOwnColors
 	cpuPx        []byte // Decoded pixels kept in memory while sffKeepPixels is set (8 bit indexes or 32 bit RGBA)
 	cpuDepth     int32
+	uvRect       [4]float32   // Rectangle in Tex when it's an atlas page (u0, v0, u1, v1), see sprite_atlas.go. Zero: all of Tex
+	atlas        *spriteAtlas // Collects the pixels while the SFF is loaded, instead of a texture per sprite
+	soloTex      Texture      // The sprite alone, copied from its atlas page for custom shaders (drawTex)
 }
 
 // Keep decoded sprite pixels in memory (Sprite.cpuPx) as well as in textures, for tools that read images
@@ -829,10 +832,14 @@ func (s *Sprite) shareCopy(src *Sprite) {
 	}
 	s.coldepth = src.coldepth
 
+	// A source in the SFF's atlas gets its page once the SFF is loaded: the copy waits for it
+	if s.atlas != nil && s.atlas.link(s, src) {
+		return
+	}
 	// We must defer copying the texture during the main thread
 	// Otherwise we can end up copying a nil texture over the good one or other race condition bugs
 	sys.mainThreadTask <- func() {
-		s.Tex = src.Tex
+		s.Tex, s.uvRect = src.Tex, src.uvRect
 	}
 
 	//s.paltemp = src.paltemp
@@ -885,6 +892,9 @@ func (s *Sprite) SetPxl(px []byte) {
 	if sffKeepPixels {
 		s.cpuPx, s.cpuDepth = px, 8
 	}
+	if s.atlas != nil && s.atlas.add(s, px, int32(s.Size[0]), int32(s.Size[1]), 8) {
+		return
+	}
 	sys.mainThreadTask <- func() {
 		tex, err := newTextureWithData(int32(s.Size[0]), int32(s.Size[1]), 8, false, px)
 		if err != nil {
@@ -908,6 +918,9 @@ func (s *Sprite) SetRaw(data []byte, sprWidth int32, sprHeight int32, sprDepth i
 				data[i+2] = 0
 			}
 		}
+	}
+	if s.atlas != nil && s.atlas.add(s, data, sprWidth, sprHeight, sprDepth) {
+		return
 	}
 	sys.mainThreadTask <- func() {
 		tex, err := newTextureWithData(sprWidth, sprHeight, sprDepth, sys.cfg.Video.RGBSpriteBilinearFilter, data)
@@ -1553,6 +1566,7 @@ func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation,
 
 	rp := RenderParams{
 		tex:            s.Tex,
+		uvRect:         s.uvRect,
 		paltex:         s.PalTex,
 		size:           s.Size,
 		x:              -x * sys.widthScale,
@@ -1825,6 +1839,11 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 	spriteList := make([]*Sprite, int(s.header.NumberOfSprites))
 	var queue *sffDecodeQueue
 	var links [][2]*Sprite
+	// The sprites go to a few large textures instead of one each, see sprite_atlas.go
+	var atlas *spriteAtlas
+	if spriteAtlasEnabled() {
+		atlas = newSpriteAtlas()
+	}
 	if s.header.Version[0] == 1 {
 		queue = newSffDecodeQueue()
 		// Returning early (error, canceled): stop the workers
@@ -1842,6 +1861,9 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 		}
 		f.Seek(shofs, 0)
 		spriteList[i] = newSprite()
+		if atlas != nil {
+			atlas.track(spriteList[i])
+		}
 		var xofs, size uint32
 		var indexOfPrevious uint16
 		switch s.header.Version[0] {
@@ -1921,6 +1943,12 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 		for _, l := range links {
 			l[0].shareCopy(l[1])
 		}
+		if isMainThread {
+			sys.runMainThreadTask()
+		}
+	}
+	if atlas != nil {
+		atlas.flush()
 		if isMainThread {
 			sys.runMainThreadTask()
 		}

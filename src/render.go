@@ -177,6 +177,7 @@ var spriteScratch struct {
 	modelview  mgl.Mat4
 	tint       [4]float32
 	x1x2x4x3   [4]float32
+	uvRect     [4]float32
 	vertices   [16]float32
 	f1         [1]float32
 }
@@ -239,8 +240,9 @@ var notiling = Tiling{}
 
 // RenderParams holds the common data for all sprite rendering functions
 type RenderParams struct {
-	tex            Texture // Sprite
-	paltex         Texture // Palette
+	tex            Texture    // Sprite
+	uvRect         [4]float32 // The sprite's rectangle in tex (u0, v0, u1, v1), see sprite_atlas.go. Zero: all of tex
+	paltex         Texture    // Palette
 	size           [2]uint16
 	x, y           float32 // Position
 	tile           Tiling
@@ -282,10 +284,12 @@ func (st *ShaderTexture) clear() {
 func (st *ShaderTexture) GetTexture() Texture {
 	if st.Anim != nil {
 		if st.Anim.spr != nil {
-			return st.Anim.spr.Tex
+			tex, _ := st.Anim.spr.drawTex(true) // Custom shaders sample the whole texture
+			return tex
 		}
 	} else if st.Spr != nil {
-		return st.Spr.Tex
+		tex, _ := st.Spr.drawTex(true)
+		return tex
 	}
 	return nil
 }
@@ -883,6 +887,7 @@ func RenderSprite(rp RenderParams) {
 	setSpriteUniformF1("gray", spfx.gray)
 	setSpriteUniformF1("hue", spfx.hue)
 	gfx.SetUniformFv("tint", tint[:])
+	setSpriteUVRect(rp.uvRect)
 
 	if rp.paltex == nil {
 		gfx.SetUniformI("isRgba", 1)
@@ -1416,4 +1421,13 @@ func NewShaderPalFX() ShaderPalFX {
 		hue:      0,
 		invblend: 0,
 	}
+}
+
+// The sprite's rectangle in its texture, for the sprite shader. Zero is the whole texture
+func setSpriteUVRect(r [4]float32) {
+	if r == [4]float32{} {
+		r = [4]float32{0, 0, 1, 1}
+	}
+	spriteScratch.uvRect = r
+	gfx.SetUniformF("uvRect", spriteScratch.uvRect[:]...)
 }

@@ -22,10 +22,16 @@
 	COMPAT_ATTRIBUTE vec2 position;
 	COMPAT_ATTRIBUTE vec2 uv;
 	COMPAT_VARYING vec2 texcoord;
+	// The sprite's rectangle in its texture (u0, v0, u1, v1): an atlas page, or the whole texture
+	uniform vec4 uvRect;
 #endif
 
 void main(void) {
-	texcoord = uv;
+	#if __VERSION__ >= 450
+		texcoord = uv;
+	#else
+		texcoord = uvRect.xy + uv * (uvRect.zw - uvRect.xy);
+	#endif
 	gl_Position = projection * (modelview * vec4(position, 0.0, 1.0));
 	
 	#if __VERSION__ >= 450

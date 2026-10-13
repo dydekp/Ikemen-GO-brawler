@@ -587,6 +587,7 @@ type Renderer_GL33 struct {
 	vertexScratch           []byte
 	texNames                glNamePool   // Texture handles, made in batches
 	programCache            *shaderCache // Linked shader programs on disk. nil: not supported
+	maxTexSize              int32        // GL_MAX_TEXTURE_SIZE, for sprite atlas pages
 
 	grabTexture  *Texture_GL33
 	grabFbo      uint32
@@ -728,6 +729,7 @@ func (r *Renderer_GL33) Init() {
 		gl.GenTextures(int32(len(names)), &names[0])
 	}}
 	r.initProgramCache()
+	gl.GetIntegerv(gl.MAX_TEXTURE_SIZE, &r.maxTexSize)
 
 	r.customShaders = make(map[uint32]*ShaderProgram_GL33)
 	r.customShaderMap = make(map[string]uint32)
@@ -778,7 +780,7 @@ func (r *Renderer_GL33) Init() {
 	// Sprite shader
 	r.spriteShader, _ = r.newShaderProgram(vertShader, fragShader, "", "Main Shader", true)
 	r.spriteShader.RegisterAttributes("position", "uv")
-	r.spriteShader.RegisterUniforms("modelview", "projection", "x1x2x4x3",
+	r.spriteShader.RegisterUniforms("modelview", "projection", "x1x2x4x3", "uvRect",
 		"alpha", "tint", "mask", "neg", "gray", "add", "mult", "isFlat", "isRgba", "isTrapez", "hue")
 	r.spriteShader.RegisterTextures("pal", "tex")
 
@@ -2458,7 +2460,7 @@ func (r *Renderer_GL33) LoadCustomSpriteShader(shaderName string, shaderData []b
 	}
 
 	shader.RegisterAttributes("position", "uv")
-	shader.RegisterUniforms("modelview", "projection", "x1x2x4x3",
+	shader.RegisterUniforms("modelview", "projection", "x1x2x4x3", "uvRect",
 		"alpha", "tint", "mask", "neg", "gray", "add", "mult", "isFlat", "isRgba", "isTrapez", "hue",
 		"iTime", "iResolution", "aspectRatio", "sTime")
 	shader.RegisterTextures("pal", "tex", "tex1", "tex2", "bgl_RenderedTexture")
@@ -2566,4 +2568,34 @@ func (r *Renderer_GL33) bindVertexArray(vao uint32) {
 	if r.boundBuffers != nil {
 		delete(r.boundBuffers, gl.ELEMENT_ARRAY_BUFFER)
 	}
+}
+
+// Largest texture side the GPU takes (sprite atlas pages)
+func (r *Renderer_GL33) maxTextureSize() int32 {
+	return r.maxTexSize
+}
+
+// A new texture holding a rectangle of src, copied with a framebuffer blit (see Sprite.drawTex)
+func (r *Renderer_GL33) copyTextureRect(src Texture, x, y, w, h int32) Texture {
+	s, ok := src.(*Texture_GL33)
+	if !ok {
+		return nil
+	}
+	t := r.newTextureFromData(w, h, s.depth, s.filter, nil).(*Texture_GL33)
+	var prevRead, prevDraw int32
+	gl.GetIntegerv(gl.READ_FRAMEBUFFER_BINDING, &prevRead)
+	gl.GetIntegerv(gl.DRAW_FRAMEBUFFER_BINDING, &prevDraw)
+	// The scissor test applies to blits
+	r.DisableScissor()
+	var fbo [2]uint32
+	gl.GenFramebuffers(2, &fbo[0])
+	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, fbo[0])
+	gl.FramebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, s.handle, 0)
+	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo[1])
+	gl.FramebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.handle, 0)
+	gl.BlitFramebuffer(x, y, x+w, y+h, 0, 0, w, h, gl.COLOR_BUFFER_BIT, gl.NEAREST)
+	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, uint32(prevRead))
+	gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, uint32(prevDraw))
+	gl.DeleteFramebuffers(2, &fbo[0])
+	return t
 }

@@ -35,6 +35,8 @@
 	uniform float alpha, gray, hue;
 	uniform int mask;
 	uniform bool isFlat, isRgba, isTrapez, neg;
+	// The sprite's rectangle in its texture (u0, v0, u1, v1): an atlas page, or the whole texture
+	uniform vec4 uvRect;
 	COMPAT_VARYING vec2 texcoord;
 #endif
 
@@ -79,12 +81,21 @@ void main(void) {
 	} else {
 		vec2 uv = texcoord;
 		if (isTrapez) {
-			vec2 bounds = mix(x1x2x4x3.zw, x1x2x4x3.xy, uv.y);
+			#if __VERSION__ >= 450
+				float v = uv.y;
+			#else
+				// texcoord is in the sprite's rectangle; the trapezoid works in the sprite's own 0..1
+				float v = (uv.y - uvRect.y) / (uvRect.w - uvRect.y);
+			#endif
+			vec2 bounds = mix(x1x2x4x3.zw, x1x2x4x3.xy, v);
 			float gap = bounds[1] - bounds[0];
 			#ifdef GL_ES
 				if (abs(gap) < 0.0001) gap = 0.0001;
 			#endif
 			uv.x = (gl_FragCoord.x - bounds[0]) / gap;
+			#if __VERSION__ < 450
+				uv.x = uvRect.x + uv.x * (uvRect.z - uvRect.x);
+			#endif
 		}
 
 		c = COMPAT_TEXTURE(tex, uv);

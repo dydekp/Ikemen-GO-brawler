@@ -582,6 +582,7 @@ func (f *Fnt) drawChar(
 
 	// Update only the render parameters that change between each character
 	rp.tex = spr.Tex
+	rp.uvRect = spr.uvRect
 	if spr.coldepth <= 8 {
 		rp.paltex = f.paltex
 	} else {

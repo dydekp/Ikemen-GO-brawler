@@ -1029,8 +1029,10 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 		}
 	}
 
+	tex, uvRect := a.spr.drawTex(shader.name != "")
 	rp := RenderParams{
-		tex:            a.spr.Tex,
+		tex:            tex,
+		uvRect:         uvRect,
 		paltex:         paltex,
 		size:           a.spr.Size,
 		x:              x * sys.widthScale,
@@ -1084,8 +1086,10 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 
 	rcOffset := [2]float32{rotPivot[0] * sys.widthScale, rotPivot[1] * sys.heightScale}
 
+	tex, uvRect := a.spr.drawTex(shader.name != "")
 	rp := RenderParams{
-		tex:            a.spr.Tex,
+		tex:            tex,
+		uvRect:         uvRect,
 		paltex:         nil,
 		size:           a.spr.Size,
 		x:              Abs(xscl*h) * float32(a.spr.Offset[0]) * sys.widthScale,

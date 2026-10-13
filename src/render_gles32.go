@@ -792,7 +792,7 @@ func (r *Renderer_GLES32) Init() {
 	// Sprite shader
 	r.spriteShader, _ = r.newShaderProgram(vertShader, fragShader, "", "Main Shader", true)
 	r.spriteShader.RegisterAttributes("position", "uv")
-	r.spriteShader.RegisterUniforms("modelview", "projection", "x1x2x4x3",
+	r.spriteShader.RegisterUniforms("modelview", "projection", "x1x2x4x3", "uvRect",
 		"alpha", "tint", "mask", "neg", "gray", "add", "mult", "isFlat", "isRgba", "isTrapez", "hue")
 	r.spriteShader.RegisterTextures("pal", "tex")
 
@@ -2318,7 +2318,7 @@ func (r *Renderer_GLES32) LoadCustomSpriteShader(shaderName string, shaderData [
 	}
 
 	shader.RegisterAttributes("position", "uv")
-	shader.RegisterUniforms("modelview", "projection", "x1x2x4x3",
+	shader.RegisterUniforms("modelview", "projection", "x1x2x4x3", "uvRect",
 		"alpha", "tint", "mask", "neg", "gray", "add", "mult", "isFlat", "isRgba", "isTrapez", "hue",
 		"iTime", "iResolution", "aspectRatio", "sTime")
 	shader.RegisterTextures("pal", "tex", "tex1", "tex2", "bgl_RenderedTexture")
