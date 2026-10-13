@@ -45,6 +45,7 @@ const (
 	brawlerRefillPace     = 3     // Spawn delay countdown speed while there are fewer enemies than players
 	brawlerLastStandEase  = 0.5   // Tension the enemy limit assumes at least for the last player standing
 	brawlerRecoverHover   = 1.5   // An enemy recovering from low life waits this much further back
+	brawlerRecoverGuard   = 2     // and guards this much more often
 )
 
 // Part of the Brawler state (fixed size arrays only, so save states copy it)

@@ -572,3 +572,16 @@ func TestBrawlerAIFlankFreeDepth(t *testing.T) {
 		}
 	}
 }
+
+// A recovering enemy guards more often
+func TestBrawlerAIRecoverGuard(t *testing.T) {
+	var ai brawlerAI
+	ai.init(nil)
+	if ai.guardChance(0.2) != 0.2 {
+		t.Fatal("guard chance changed while fighting")
+	}
+	ai.recoverLeft = 10
+	if ai.guardChance(0.2) != 0.4 || ai.guardChance(0.7) != 1 {
+		t.Fatalf("recovering: %v %v", ai.guardChance(0.2), ai.guardChance(0.7))
+	}
+}

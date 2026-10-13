@@ -704,7 +704,7 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 }
 
 // An enemy low on life ([Behavior] recover) backs off once for recover.time frames: it gives up its attack
-// turn and waits further back, without taunting, then comes back. An attack under way still ends normally
+// turn, waits further back without taunting and guards more often, then comes back. An attack under way still ends normally
 func (b *Brawler) aiRecover(c *Char, ai *brawlerAI) {
 	if ai.recoverLeft > 0 {
 		ai.recoverLeft--
@@ -714,6 +714,14 @@ func (b *Brawler) aiRecover(c *Char, ai *brawlerAI) {
 		ai.recovered, ai.recoverLeft = true, brawlerRand(ai.beh.recoverTime)
 		ai.comboLeft = 0
 	}
+}
+
+// Guard chance: doubled while recovering, a hurt enemy covers up
+func (ai *brawlerAI) guardChance(base float32) float32 {
+	if ai.recovering() {
+		return Min(1, base*brawlerRecoverGuard)
+	}
+	return base
 }
 
 // Backing off to recover: no attack turn
@@ -787,7 +795,7 @@ func (b *Brawler) aiContinue(f *brawlerAIFrame) bool {
 func (b *Brawler) aiGuard(f *brawlerAIFrame) bool {
 	ai := f.ai
 	if ai.guardTime == 0 && f.sameLane && f.adx < 110 && f.t.ss.moveType == MT_A && f.c.ctrl() &&
-		brawlerChance(f.beh.guard*brawlerGuardScale(brawlerSkill(f.c))) {
+		brawlerChance(ai.guardChance(f.beh.guard*brawlerGuardScale(brawlerSkill(f.c)))) {
 		ai.guardTime = Rand(12, 30)
 	}
 	if ai.guardTime == 0 {
