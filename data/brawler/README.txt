@@ -451,6 +451,8 @@ reach         = 30         ; Attack distance in front of the body
                            ; its HitDef depth) is learned the first time,
                            ; and the enemy gets in range for the attack
                            ; it is about to use
+                           ; (remembered for later levels with the same
+                           ; character and move while the game runs)
 special       = 0.15       ; Chance an attack is a random command instead
 guard         = 0.1        ; Chance to guard when the target attacks
 hover         = 60, 120    ; Distance kept while waiting to attack

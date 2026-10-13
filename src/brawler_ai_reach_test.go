@@ -102,3 +102,30 @@ func TestBrawlerLearnReachEnds(t *testing.T) {
 		t.Fatal("still measuring after the attack")
 	}
 }
+
+// What a level learned about a character's move is known at the start of the next level using it
+func TestBrawlerReachCarry(t *testing.T) {
+	old := brawlerReachCarry
+	t.Cleanup(func() { brawlerReachCarry = old })
+	brawlerReachCarry = map[string]brawlerReach{}
+	beh := newBrawlerBehavior("x")
+	beh.moves, _ = parseBrawlerMoves("a | b")
+	b := &Brawler{level: &BrawlerLevel{enemies: []BrawlerEnemy{{alias: "thug", def: "chars/kfm/kfm.def", behavior: beh}}}}
+	b.noteReach(0, 1, 2, 70, [2]float32{3, 9})
+	b.carryReach(0, 1)
+
+	// Next level: the same character under another alias, at another entry, with the move at another index
+	beh2 := newBrawlerBehavior("y")
+	beh2.moves, _ = parseBrawlerMoves("y | b | a")
+	next := &Brawler{level: &BrawlerLevel{enemies: []BrawlerEnemy{
+		{alias: "boss", def: "chars/other.def", behavior: beh2},
+		{alias: "goon", def: "Chars/KFM/kfm.def", behavior: beh2},
+	}}}
+	next.seedReach()
+	if r := next.moveReachOf(1, 1); !r.known || r.front != 70 || r.depth != [2]float32{3, 9} {
+		t.Fatalf("carried %+v", r)
+	}
+	if next.moveReachOf(1, 2).known || next.moveReachOf(0, 1).known {
+		t.Fatal("other moves or characters known")
+	}
+}

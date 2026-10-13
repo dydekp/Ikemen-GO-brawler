@@ -83,6 +83,7 @@ func (b *Brawler) learnReach(c *Char, ai *brawlerAI) {
 		ls := c.localscl
 		b.noteReach(c.bw.entry, ai.moveIdx, len(ai.beh.moves), front,
 			[2]float32{c.hitdef.attack_depth[0] * ls, c.hitdef.attack_depth[1] * ls})
+		b.carryReach(c.bw.entry, ai.moveIdx)
 	}
 }
 
@@ -141,4 +142,49 @@ func (b *Brawler) reachSummary() string {
 		return "not learned yet"
 	}
 	return strings.Join(parts, "  ")
+}
+
+// Learned reaches carried from level to level while the game runs, by character file and move input, so
+// enemies met again know their moves at once. Not part of save states: only grows (largest values), so
+// replaying a frame writes the same values again
+var brawlerReachCarry = map[string]brawlerReach{}
+
+func brawlerReachKey(def string, m brawlerMove) string {
+	return fmt.Sprint(strings.ToLower(def), "|", m.steps)
+}
+
+// The profile an enemy entry's instances use
+func brawlerEntryBehavior(e BrawlerEnemy) *BrawlerBehavior {
+	if e.behavior != nil {
+		return e.behavior
+	}
+	return newBrawlerBehavior("default")
+}
+
+// A level starts: what is known from earlier levels about its enemies' moves
+func (b *Brawler) seedReach() {
+	b.moveReach = nil
+	if b.level == nil {
+		return
+	}
+	for entry, e := range b.level.enemies {
+		moves := brawlerEntryBehavior(e).moves
+		for i, m := range moves {
+			if r, ok := brawlerReachCarry[brawlerReachKey(e.def, m)]; ok {
+				b.noteReach(entry, i, len(moves), r.front, r.depth)
+			}
+		}
+	}
+}
+
+// Keep what was learned about a move for the following levels
+func (b *Brawler) carryReach(entry, move int) {
+	if b.level == nil || entry < 0 || entry >= len(b.level.enemies) {
+		return
+	}
+	e := b.level.enemies[entry]
+	moves := brawlerEntryBehavior(e).moves
+	if r := b.moveReachOf(entry, move); r.known && move < len(moves) {
+		brawlerReachCarry[brawlerReachKey(e.def, moves[move])] = r
+	}
 }

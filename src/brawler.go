@@ -322,7 +322,7 @@ func (b *Brawler) roundInit() {
 	b.camMinSet = false
 	b.complete = false
 	b.stats = brawlerLevelStats{}
-	b.moveReach = nil
+	b.seedReach()
 	b.goTime = 0
 	b.downTime = 0
 	b.director = brawlerDirector{}
