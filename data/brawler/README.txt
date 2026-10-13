@@ -787,6 +787,10 @@ The regular 1v1 lifebars are replaced by the brawler HUD:
   Challenging lines (harder, waves, bosses, a player down, a breather
   ending) have a red edge, the others a green one. A line hidden by
   a character introduction is shown again in full afterwards.
+- Level summary: when a level is cleared, a panel shows the time it took,
+  the enemies defeated, the life lost per player (with the director) and
+  the difficulty, and the director comments: [Victory] lines when the
+  team lost less than 8% life per defeat, [Survived] lines otherwise.
 The options are in Options > Brawler Settings ([Brawler] MoveNames,
 DirectorInfo and DirectorTalk in the config).
 The HUD uses the fight screen's name font and scales to its localcoord.

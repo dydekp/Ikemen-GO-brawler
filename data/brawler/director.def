@@ -99,3 +99,17 @@ line = Break's over!
 line = Rested? Here we go again!
 line = Back to work!
 line = Round two. Ready?
+
+[Victory]
+; The level is cleared and the team lost little life for what it defeated
+line = Level clear! Nicely done.
+line = Not a scratch on you. Almost.
+line = That's how it's done!
+line = Clean work. On to the next one!
+
+[Survived]
+; The level is cleared, but it was rough
+line = Made it. Barely.
+line = Bruised, but standing. Good enough!
+line = That one hurt. Patch up and move on.
+line = Survived! Next time, guard more.

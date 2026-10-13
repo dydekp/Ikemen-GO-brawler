@@ -19,6 +19,8 @@ package main
 //   [Join]      ; a player joins during the level
 //   [Relax]     ; the director gives the team a breather (brawler_director_pace.go)
 //   [Resume]    ; the breather is over
+//   [Victory]   ; the level is cleared, the team did well (brawler_summary.go)
+//   [Survived]  ; the level is cleared, but it was rough
 //
 // {player} is the player a line is about (1P, 2P...); lines with it are only used for lines about one
 // player, lines without it for any. The director's decisions are the ones its log watches
@@ -58,11 +60,13 @@ const (
 	btJoin
 	btRelax
 	btResume
+	btVictory
+	btSurvived
 	btCount
 )
 
 // The director.def section of each topic
-var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume"}
+var brawlerTalkSections = [btCount]string{"easier", "harder", "help", "wave", "boss", "cleared", "close", "down", "back", "join", "relax", "resume", "victory", "survived"}
 
 // Topics that challenge the players (shown with a red edge); the others encourage them (green)
 func (tp brawlerTalkTopic) challenging() bool {
@@ -84,18 +88,20 @@ func brawlerTalkTopicOf(kind brawlerDirLogKind) (brawlerTalkTopic, bool) {
 type brawlerTalkLines [btCount][]string
 
 var brawlerTalkDefault = brawlerTalkLines{
-	btEasier:  {"Hang in there!", "Catch your breath.", "Shake it off, {player}!"},
-	btHarder:  {"Too easy? Let's fix that.", "Warming up? Here comes more!", "Getting comfortable, {player}?"},
-	btHelp:    {"Here, {player}, eat up!", "Hang on, {player}! Take this."},
-	btWave:    {"Here they come!", "Heads up!"},
-	btBoss:    {"Here comes the big one!"},
-	btCleared: {"Nicely done.", "Area clear!"},
-	btClose:   {"That was close!", "Still standing? Impressive."},
-	btDown:    {"{player} is down! Hold the line!", "Cover for {player}!"},
-	btBack:    {"Welcome back, {player}!", "{player} is back in it!"},
-	btJoin:    {"{player} joins the fight!", "Fresh fists! Welcome, {player}!"},
-	btRelax:   {"Catch your breath!", "Take five. You earned it."},
-	btResume:  {"Break's over!", "Rested? Here we go again!"},
+	btEasier:   {"Hang in there!", "Catch your breath.", "Shake it off, {player}!"},
+	btHarder:   {"Too easy? Let's fix that.", "Warming up? Here comes more!", "Getting comfortable, {player}?"},
+	btHelp:     {"Here, {player}, eat up!", "Hang on, {player}! Take this."},
+	btWave:     {"Here they come!", "Heads up!"},
+	btBoss:     {"Here comes the big one!"},
+	btCleared:  {"Nicely done.", "Area clear!"},
+	btClose:    {"That was close!", "Still standing? Impressive."},
+	btDown:     {"{player} is down! Hold the line!", "Cover for {player}!"},
+	btBack:     {"Welcome back, {player}!", "{player} is back in it!"},
+	btJoin:     {"{player} joins the fight!", "Fresh fists! Welcome, {player}!"},
+	btRelax:    {"Catch your breath!", "Take five. You earned it."},
+	btResume:   {"Break's over!", "Rested? Here we go again!"},
+	btVictory:  {"Level clear! Nicely done."},
+	btSurvived: {"Made it. Barely."},
 }
 
 type brawlerDirectorTalkState struct {

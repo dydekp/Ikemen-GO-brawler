@@ -139,6 +139,7 @@ type Brawler struct {
 	propGfx      *brawlerPropGfx       // Their pictures, made with the stage. Shared by save states, never changed
 	diff         BrawlerDifficulty     // Difficulty profile, taken when the level starts, see brawler_difficulty.go
 	auto         brawlerAutoDifficulty // Auto difficulty, see brawler_difficulty_auto.go
+	stats        brawlerLevelStats     // Time and defeats for the summary at the end, see brawler_summary.go
 }
 
 func (b *Brawler) active() bool {
@@ -315,6 +316,7 @@ func (b *Brawler) roundInit() {
 	b.locked = false
 	b.camMinSet = false
 	b.complete = false
+	b.stats = brawlerLevelStats{}
 	b.goTime = 0
 	b.downTime = 0
 	b.director = brawlerDirector{}
@@ -558,6 +560,7 @@ func (b *Brawler) step() {
 		return
 	}
 	b.stepJoin()
+	b.stepStats()
 	if b.goTime > 0 {
 		b.goTime--
 	}
@@ -592,6 +595,7 @@ func (b *Brawler) step() {
 	// Level cleared
 	if !b.waveActive && b.wave >= len(b.level.waves) && (!b.level.hasEndX || lead >= b.level.endX) {
 		b.complete = true
+		b.talkLevelCleared()
 	}
 }
 
@@ -615,6 +619,7 @@ func (b *Brawler) updateEnemies() {
 		}
 		if st.koTime == 0 && b.waveActive {
 			b.waveKills++
+			b.stats.kills++
 		}
 		st.koTime++
 		// Helpers aren't forced into the KO state by the engine like roots are
