@@ -447,3 +447,59 @@ func TestBrawlerAITaunts(t *testing.T) {
 		t.Error("taunt = 0 taunted")
 	}
 }
+
+// An enemy low on life backs off once: no attack turn, a waiting spot further back, then back to the fight
+func TestBrawlerAIRecover(t *testing.T) {
+	b, list := directorFight(t, map[int]float32{0: 0}, []float32{40, 80}, []float32{-30, 0, 30})
+	beh := newBrawlerBehavior("hurt")
+	beh.recover, beh.recoverTime = 0.3, [2]int32{100, 100}
+	near, far := list[0], list[1]
+	near.bw.ai.beh, far.bw.ai.beh = beh, beh
+	near.lifeMax, near.life = 1000, 1000
+	sys.cfg.Brawler.AttackersPerPlayer = 1
+	b.directorStep()
+	if !near.bw.ai.hasToken || far.bw.ai.hasToken {
+		t.Fatalf("turns: near %v, far %v", near.bw.ai.hasToken, far.bw.ai.hasToken)
+	}
+	// Low on life: it backs off and the other enemy takes the turn
+	near.life = 250
+	b.aiRecover(near, &near.bw.ai)
+	if !near.bw.ai.recovering() || near.bw.ai.recoverLeft != 100 {
+		t.Fatalf("recovering %v, left %v", near.bw.ai.recovering(), near.bw.ai.recoverLeft)
+	}
+	b.directorStep()
+	if near.bw.ai.hasToken || !far.bw.ai.hasToken {
+		t.Fatalf("while recovering: near %v, far %v", near.bw.ai.hasToken, far.bw.ai.hasToken)
+	}
+	// It waits further back than the same enemy would otherwise
+	near.bw.ai.hover = 60
+	b.placeRing(brawlerDirPlayer{pn: 0, x: 0, z: 0}, []*Char{near}, nil)
+	if dx := Abs(near.bw.ai.anchorX); dx < 60*brawlerRecoverHover*0.5 {
+		t.Errorf("waiting spot %v away", dx)
+	}
+	// Then it's back, and doesn't back off again
+	for i := 0; i < 100; i++ {
+		b.aiRecover(near, &near.bw.ai)
+	}
+	b.aiRecover(near, &near.bw.ai)
+	if near.bw.ai.recovering() {
+		t.Fatal("still recovering")
+	}
+	b.directorStep()
+	if !near.bw.ai.hasToken {
+		t.Fatal("no turn after recovering")
+	}
+}
+
+func TestBrawlerBehaviorRecoverKeys(t *testing.T) {
+	beh := newBrawlerBehavior("x")
+	if beh.recover != 0 {
+		t.Fatal("recovering by default")
+	}
+	if err := beh.set("recover", "25"); err != nil || beh.recover != 0.25 {
+		t.Fatalf("recover: %v %v", beh.recover, err)
+	}
+	if err := beh.set("recover.time", "200, 100"); err != nil || beh.recoverTime != [2]int32{100, 200} {
+		t.Fatalf("recover.time: %v %v", beh.recoverTime, err)
+	}
+}

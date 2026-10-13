@@ -44,6 +44,7 @@ const (
 	brawlerFighterClear   = 45    // Distance waiting spots keep from a fighting enemy in its lane
 	brawlerRefillPace     = 3     // Spawn delay countdown speed while there are fewer enemies than players
 	brawlerLastStandEase  = 0.5   // Tension the enemy limit assumes at least for the last player standing
+	brawlerRecoverHover   = 1.5   // An enemy recovering from low life waits this much further back
 )
 
 // Part of the Brawler state (fixed size arrays only, so save states copy it)
@@ -329,8 +330,11 @@ func (b *Brawler) directorStep() {
 			return b.dirDist(list[i], t)-brawlerTokenBonus(list[i]) < b.dirDist(list[j], t)-brawlerTokenBonus(list[j])
 		})
 		var waiting, fighting []*Char
-		for i, c := range list {
-			if int32(i) < d.slots[p.pn] {
+		given := int32(0)
+		for _, c := range list {
+			// Enemies backing off to recover don't take a turn (brawler_ai.go aiRecover)
+			if given < d.slots[p.pn] && !c.bw.ai.recovering() {
+				given++
 				c.bw.ai.hasToken = true
 				c.bw.ai.ringIndex = -1
 				fighting = append(fighting, c)
@@ -404,6 +408,9 @@ func (b *Brawler) placeRing(p brawlerDirPlayer, waiting, fighting []*Char) {
 	for _, c := range waiting {
 		ai := &c.bw.ai
 		hover := ai.hover * scale
+		if ai.recovering() {
+			hover *= brawlerRecoverHover
+		}
 		var x, z float32
 		if depthR > 0 {
 			x, z = brawlerRingPoint(p.x, p.z, brawlerRingSlotAngle(int(ai.ringIndex), n, d.ringPhase[p.pn]), hover, depthR)

@@ -17,6 +17,7 @@ moves    = a
 combo    = 0, 1
 cooldown = 40, 80
 guard    = 0.05
+recover  = 25
 
 ; Runs at the player, jumps over, and attacks from behind
 [Behavior jumper]
@@ -39,6 +40,7 @@ combo.moves = x*2 | a*2 | y | b
 combo.delay = 7, 11
 cooldown    = 40, 80
 guard       = 0.2
+recover     = 25
 
 ; Uses the lanes to get behind the player, then jumps in and attacks
 [Behavior flanker]
@@ -47,6 +49,7 @@ moves    = b | y | x, x
 combo    = 0, 2
 cooldown = 40, 80
 priority   = 1
+recover  = 30
 
 ; Strikes and backs off
 [Behavior hitrun]
@@ -72,3 +75,5 @@ cooldown    = 40, 80
 special     = 0.1
 guard       = 0.3
 priority      = 1
+recover     = 20
+recover.time = 120, 180

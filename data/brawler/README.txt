@@ -450,6 +450,10 @@ rundistance   = 140        ; Distance from which the enemy runs
 lane.follow   = 1          ; Follow the target to its lane
 lane.delay    = 10, 45     ; Reaction time before switching lanes
 retreat       = 40, 80     ; Frames spent backing off (hitrun, jumpover)
+recover       = 0          ; Life (percent) below which the enemy backs off
+                           ; once to recover: no attack turn, waits
+                           ; further back, no taunts (0 = never)
+recover.time  = 150, 240   ; Frames it stays back
 jump.distance = 75         ; Distance at which a jump over starts
 jump.input    = UF:6       ; Input used to jump over
 jump.attack   = 0          ; patrol: frames into the leap before an air

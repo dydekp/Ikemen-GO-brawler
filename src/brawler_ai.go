@@ -61,52 +61,55 @@ type brawlerMove struct {
 }
 
 type BrawlerBehavior struct {
-	name       string
-	tactic     BrawlerTactic
-	run        bool     // Run when far away
-	runDist    float32  // Distance from which running starts
-	reach      float32  // Attack distance in front of the character's body
-	cooldown   [2]int32 // Frames between attacks
-	moves      []brawlerMove
-	combo      [2]int32 // Follow-up moves after an attack
-	comboMoves []brawlerMove
-	comboDelay [2]int32
-	special    float32 // Chance that an attack is a random special command of the character
-	guard      float32 // Chance to guard against an attack of the target
-	hover      [2]float32
-	laneFollow bool     // Follow the target to its lane
-	laneDelay  [2]int32 // Reaction time before following to another lane
-	priority   bool     // Gets an attack turn ([Brawler] AttackersPerPlayer) before the other enemies
-	retreat    [2]int32 // Frames spent backing off after attacking (hit and run, jump over)
-	jumpDist   float32  // Distance at which a jump over starts
-	jump       []brawlerStep
-	jumpAttack int32       // Frames into a jump at the player before an air attack. 0 = no air attack
-	wait       BrawlerWait // How the enemy waits without an attack turn
-	taunt      float32     // Chance to taunt each time tauntDelay runs out while waiting
-	tauntDelay [2]int32
-	tauntInput []brawlerStep
+	name        string
+	tactic      BrawlerTactic
+	run         bool     // Run when far away
+	runDist     float32  // Distance from which running starts
+	reach       float32  // Attack distance in front of the character's body
+	cooldown    [2]int32 // Frames between attacks
+	moves       []brawlerMove
+	combo       [2]int32 // Follow-up moves after an attack
+	comboMoves  []brawlerMove
+	comboDelay  [2]int32
+	special     float32 // Chance that an attack is a random special command of the character
+	guard       float32 // Chance to guard against an attack of the target
+	hover       [2]float32
+	laneFollow  bool     // Follow the target to its lane
+	laneDelay   [2]int32 // Reaction time before following to another lane
+	priority    bool     // Gets an attack turn ([Brawler] AttackersPerPlayer) before the other enemies
+	retreat     [2]int32 // Frames spent backing off after attacking (hit and run, jump over)
+	recover     float32  // Life (fraction of max) below which the enemy backs off once to recover. 0 = never
+	recoverTime [2]int32 // Frames it stays back
+	jumpDist    float32  // Distance at which a jump over starts
+	jump        []brawlerStep
+	jumpAttack  int32       // Frames into a jump at the player before an air attack. 0 = no air attack
+	wait        BrawlerWait // How the enemy waits without an attack turn
+	taunt       float32     // Chance to taunt each time tauntDelay runs out while waiting
+	tauntDelay  [2]int32
+	tauntInput  []brawlerStep
 }
 
 // Default profile: walks up and attacks with a mix of buttons and short combos
 func newBrawlerBehavior(name string) *BrawlerBehavior {
 	b := &BrawlerBehavior{
-		name:       name,
-		tactic:     BT_Direct,
-		runDist:    140,
-		reach:      30,
-		cooldown:   [2]int32{20, 55},
-		combo:      [2]int32{0, 2},
-		comboDelay: [2]int32{8, 14},
-		special:    0.15,
-		guard:      0.1,
-		hover:      [2]float32{60, 120},
-		laneFollow: true,
-		laneDelay:  [2]int32{10, 45},
-		retreat:    [2]int32{40, 80},
-		jumpDist:   75,
-		wait:       BW_Surround,
-		taunt:      0.3,
-		tauntDelay: [2]int32{90, 240},
+		name:        name,
+		tactic:      BT_Direct,
+		runDist:     140,
+		reach:       30,
+		cooldown:    [2]int32{20, 55},
+		combo:       [2]int32{0, 2},
+		comboDelay:  [2]int32{8, 14},
+		special:     0.15,
+		guard:       0.1,
+		hover:       [2]float32{60, 120},
+		laneFollow:  true,
+		laneDelay:   [2]int32{10, 45},
+		retreat:     [2]int32{40, 80},
+		recoverTime: [2]int32{150, 240},
+		jumpDist:    75,
+		wait:        BW_Surround,
+		taunt:       0.3,
+		tauntDelay:  [2]int32{90, 240},
 	}
 	b.moves, _ = parseBrawlerMoves("x*3 | a*3 | y | b")
 	b.jump, _ = parseBrawlerSteps("UF:6")
@@ -265,6 +268,13 @@ func (b *BrawlerBehavior) set(key, val string) error {
 		b.priority = brawlerParseB(val)
 	case "retreat":
 		err = spanI(&b.retreat)
+	case "recover":
+		var v float32
+		if v, err = num(0); err == nil {
+			b.recover = Clamp(v, 0, 100) / 100
+		}
+	case "recover.time":
+		err = spanI(&b.recoverTime)
 	case "jump.distance":
 		b.jumpDist, err = num(0)
 	case "jump.input":
@@ -448,6 +458,8 @@ type brawlerAI struct {
 	patrolLane   int32   // Patrol: current lane. -1 = pick one
 	patrolStep   int32   // Patrol: direction of the next lane change, -1 or 1
 	patrolDir    float32 // Patrol: running direction on the screen
+	recoverLeft  int32   // Frames left backing off to recover, see aiRecover
+	recovered    bool    // Backed off to recover already
 }
 
 func (ai *brawlerAI) init(beh *BrawlerBehavior) {
@@ -573,8 +585,9 @@ func (b *Brawler) assignTokens() {
 		if !c.alive() || ai.target < 0 {
 			continue
 		}
-		// Patrolling enemies don't take a turn from the others. They check the hard limit when they leap
-		if ai.beh != nil && ai.beh.tactic == BT_Patrol && ai.phase == bpApproach {
+		// Patrolling enemies don't take a turn from the others. They check the hard limit when they leap.
+		// Recovering ones don't want one
+		if ai.beh != nil && ai.beh.tactic == BT_Patrol && ai.phase == bpApproach || ai.recovering() {
 			continue
 		}
 		if t := b.root(ai.target); t != nil {
@@ -666,6 +679,7 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 		ai.freeTime++
 	}
 	ai.stalk()
+	b.aiRecover(c, ai)
 
 	if b.aiContinue(f) || b.aiGuard(f) {
 		return f.in
@@ -686,6 +700,24 @@ func (b *Brawler) aiButtons(c *Char) [14]bool {
 	}
 	b.aiMove(f, g.x)
 	return f.in
+}
+
+// An enemy low on life ([Behavior] recover) backs off once for recover.time frames: it gives up its attack
+// turn and waits further back, without taunting, then comes back. An attack under way still ends normally
+func (b *Brawler) aiRecover(c *Char, ai *brawlerAI) {
+	if ai.recoverLeft > 0 {
+		ai.recoverLeft--
+		return
+	}
+	if !ai.recovered && ai.beh.recover > 0 && float32(c.life) < ai.beh.recover*float32(c.lifeMax) {
+		ai.recovered, ai.recoverLeft = true, brawlerRand(ai.beh.recoverTime)
+		ai.comboLeft = 0
+	}
+}
+
+// Backing off to recover: no attack turn
+func (ai *brawlerAI) recovering() bool {
+	return ai.recoverLeft > 0
 }
 
 // Waiting enemies keep changing their distance instead of standing still. The distance drifts to a new
@@ -1063,7 +1095,7 @@ func (b *Brawler) aiTaunt(f *brawlerAIFrame, g brawlerAIGoal) bool {
 	}
 	ai.tauntTime = brawlerRand(beh.tauntDelay)
 	if !f.grounded || f.st.laneJump || !c.ctrl() || c.ss.no == 100 || !b.atDepth(f, g.z) ||
-		Abs(g.x-f.myX) > 25 || !f.facingTarget || len(beh.tauntInput) == 0 || !brawlerChance(b.tauntChance(beh.taunt)) {
+		Abs(g.x-f.myX) > 25 || !f.facingTarget || len(beh.tauntInput) == 0 || ai.recovering() || !brawlerChance(b.tauntChance(beh.taunt)) {
 		return false
 	}
 	ai.start(beh.tauntInput, false)
